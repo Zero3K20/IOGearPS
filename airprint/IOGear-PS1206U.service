@@ -1,0 +1,45 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+
+<!--
+  Avahi/mDNS service definition to advertise the IOGear PS-1206U
+  print server as an AirPrint-compatible device.
+
+  Deploy this file to /etc/avahi/services/ on any Linux system
+  (e.g. a router, NAS, or Raspberry Pi) that is on the same network
+  as the print server.  Replace PRINTER_IP_ADDRESS with the actual
+  IP address assigned to your PS-1206U.
+
+  The print server's built-in IPP service listens on TCP port 631
+  at the path /ipp, so the full IPP URL is:
+      ipp://PRINTER_IP_ADDRESS:631/ipp
+
+  After placing the file, restart Avahi:
+      sudo systemctl restart avahi-daemon
+-->
+
+<service-group>
+  <name replace-wildcards="yes">IOGear PS-1206U @ %h</name>
+
+  <service>
+    <type>_ipp._tcp</type>
+    <subtype>_universal._sub._ipp._tcp</subtype>
+    <port>631</port>
+    <!-- Replace PRINTER_IP_ADDRESS with the static IP of your PS-1206U -->
+    <host-name>PRINTER_IP_ADDRESS</host-name>
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+    <txt-record>rp=ipp</txt-record>
+    <txt-record>ty=IOGear PS-1206U Print Server</txt-record>
+    <txt-record>adminurl=http://PRINTER_IP_ADDRESS/</txt-record>
+    <txt-record>note=IOGear PS-1206U</txt-record>
+    <txt-record>priority=25</txt-record>
+    <txt-record>product=(IOGear PS-1206U)</txt-record>
+    <txt-record>pdl=application/octet-stream,application/pdf,image/jpeg,image/png,image/urf</txt-record>
+    <txt-record>Color=F</txt-record>
+    <txt-record>Duplex=F</txt-record>
+    <txt-record>usb_MFG=IOGear</txt-record>
+    <txt-record>usb_MDL=PS-1206U</txt-record>
+    <txt-record>URF=none</txt-record>
+  </service>
+</service-group>
