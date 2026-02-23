@@ -1,6 +1,11 @@
 # IOGear PS-1206U Print Server Firmware
 
-Firmware version 8.8 for the IOGear PS-1206U network print server.
+Firmware version 8.8 for the IOGear PS-1206U (and compatible) network print
+server.
+
+> **Using a GPSU21 or unsure about compatibility?**  
+> See [COMPATIBILITY.md](COMPATIBILITY.md) for a full explanation, including
+> whether flashing is safe to try.
 
 ## Supported Printing Protocols
 
@@ -19,17 +24,40 @@ Because the firmware does not include an mDNS/Bonjour stack, iOS and macOS
 devices cannot discover the printer automatically via AirPrint without a small
 amount of additional setup.
 
-The `airprint/` directory in this repository contains an
-[Avahi](https://avahi.org/) service-definition file that advertises the print
-server as an AirPrint-compatible device on your local network.  Avahi is
-available on any modern Linux distribution (OpenWrt routers, Raspberry Pi,
-Synology/QNAP NAS appliances, etc.).
+The `airprint/` directory contains files for advertising the print server as an
+AirPrint-compatible device — choose the one that matches your OS:
 
-### Quick-start
+| File | Platform |
+|------|----------|
+| `airprint/IOGear-PS1206U.service` | Linux (Avahi/mDNS daemon) |
+| `airprint/windows-bonjour.bat` | Windows (Apple Bonjour) |
 
-1. **Assign a static IP address** to the PS-1206U (recommended: via your
+### Quick-start on Windows
+
+1. **Install Apple Bonjour for Windows** — it is bundled with
+   [iTunes](https://www.apple.com/itunes/) or can be downloaded separately as
+   [Bonjour Print Services for Windows](https://support.apple.com/kb/DL999)
+   (free).
+
+2. **Assign a static IP address** to the PS-1206U (recommended: via your
    router's DHCP reservation, or through the print server's web interface at
    `http://<printer-ip>/`).
+
+3. **Edit `airprint\windows-bonjour.bat`** and replace `192.168.1.100` with
+   your PS-1206U's actual IP address.
+
+4. **Run the batch file** by double-clicking it.  Keep the window open — it
+   advertises the printer continuously while running.
+
+5. **Add the printer on your Apple device** — it should now appear as
+   *"IOGear PS-1206U"* in the AirPrint printer list.
+
+> To keep the advertisement running after reboots, create a Windows Scheduled
+> Task that launches the `.bat` file at startup.
+
+### Quick-start on Linux
+
+1. **Assign a static IP address** to the PS-1206U.
 
 2. **Copy the service file** to the Linux system that will provide mDNS
    advertisement (it must be on the same network as the print server):
@@ -56,11 +84,10 @@ Synology/QNAP NAS appliances, etc.).
 
 ### Requirements
 
-- A Linux host (router, NAS, Raspberry Pi, or similar) with
-  `avahi-daemon` installed and running on the same network segment as
-  the PS-1206U.
-- The PS-1206U must be reachable from the Linux host and from the
-  Apple device on TCP port 631.
+- Either:
+  - **Windows:** Apple Bonjour for Windows installed, running `windows-bonjour.bat`
+  - **Linux:** `avahi-daemon` installed and running (on the same network segment)
+- The PS-1206U must be reachable on TCP port 631.
 
 ### Supported Document Formats
 
@@ -82,17 +109,42 @@ to the attached USB printer:
 
 ## Flashing the Firmware
 
+The upgrade page works in **any browser on any operating system** (Windows,
+macOS, or Linux):
+
 1. Open the PS-1206U web interface at `http://<printer-ip>/`.
 2. Navigate to **System → Upgrade**.
 3. Upload `PS-1206U_v8.8.bin` and follow the on-screen prompts.
 4. Do **not** power-cycle the device during the upgrade.
 
+> **Safe to try:** The firmware upgrade page validates the file before writing
+> to flash.  If the firmware is incompatible with your device it will display
+> "Signature wrong" and refuse to flash — your device will not be bricked.
+> See [COMPATIBILITY.md](COMPATIBILITY.md) for details.
+
 ---
 
 ## Unpacking, Modifying, and Repacking the Firmware
 
-The `tools/` directory contains two Python 3 scripts that let you extract the
+The `tools/` directory contains Python 3 scripts that let you extract the
 firmware components, inspect or modify them, and reassemble a flashable image.
+The scripts work on **Windows, macOS, and Linux** — Python 3 is the only
+requirement.
+
+### Prerequisites
+
+Install Python 3 from <https://www.python.org/downloads/> if it is not
+already available.
+
+Verify the installation:
+
+```
+# Windows (Command Prompt or PowerShell)
+python --version
+
+# macOS / Linux (use python3 if python points to Python 2)
+python3 --version
+```
 
 ### Firmware layout
 
@@ -108,11 +160,16 @@ firmware components, inspect or modify them, and reassemble a flashable image.
 
 ### Step 1 — Unpack
 
-```bash
+```
+# Windows
+python tools\unpack.py PS-1206U_v8.8.bin firmware_unpacked\
+
+# macOS / Linux
 python3 tools/unpack.py PS-1206U_v8.8.bin firmware_unpacked/
 ```
 
-This creates `firmware_unpacked/` containing:
+This creates `firmware_unpacked/` (or `firmware_unpacked\` on Windows)
+containing:
 
 | File | Description |
 |------|-------------|
@@ -142,27 +199,32 @@ can:
      `x86:LE:16:default` when importing `PS06EPS.BIN`
    - [IDA Pro](https://hex-rays.com/ida-pro/) or
      [Binary Ninja](https://binary.ninja/) with 8086/Real-Mode support
-   - [ndisasm](https://nasm.us/) for quick command-line disassembly:
-     ```bash
-     ndisasm -b 16 firmware_unpacked/PS06EPS.BIN | less
+   - [ndisasm](https://nasm.us/) — included in the
+     [NASM Windows installer](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D);
+     run from Command Prompt:
+     ```
+     ndisasm.exe -b 16 firmware_unpacked\PS06EPS.BIN | more
      ```
 
 2. **Patch the binary** directly:
-   - Use a hex editor (e.g. `hexedit`, `010 Editor`, `ImHex`) to change specific
-     bytes, strings, or configuration values.
-   - Use a Python script to automate bulk changes (e.g. replacing all occurrences
-     of a hostname string).
+   - Use a hex editor (e.g. [HxD](https://mh-nexus.de/en/hxd/) on Windows,
+     `010 Editor`, or `ImHex`) to change specific bytes, strings, or
+     configuration values.
+   - Use a Python script to automate bulk changes.
 
 3. **Edit embedded web pages** — the HTML/CSS/JS pages are stored as plain text
-   inside the binary.  You can locate them with `strings` or a hex editor, edit
-   them in place (keeping the same byte length), and save the modified
-   `PS06EPS.BIN`.
+   inside the binary.  You can locate them with a hex editor, edit them in
+   place (keeping the same byte length), and save the modified `PS06EPS.BIN`.
 
 ### Step 3 — Repack
 
 After modifying `PS06EPS.BIN` (and/or `PS06UPG.BIN`):
 
-```bash
+```
+# Windows
+python tools\repack.py firmware_unpacked\ PS-1206U_modified.bin
+
+# macOS / Linux
 python3 tools/repack.py firmware_unpacked/ PS-1206U_modified.bin
 ```
 
@@ -171,7 +233,7 @@ complete 512 KB flash image, and writes the output file.
 
 ### Step 4 — Flash
 
-Flash the modified firmware through the web interface:
+Flash the modified firmware through the web interface (works on any OS):
 
 1. Open `http://<printer-ip>/`.
 2. Navigate to **System → Upgrade**.
