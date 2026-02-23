@@ -1,11 +1,11 @@
 # IOGear PS-1206U Print Server Firmware
 
-Firmware version 8.8 for the IOGear PS-1206U (and compatible) network print
-server.
+Firmware **version 8.8** (older release) for the IOGear PS-1206U (and
+compatible) network print server.
 
-> **Using a GPSU21 or unsure about compatibility?**  
-> See [COMPATIBILITY.md](COMPATIBILITY.md) for a full explanation, including
-> whether flashing is safe to try.
+> **Using a GPSU21 or running a newer firmware version (e.g. 9.09.56I)?**  
+> See [COMPATIBILITY.md](COMPATIBILITY.md) for a full explanation of version
+> differences, downgrade considerations, and whether flashing is safe to try.
 
 ## Supported Printing Protocols
 
@@ -105,7 +105,7 @@ to the attached USB printer:
 
 | File | Description |
 |------|-------------|
-| `PS-1206U_v8.8.bin` | Complete firmware image (512 KB). Contains two embedded archives: the main print-server firmware (`PS06EPS.BIN`) and the bootloader/upgrade utility (`PS06UPG.BIN`). |
+| `PS-1206U_v8.8.bin` | Firmware version 8.8 (older release). 512 KB image containing the main print-server firmware (`PS06EPS.BIN`) and the bootloader/upgrade utility (`PS06UPG.BIN`). If your device currently runs a newer firmware (e.g. 9.09.56I from 2017), see [COMPATIBILITY.md](COMPATIBILITY.md#what-if-my-device-runs-a-newer-version-than-v88) before flashing. |
 
 ## Flashing the Firmware
 

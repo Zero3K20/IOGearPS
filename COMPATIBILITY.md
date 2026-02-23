@@ -6,6 +6,70 @@ This document explains the relationship between the **IOGear PS-1206U** and the
 
 ---
 
+## Firmware versions
+
+### Version in this repository: v8.8
+
+The firmware image in this repository (`PS-1206U_v8.8.bin`) is **version 8.8**,
+an older release of the Edimax/IOGear print server firmware.
+
+### Finding your device's current version
+
+The firmware version is displayed on the **Status** page of the device web
+interface (typically the first page after logging in).  The version string
+follows the format:
+
+```
+<major>.<minor>.<release><suffix> <build> (<date> <time>)
+```
+
+For example:
+
+```
+9.09.56I 9032 (2017/11/23 10:36:02)
+```
+
+means:
+
+| Field | Value | Meaning |
+|-------|-------|---------|
+| Major | `9` | Major version |
+| Minor | `09` | Minor version |
+| Release | `56` | Release build |
+| Suffix | `I` | Internal build letter |
+| Build | `9032` | Build number |
+| Date | `2017/11/23` | Build date |
+
+### What if my device runs a newer version than v8.8?
+
+If your device shows a version **higher than 8.8** (for example `9.09.56I` from
+2017), flashing `PS-1206U_v8.8.bin` would be a **firmware downgrade**.
+
+Key points about downgrading:
+
+- The firmware validator **does not check the version number** — it only checks
+  the file size, magic bytes, and MTYPE model tag (see below).  So the upgrade
+  page will *accept* the older firmware without error.
+- After flashing, the device will run the older v8.8 firmware.  All features
+  added in later firmware releases (between v8.8 and your current version)
+  will no longer be available.
+- Saved configuration (device name, IP settings, passwords, port names) is
+  stored in a separate NVRAM area and may survive the downgrade, but this is
+  not guaranteed.  Reset the device to factory defaults after flashing to be
+  safe.
+- **Downgrading is generally not recommended** unless you have a specific
+  reason (e.g. a known regression in the newer firmware that you want to
+  avoid).  If your device is working normally on v9.09, there may be no
+  benefit to flashing v8.8.
+
+> **Recommendation for v9.09 users:** If you only need AirPrint support and
+> your device is otherwise working, consider using the mDNS advertisement
+> approach from [README.md](README.md#airprint-support) *without* flashing
+> new firmware.  Your device's existing IPP server (port 631) already
+> supports AirPrint jobs.
+
+---
+
 ## Hardware relationship
 
 Both the **PS-1206U** and the **GPSU21** are single-port USB print servers sold
@@ -37,7 +101,11 @@ anything to flash.  The validator checks:
    (e.g. `Edimax8820 MTYPE/`) must match the tag the device was manufactured
    with.
 
-If any of these checks fail, the web interface shows one of these error pages
+The validator does **not** check the firmware version number, so both
+upgrades (older → newer) and downgrades (newer → older) will pass as long as
+the MTYPE label matches.
+
+If any of the three checks fail, the web interface shows one of these error pages
 and **does not touch the flash**:
 
 | Error page | Cause |
