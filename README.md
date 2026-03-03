@@ -106,11 +106,12 @@ required when an SOIC-8 clip is used.
 
 ### Flash chip overview
 
-The IOGear GPSU21 / Edimax PS-1206U stores its firmware in a **512 KB SPI
+The IOGear GPSU21 / Edimax PS-1206U PCB (board revision 716U2C-C) is built
+around a **MediaTek MT7628AN** SoC.  Firmware is stored in a **512 KB SPI
 NOR flash chip** in an **SOIC-8 package** (8 pins, two rows of 4) located
-on the main PCB near the central processor.  The chip is commonly a
-**Winbond W25X40** or **Macronix MX25L4005** (or a pin-compatible
-equivalent); the actual part number is silk-screened on the chip's surface.
+on the main PCB near the SoC.  The chip is a **Winbond W25Q40** (or a
+pin-compatible equivalent such as the W25Q40BV / W25Q40CL); the part
+number is silk-screened on the chip's surface next to the Winbond logo.
 
 ### Required hardware
 
@@ -196,7 +197,7 @@ sudo flashrom -p ch341a_spi
 flashrom will probe the chip and print its detected identity, e.g.:
 
 ```
-Found Winbond flash chip "W25X40" (512 kB, SPI) on ch341a_spi.
+Found Winbond flash chip "W25Q40BV/W25Q40CL/W25Q40CV/W25Q40CW" (512 kB, SPI) on ch341a_spi.
 ```
 
 If the chip is not detected, check the clip orientation and wiring before
