@@ -107,11 +107,10 @@ required when an SOIC-8 clip is used.
 ### Flash chip overview
 
 The IOGear GPSU21 / Edimax PS-1206U PCB (board revision 716U2C-C) is built
-around a **MediaTek MT7628AN** SoC.  Firmware is stored in a **512 KB SPI
-NOR flash chip** in an **SOIC-8 package** (8 pins, two rows of 4) located
-on the main PCB near the SoC.  The chip is a **Winbond W25Q40** (or a
-pin-compatible equivalent such as the W25Q40BV / W25Q40CL); the part
-number is silk-screened on the chip's surface next to the Winbond logo.
+around a **MediaTek MT7628AN** SoC.  Firmware is stored in a **2 MB (16 Mbit)
+SPI NOR flash chip** in an **SOIC-8 package** (8 pins, two rows of 4) located
+on the main PCB near the SoC.  The chip is a **Winbond W25Q16JVSSIQ**; the
+part number is silk-screened on the chip's surface next to the Winbond logo.
 
 ### Required hardware
 
@@ -197,7 +196,7 @@ sudo flashrom -p ch341a_spi
 flashrom will probe the chip and print its detected identity, e.g.:
 
 ```
-Found Winbond flash chip "W25Q40BV/W25Q40CL/W25Q40CV/W25Q40CW" (512 kB, SPI) on ch341a_spi.
+Found Winbond flash chip "W25Q16.V" (2048 kB, SPI) on ch341a_spi.
 ```
 
 If the chip is not detected, check the clip orientation and wiring before
@@ -222,38 +221,36 @@ sha256sum dump1.bin dump2.bin dump3.bin
 All three SHA-256 hashes should match.  Keep the verified dump as your
 backup.
 
-**5. Compare against the known-good reference image**
+**5. Note on the reference image**
 
-```bash
-sha256sum firmware_chip_dump.bin PS-1206U_v8.8.bin
-```
-
-The two hashes may differ if your device is running a different firmware
-revision, but either file can be used to restore the device.
+The raw chip dump produced by flashrom will be **2 MB (2 097 152 bytes)** —
+the full contents of the W25Q16JVSSIQ.  The bundled `PS-1206U_v8.8.bin` is a
+**512 KB web-upgrade image** (kernel + rootfs only; no bootloader) delivered
+via the device's web interface.  The two files are structurally different, so
+their SHA-256 hashes will not match even on a factory-fresh device.  Keep the
+raw 2 MB dump as your hardware-level backup; use `PS-1206U_v8.8.bin` only for
+web-interface upgrades.
 
 ### Restoring the firmware via the chip programmer
 
-If you need to write a firmware image back to the chip (e.g. to recover a
-bricked device):
+If you need to write a raw flash dump back to the chip (e.g. to recover a
+bricked device), use a full **2 MB image** previously dumped with flashrom:
 
 ```bash
 # Erase the chip first, then write
 sudo flashrom -p ch341a_spi -E
-sudo flashrom -p ch341a_spi -w PS-1206U_v8.8.bin
+sudo flashrom -p ch341a_spi -w my_full_dump.bin
 ```
 
 flashrom performs an automatic read-back verification after writing by
 default.
 
-> **Important:** Ensure the image you write is exactly **512 KB (524 288 bytes)**
-> and is a valid image for this hardware.  Writing an incompatible image may
-> render the device unbootable.  The bundled `PS-1206U_v8.8.bin` file is the
-> correct size:
->
-> ```
-> $ wc -c PS-1206U_v8.8.bin
-> 524288 PS-1206U_v8.8.bin
-> ```
+> **Important:** The image written via flashrom must be exactly **2 MB
+> (2 097 152 bytes)** — the full raw contents of the W25Q16JVSSIQ chip.
+> The bundled `PS-1206U_v8.8.bin` (512 KB) is a **web-upgrade image** and
+> cannot be written directly with flashrom; use it only through the device's
+> web interface (**Administration → Firmware Upgrade**).  Writing an
+> undersized or incompatible image may render the device unbootable.
 
 ---
 
