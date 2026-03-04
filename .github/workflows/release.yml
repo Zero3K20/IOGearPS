@@ -16,7 +16,8 @@ jobs:
     env:
       PS1206U_BIN: PS-1206U_v8.8.bin
       GPSU21_ZIP: MPS56_90956F_9034_20191119.zip
-      GPSU21_BIN: MPS56_90956F_9034_20191119.bin
+      GPSU21_WEB: gpsu21_web
+      GPSU21_OUT: GPSU21_modified.bin
 
     steps:
       - name: Checkout repository
@@ -27,25 +28,18 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Extract the GPSU21 .bin from the ZIP so it can be attached directly
-      - name: Extract GPSU21 firmware binary
+      # Rebuild the GPSU21 firmware from the web sources in gpsu21_web/
+      - name: Build modified GPSU21 firmware
         run: |
-          python3 - <<'EOF'
-          import zipfile, os, sys
-          zip_path = os.environ["GPSU21_ZIP"]
-          with zipfile.ZipFile(zip_path) as zf:
-              bins = [n for n in zf.namelist() if n.lower().endswith(".bin")]
-              if not bins:
-                  print("ERROR: no .bin file found inside the ZIP")
-                  sys.exit(1)
-              zf.extract(bins[0], ".")
-              print(f"Extracted: {bins[0]}")
-          EOF
+          python3 tools/repack_gpsu21.py \
+            "$GPSU21_ZIP" \
+            "$GPSU21_WEB" \
+            "$GPSU21_OUT"
 
       - name: Verify firmware files exist
         run: |
           missing=0
-          for f in "$PS1206U_BIN" "$GPSU21_BIN"; do
+          for f in "$PS1206U_BIN" "$GPSU21_OUT"; do
             if [ ! -f "$f" ]; then
               echo "ERROR: expected firmware file not found: $f"
               missing=1
@@ -71,10 +65,10 @@ jobs:
           body: |
             ## Firmware release
 
-            | File | Device | CPU |
-            |------|--------|-----|
-            | `PS-1206U_v8.8.bin` | IOGear PS-1206U | Edimax 8820 (x86) |
-            | `MPS56_90956F_9034_20191119.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) |
+            | File | Device | CPU | Notes |
+            |------|--------|-----|-------|
+            | `PS-1206U_v8.8.bin` | IOGear PS-1206U | Edimax 8820 (x86) | Original firmware |
+            | `GPSU21_modified.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Built from `gpsu21_web/` sources in this commit |
 
             > ⚠️ **These firmware images are NOT interchangeable.**
             > Flashing PS-1206U firmware onto a GPSU21 (or vice versa) will brick the device.
@@ -83,5 +77,5 @@ jobs:
             Built from commit ${{ github.sha }}.
           files: |
             PS-1206U_v8.8.bin
-            MPS56_90956F_9034_20191119.bin
+            GPSU21_modified.bin
           fail_on_unmatched_files: true

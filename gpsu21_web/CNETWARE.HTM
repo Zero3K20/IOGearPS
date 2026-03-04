@@ -1,0 +1,316 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="setup.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<!-- Section 3: function Section3() -->
+<SCRIPT language="JavaScript">
+Section3();
+</script>
+<!-- Section 3a: function Section3a() -->
+<table width="50%" height="44" border="0" align="left" cellpadding="0" cellspacing="0" class="itemMenu" id="itemMenu">
+<tr>
+<td width="20%" height="44">&nbsp;</td>
+<td width="18%" align="center" class="noChoose">
+<a href="CSYSTEM.HTM" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="CTCPIP.HTM" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="chooseThis">
+<Script Language="JavaScript">showtab(tabindex++);</script></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+</tr>
+</table>
+<!-- Section 3b: function Section3b() -->
+<SCRIPT language="JavaScript">
+Section3b('setup');
+</script>
+<!-- button -->
+<!-- Section 4: function Section4() -->
+<SCRIPT language="JavaScript">
+Section4();
+</script>
+</td>
+</tr>
+</table>
+<SCRIPT language="JavaScript">findcook();</script>
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<!-- Assunto, Dica ou Ajuda -->
+<!-- Section 5: function Section5() -->
+<SCRIPT language="JavaScript">
+Section5('cservices');
+</script>
+<FORM METHOD=GET NAME=CSERVICES ACTION=RESTART.HTM>
+<!-- Tabelas Printing Method -->
+<tr>
+<td width="1024" align="center" bgcolor="#AACD03">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext10(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- Use LPR -->
+<SCRIPT LANGUAGE=JavaScript>
+var iLPRMode = "<!--# echo var="UNIX_MODE"-->";
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=UNIX_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].UNIX_MODE[iLPRMode].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- Use AppleTalk -->
+<SCRIPT LANGUAGE=JavaScript>
+var iAtalkSettings = "<!--# echo var="AtalkSettings"-->";
+document.write('<td class="Na2">');
+document.write("<SELECT NAME=AtalkSettings SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].AtalkSettings[iAtalkSettings].selected=true;
+</SCRIPT>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- Use IPP -->
+<SCRIPT LANGUAGE=JavaScript>
+var iIPPMode = "<!--# echo var="IPP_MODE"-->";
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=IPP_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].IPP_MODE[iIPPMode].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- Use SMB -->
+<SCRIPT LANGUAGE=JavaScript>
+var iSMBMode = "<!--# echo var="SMB_MODE"-->";
+document.write('<td class="Na2">');
+document.write("<SELECT NAME=SMB_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].SMB_MODE[iSMBMode].selected=true;
+</SCRIPT>
+<td class="Na"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#AACD03">&nbsp;</td>
+</tr>
+<!-- Tabelas Services -->
+<tr>
+<td width="1024" align="center" bgcolor="#AACD03">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext10(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- Telnet -->
+<SCRIPT LANGUAGE=JavaScript>
+var iTelnetMode = "<!--# echo var="TELNET_MODE"-->";
+// 1: Enabled	0: Disabled
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=TELNET_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].TELNET_MODE[iTelnetMode].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- SNMP -->
+<SCRIPT LANGUAGE=JavaScript>
+var iSNMPMode = "<!--# echo var="SNMP_MODE"-->";
+// 1: Enabled	0: Disabled
+document.write('<td class="Na2">');
+document.write("<SELECT NAME=SNMP_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].SNMP_MODE[iSNMPMode].selected=true;
+</SCRIPT>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- E-mail and EOF alert -->
+<SCRIPT LANGUAGE=JavaScript>
+var iALERT = "<!--# echo var="ALert"-->";
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=ALERT SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].ALERT[iALERT].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<!-- HTTPD -->
+<SCRIPT LANGUAGE=JavaScript>
+var iHTTPD = "<!--# echo var="HTTP_MODE"-->";
+document.write('<td class="Na2">');
+document.write("<SELECT NAME=HTTP_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].HTTP_MODE[iHTTPD].selected=true;
+</SCRIPT>
+<td class="Na"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#AACD03">&nbsp;</td>
+</tr>
+<tr>
+<td width="1024" align="center" bgcolor="#AACD03">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr align="center">
+<td class="Na1" width="300">
+<font color="#FF0000">
+<Script Language="JavaScript">showtext10(textindex++);</script></font>
+</td></tr>
+<tr align="center"><td class="Na1" width="300">
+<font color="#FF0000">
+<Script Language="JavaScript">showtext10(textindex++);</script></font>
+</td></tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#AACD03">&nbsp;</td>
+</tr>
+<!-- Save and Restart -->
+<tr>
+<td width="1024" height="50" bgcolor="#AACD03" align="center">
+<Script Language="JavaScript">
+showtext10(textindex++);
+showtext10(textindex++);
+showtext10(textindex++);
+</script>
+</td>
+</tr>
+</FORM>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="60" bgcolor="#AACD03">&nbsp;</td>
+</tr>
+</table>
+<!-- White (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#FFFFFF">&nbsp;</td>
+</tr>
+</table>
+</body>
+</html>

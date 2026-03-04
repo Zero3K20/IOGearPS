@@ -172,30 +172,37 @@ python3 --version
 The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) uses **eCos RTOS** on
 a MediaTek MT7688 MIPS SoC.  All 61 web interface files — HTML pages,
 JavaScript, CSS, and JPEG/GIF images — are stored **uncompressed inside the
-LZMA-compressed eCos binary** and can be extracted and repacked.
+LZMA-compressed eCos binary** and have already been extracted to the
+[`gpsu21_web/`](gpsu21_web/) directory in this repository.
 
-```
-# Step 1 — Extract all web files
-# Windows:
-python tools\unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\
-# macOS / Linux:
-python3 tools/unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/
+#### Edit-and-release workflow (recommended)
 
-# Step 2 — Edit files in gpsu21_extracted/ with any text editor
-#           (HTML pages, JS, CSS — keep file sizes the same or smaller)
-
-# Step 3 — Repack
-# Windows:
-python tools\repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\  gpsu21_modified.bin
-# macOS / Linux:
-python3 tools/repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/  gpsu21_modified.bin
-
-# Step 4 — Flash gpsu21_modified.bin via the GPSU21 web upgrade page
-```
+1. **Edit** any file in `gpsu21_web/` directly on GitHub or in a local clone
+   (HTML, JS, CSS files use a text editor; keep file sizes ≤ original).
+2. **Commit and push** to `main`.
+3. **GitHub Actions** automatically runs `repack_gpsu21.py` and publishes a
+   new release containing `GPSU21_modified.bin` — ready to flash.
 
 > **Size constraint:** each edited file must be ≤ its original size.
 > Pad shorter files with spaces or HTML comments to fill the gap.
 > See `tools/repack_gpsu21.py` for details.
+
+#### Local workflow (optional)
+
+If you prefer to work entirely offline:
+
+```
+# Step 1 — Edit files in gpsu21_web/ with any text editor
+#           (HTML pages, JS, CSS — keep file sizes the same or smaller)
+
+# Step 2 — Repack locally
+# Windows:
+python tools\repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_web\  gpsu21_modified.bin
+# macOS / Linux:
+python3 tools/repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_web/  gpsu21_modified.bin
+
+# Step 3 — Flash gpsu21_modified.bin via the GPSU21 web upgrade page
+```
 
 ---
 
