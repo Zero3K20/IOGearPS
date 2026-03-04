@@ -1,9 +1,9 @@
 Len_html = 1;
 Len_tab = 8;
 
-Len_text1 = 8;		// DEFAULT.HTM 	original: 5
+Len_text1 = 8;		// default.htm 	original: 5
 Len_text2 = 3;
-Len_text3 = 6;		// RESET.HTM 	original: 4
+Len_text3 = 6;		// reset.htm 	original: 4
 Len_text4 = 2;
 Len_text5 = 2;
 Len_text6 = 2;

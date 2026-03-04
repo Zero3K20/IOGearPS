@@ -21,7 +21,7 @@ headArray[iIndex++] = "<BR>This page displays the current NetWare settings of th
 headArray[iIndex++] = "<BR>This page displays the current AppleTalk settings of the print server.<BR>";
 //snmp.htm
 headArray[iIndex++] = "<BR>This page displays the current SNMP settings of the print server.<BR>";
-//Smb.htm
+//smb.htm
 headArray[iIndex++] = "<BR>This page displays the printer sharing settings for Microsoft Windows networks.<BR>";
 iIndex = 0;
 
@@ -38,7 +38,7 @@ textArray0[iIndex++]="MAC Address :";
 textArray0[iIndex++]="E-mail Alert :";
 textArray0[iIndex++]="Disabled";
 textArray0[iIndex++]="Enabled";
-//PRINTJOB.htm
+//printjob.htm
 textArray0[iIndex++]="Print Jobs";
 textArray0[iIndex++]="Job";
 textArray0[iIndex++]="User";
@@ -50,7 +50,7 @@ textArray0[iIndex++]="Bytes Printed";
 textArray0[iIndex++]="View Job Log";
 iIndex = 0;
 
-//Printer.htm
+//printer.htm
 textArray1[iIndex++]="Printer Information";
 textArray1[iIndex++]="Manufacturer :";
 textArray1[iIndex++]="Model Number :";
@@ -66,7 +66,7 @@ textArray1[iIndex++]="Medium";
 textArray1[iIndex++]="Slow";
 iIndex = 0;
 
-//NETWARE.htm
+//netware.htm
 textArray2[iIndex++]="General Settings";
 textArray2[iIndex++]="Print Server Name :";
 textArray2[iIndex++]="Polling Time :";
@@ -104,7 +104,7 @@ textArray3[iIndex++]="Status :";
 //textArray3[iIndex++]="Enabled";
 textArray3[iIndex++]="Service Name :";
 iIndex = 0;
-//APPLE.htm
+//apple.htm
 textArray4[iIndex++]="AppleTalk Settings";
 textArray4[iIndex++]="AppleTalk Zone Name :";
 textArray4[iIndex++]="Printer Information";
@@ -112,7 +112,7 @@ textArray4[iIndex++]="Port Name :";
 textArray4[iIndex++]="Printer Type :";
 textArray4[iIndex++]="Data Format :";
 iIndex = 0;
-//SNMP.htm
+//snmp.htm
 textArray5[iIndex++]="SNMP Community Settings";
 textArray5[iIndex++]="SNMP Community 1 :";
 textArray5[iIndex++]="Read-Only";
@@ -131,7 +131,7 @@ textArray5[iIndex++]="Trap Address 1 :";
 textArray5[iIndex++]="Trap Address 2 :";
 iIndex = 0;
 
-//JOBLOG.htm
+//joblog.htm
 // Translate                                  only "Refresh " is to be translated
 textArray6[iIndex++]='<input type=button value=" Refresh " onClick="window.location.reload()">';
 textArray6[iIndex++]="Print Jobs";
@@ -146,14 +146,14 @@ textArray6[iIndex++]="Bytes Printed";
 textArray6[iIndex++]='<input type=button value=" Close " onClick="window.close()">';
 iIndex = 0;
 
-//SMB.htm
+//smb.htm
 textArray7[iIndex++]="Workgroup";
 textArray7[iIndex++]="Name :";
 textArray7[iIndex++]="Shared Printer Name";
 textArray7[iIndex++]="Printer :";
 iIndex = 0;
 
-//SERVICES.htm
+//services.htm
 textArray8[iIndex++]="Printing Method";
 textArray8[iIndex++]="Use NetWare Bindery :";
 textArray8[iIndex++]="Disabled";
@@ -196,13 +196,13 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('imgenus/MenuBtn-E-setup2.jpg','imgenus/MenuBtn-E-misc2.jpg','imgenus/MenuBtn-E-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('imgenus/menubtn-e-setup2.jpg','imgenus/menubtn-e-misc2.jpg','imgenus/menubtn-e-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="imgenus/mainView-Title-E.jpg" width="576" height="35" />');
+	document.write('<img src="imgenus/mainview-title-e.jpg" width="576" height="35" />');
 }
 
 // Row MenuBtn
@@ -212,15 +212,15 @@ function RowMenuBtn()
 	document.write(' style="position:relative;"><div>Status</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetup" onClick="location.href=');
-	document.write("'CSYSTEM.HTM'");
+	document.write("'csystem.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Setup</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
-	document.write("'DEFAULT.HTM'");
+	document.write("'default.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
-	document.write("'RESET.HTM'");
+	document.write("'reset.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Restart</div></div></td>');
 }
 

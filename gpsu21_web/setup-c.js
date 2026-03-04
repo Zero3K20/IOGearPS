@@ -42,11 +42,11 @@ textArray0[iIndex++]="Confirm Password :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray0[iIndex++]='<input type="button"  value="Save & Restart" onClick="return CheckPwd(';
 // Begin don't translate
-textArray0[iIndex++]="'RESTART.HTM');";
+textArray0[iIndex++]="'restart.htm');";
 textArray0[iIndex++]='">';
 iIndex = 0;
 // End don't translate
-//CTCPIP.htm
+//ctcpip.htm
 textArray2[iIndex++]="TCP/IP Settings";
 textArray2[iIndex++]="Obtain TCP/IP settings automatically (use DHCP/BOOTP)";
 textArray2[iIndex++]="Use the following TCP/IP settings";
@@ -62,11 +62,11 @@ textArray2[iIndex++]="Default Gateway :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray2[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveSetting(';
 // Begin don't translate
-textArray2[iIndex++]="'RESTART.HTM');";
+textArray2[iIndex++]="'restart.htm');";
 textArray2[iIndex++]='">';
 iIndex = 0;
 // End don't translate
-//CAPPLE.htm
+//capple.htm
 textArray3[iIndex++]="AppleTalk Settings";
 textArray3[iIndex++]="AppleTalk Service :";
 textArray3[iIndex++]="Disabled";
@@ -79,12 +79,12 @@ textArray3[iIndex++]="Data Format :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray3[iIndex++]='<input type=button value="Save & Restart" onClick="return SaveSetting(';
 // Begin don't translate
-textArray3[iIndex++]="'RESTART.HTM');";
+textArray3[iIndex++]="'restart.htm');";
 textArray3[iIndex++]='">';
 // End don't translate
 
 iIndex = 0;
-//CSNMP.htm
+//csnmp.htm
 textArray4[iIndex++]="SNMP Community Settings";
 textArray4[iIndex++]="SNMP Service :";
 textArray4[iIndex++]="Disabled";
@@ -112,7 +112,7 @@ textArray4[iIndex++]="Trap Address 2 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray4[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveSetting(';
 // Begin don't translate
-textArray4[iIndex++]="'RESTART.HTM');";
+textArray4[iIndex++]="'restart.htm');";
 textArray4[iIndex++]='">';
 iIndex = 0;
 // End don't translate
@@ -139,7 +139,7 @@ iIndex = 0;
 //textArray6[iIndex++]='<INPUT TYPE=button VALUE=" Close " onClick="window.close()">';
 //iIndex = 0;
 // End don't translate
-// ERROR.htm
+// error.htm
 textArray7[iIndex++]="ERROR";
 textArray7[iIndex++]="Invalid IP Address";
 textArray7[iIndex++]="Invalid Subnet Mask Address";
@@ -156,7 +156,7 @@ textArray7[iIndex++]="";
 textArray7[iIndex++]="Go Back";
 iIndex = 0;
 
-// CNETWARE.htm
+// cnetware.htm
 textArray8[iIndex++]="General Settings";
 textArray8[iIndex++]="Print Server Name :";
 textArray8[iIndex++]="Polling Time :";
@@ -175,11 +175,11 @@ textArray8[iIndex++]="Enabled";
 textArray8[iIndex++]="Name of the File Server :";
 textArray8[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveSetting(';
 // Begin don't translate
-textArray8[iIndex++]="'RESTART.HTM');";
+textArray8[iIndex++]="'restart.htm');";
 textArray8[iIndex++]='">';
 iIndex = 0;
 
-// CSMB.htm
+// csmb.htm
 textArray9[iIndex++]="Workgroup";
 textArray9[iIndex++]="SMB Service :";
 textArray9[iIndex++]="Disabled";
@@ -189,11 +189,11 @@ textArray9[iIndex++]="Shared Printer Name";
 textArray9[iIndex++]="Printer :";
 textArray9[iIndex++]='<input type="button" value="Save & Restart" onClick="return CheckSMB(';
 // Begin don't translate
-textArray9[iIndex++]="'RESTART.HTM');";
+textArray9[iIndex++]="'restart.htm');";
 textArray9[iIndex++]='">';
 iIndex = 0;
 
-// CSERVICES.htm
+// cservices.htm
 textArray10[iIndex++]="Printing Method";
 textArray10[iIndex++]="Use LPR/LPD :";
 textArray10[iIndex++]="Disabled";
@@ -224,12 +224,12 @@ textArray10[iIndex++]="ATTENTION: You can ONLY enable HTTP with the reset button
 textArray10[iIndex++]="And, stopping HTTP will also stop the IPP printing automatically.";
 textArray10[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveServices(';
 // Begin don't translate
-textArray10[iIndex++]="'RESTART.HTM');";
+textArray10[iIndex++]="'restart.htm');";
 textArray10[iIndex++]='">';
 iIndex = 0;
 
 // functions
-// CSYSTEM.HTM
+// csystem.htm
 function CheckPwd(szURL)
 {
  	if(document.CSYSTEM.SetupPWD.value != document.CSYSTEM.ConfirmPWD.value && document.CSYSTEM.SetupPWD.value != "ZO__I-SetupPassword" )
@@ -242,15 +242,15 @@ function CheckPwd(szURL)
 	return false;
 }
 
-// CTCPIP.HTM
+// ctcpip.htm
 
-// CNETWARE.HTM
+// cnetware.htm
 
-// CAPPLE.HTM
+// capple.htm
 
-// CSNMP.HTM
+// csnmp.htm
 
-// CSMB.HTM
+// csmb.htm
 function CheckSMB(szURL)
 {
 	if(document.forms[0].SMBWorkGroup.value == '')
@@ -295,31 +295,31 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('imgenus/MenuBtn-E-setup2.jpg','imgenus/MenuBtn-E-misc2.jpg','imgenus/MenuBtn-E-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('imgenus/menubtn-e-setup2.jpg','imgenus/menubtn-e-misc2.jpg','imgenus/menubtn-e-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="imgenus/mainView-Title-E.jpg" width="576" height="35" />');
+	document.write('<img src="imgenus/mainview-title-e.jpg" width="576" height="35" />');
 }
 
 // Row MenuBtn
 function RowMenuBtn()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Status</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetupSelected"');
 	document.write(' style="position:relative;"><div>Setup</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
-	document.write("'DEFAULT.HTM'");
+	document.write("'default.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
-	document.write("'RESET.HTM'");
+	document.write("'reset.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Restart</div></div></td>');
 }
 

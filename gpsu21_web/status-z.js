@@ -1,16 +1,16 @@
 Len_html = 8;		// original: 7
 Len_tab = 14;		// original: 13
 
-Len_text0 = 19;		// SYSTEM.HTM, E-mail, PRINTJOB.HTM	original: 17
-Len_text1 = 13;		// PRINTER.HTM	original: 13
-Len_text2 = 21;		// NETWARE.HTM
-Len_text3 = 10;		// TCPIP.HTM, Rendezvous
-Len_text4 = 6;		// APPLE.HTM
-Len_text5 = 16;		// SNMP.HTM
-Len_text6 = 10;		// JOBLOG.HTM
-Len_text61 = 10;	// JOBLOG.HTM
-Len_text7 = 4;		// SMB.HTM
-Len_text8 = 32;		// SERVICES.HTM	original: 29
+Len_text0 = 19;		// system.htm, E-mail, printjob.htm	original: 17
+Len_text1 = 13;		// printer.htm	original: 13
+Len_text2 = 21;		// netware.htm
+Len_text3 = 10;		// tcpip.htm, Rendezvous
+Len_text4 = 6;		// apple.htm
+Len_text5 = 16;		// snmp.htm
+Len_text6 = 10;		// joblog.htm
+Len_text61 = 10;	// joblog.htm
+Len_text7 = 4;		// smb.htm
+Len_text8 = 32;		// services.htm	original: 29
 
 htmArray = new Array(Len_html);
 tabArray= new Array(Len_tab);

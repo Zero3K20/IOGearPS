@@ -42,11 +42,11 @@ textArray0[iIndex++]="确认密码 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray0[iIndex++]='<input type="button"  value="保存并重启" onClick="return CheckPwd(';
 // Begin don't translate
-textArray0[iIndex++]="'RESTART.HTM');";
+textArray0[iIndex++]="'restart.htm');";
 textArray0[iIndex++]='">';
 iIndex = 0;
 // End don't translate
-//CTCPIP.htm
+//ctcpip.htm
 textArray2[iIndex++]="TCP/IP 设置";
 textArray2[iIndex++]="自动获得 TCP/IP 设置 (使用 DHCP/BOOTP)";
 textArray2[iIndex++]="使用以下 TCP/IP 设置";
@@ -62,11 +62,11 @@ textArray2[iIndex++]="默认网关 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray2[iIndex++]='<input type="button" value="保存并重启" onClick="return SaveSetting(';
 // Begin don't translate
-textArray2[iIndex++]="'RESTART.HTM');";
+textArray2[iIndex++]="'restart.htm');";
 textArray2[iIndex++]='">';
 iIndex = 0;
 // End don't translate
-//CAPPLE.htm
+//capple.htm
 textArray3[iIndex++]="AppleTalk 设置";
 textArray3[iIndex++]="AppleTalk 服务 :";
 textArray3[iIndex++]="关闭";
@@ -79,12 +79,12 @@ textArray3[iIndex++]="数据格式 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray3[iIndex++]='<input type=button value="保存并重启" onClick="return SaveSetting(';
 // Begin don't translate
-textArray3[iIndex++]="'RESTART.HTM');";
+textArray3[iIndex++]="'restart.htm');";
 textArray3[iIndex++]='">';
 // End don't translate
 
 iIndex = 0;
-//CSNMP.htm
+//csnmp.htm
 textArray4[iIndex++]="SNMP Community 设置";
 textArray4[iIndex++]="SNMP 服务 :";
 textArray4[iIndex++]="关闭";
@@ -112,7 +112,7 @@ textArray4[iIndex++]="发送 Traps 到第二个 IP 地址 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray4[iIndex++]='<input type="button" value="保存并重启" onClick="return SaveSetting(';
 // Begin don't translate
-textArray4[iIndex++]="'RESTART.HTM');";
+textArray4[iIndex++]="'restart.htm');";
 textArray4[iIndex++]='">';
 iIndex = 0;
 // End don't translate
@@ -139,7 +139,7 @@ iIndex = 0;
 //textArray6[iIndex++]='<INPUT TYPE=button VALUE=" Close " onClick="window.close()">';
 //iIndex = 0;
 // End don't translate
-// ERROR.htm
+// error.htm
 textArray7[iIndex++]="ERROR";
 textArray7[iIndex++]="无效 IP 地址";
 textArray7[iIndex++]="无效子网掩码";
@@ -156,7 +156,7 @@ textArray7[iIndex++]="";
 textArray7[iIndex++]="后退";
 iIndex = 0;
 
-// CNETWARE.htm
+// cnetware.htm
 textArray8[iIndex++]="基本设置";
 textArray8[iIndex++]="打印服务器名称 :";
 textArray8[iIndex++]="轮询时间 :";
@@ -175,11 +175,11 @@ textArray8[iIndex++]="启用";
 textArray8[iIndex++]="文件服务器名称 :";
 textArray8[iIndex++]='<input type="button" value="保存并重启" onClick="return SaveSetting(';
 // Begin don't translate
-textArray8[iIndex++]="'RESTART.HTM');";
+textArray8[iIndex++]="'restart.htm');";
 textArray8[iIndex++]='">';
 iIndex = 0;
 
-// CSMB.htm
+// csmb.htm
 textArray9[iIndex++]="工作组";
 textArray9[iIndex++]="SMB 服务 :";
 textArray9[iIndex++]="关闭";
@@ -189,11 +189,11 @@ textArray9[iIndex++]="共享打印机名称";
 textArray9[iIndex++]="打印机 :";
 textArray9[iIndex++]='<input type="button" value="保存并重启" onClick="return CheckSMB(';
 // Begin don't translate
-textArray9[iIndex++]="'RESTART.HTM');";
+textArray9[iIndex++]="'restart.htm');";
 textArray9[iIndex++]='">';
 iIndex = 0;
 
-//CSERVICES.htm
+//cservices.htm
 textArray10[iIndex++]="打印设置";
 textArray10[iIndex++]="使用 LPR/LPD :";
 textArray10[iIndex++]="关闭";
@@ -224,12 +224,12 @@ textArray10[iIndex++]="请注意: 停用 HTTP 后, 只能用 Reset 键启用.";
 textArray10[iIndex++]="而且, 停用 HTTP 也会一并停用 IPP 打印.";
 textArray10[iIndex++]='<input type="button" value="保存并重启" onClick="return SaveServices(';
 // Begin don't translate
-textArray10[iIndex++]="'RESTART.HTM');";
+textArray10[iIndex++]="'restart.htm');";
 textArray10[iIndex++]='">';
 iIndex = 0;
 
 // functions
-// CSYSTEM.HTM
+// csystem.htm
 function CheckPwd(szURL)
 {
  	if(document.CSYSTEM.SetupPWD.value != document.CSYSTEM.ConfirmPWD.value && document.CSYSTEM.SetupPWD.value != "ZO__I-SetupPassword" )
@@ -242,15 +242,15 @@ function CheckPwd(szURL)
 	return false;
 }
 
-// CTCPIP.HTM
+// ctcpip.htm
 
-// CNETWARE.HTM
+// cnetware.htm
 
-// CAPPLE.HTM
+// capple.htm
 
-// CSNMP.HTM
+// csnmp.htm
 
-// CSMB.HTM
+// csmb.htm
 function CheckSMB(szURL)
 {
 	if(document.forms[0].SMBWorkGroup.value == '')
@@ -296,31 +296,31 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('images/MenuBtn-CS-setup2.jpg','images/MenuBtn-CS-misc2.jpg','images/MenuBtn-CS-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('images/menubtn-cs-setup2.jpg','images/menubtn-cs-misc2.jpg','images/menubtn-cs-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/mainView-Title-CS.jpg" width="576" height="35">');
+	document.write('<img src="images/mainview-title-cs.jpg" width="576" height="35">');
 }
 
 // Row MenuBtn
 function RowMenuBtn()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>状态</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetupSelected"');
 	document.write(' style="position:relative;"><div>设置</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
-	document.write("'DEFAULT.HTM'");
+	document.write("'default.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>其它</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
-	document.write("'RESET.HTM'");
+	document.write("'reset.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>重启</div></div></td>');
 }
 

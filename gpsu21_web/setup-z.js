@@ -1,16 +1,16 @@
 Len_html = 8;		// original: 8
 Len_tab = 12;		// original: 12
 
-Len_text0 = 18;		// CSYSTEM.HTM		original: 16, 14
-Len_text2 = 9;		// CTCPIP.HTM, Rendezvous
-Len_text3 = 12;		// CAPPLE.HTM		original: 9
-Len_text4 = 27;		// CSNMP.HTM		original: 24
+Len_text0 = 18;		// csystem.htm		original: 16, 14
+Len_text2 = 9;		// ctcpip.htm, Rendezvous
+Len_text3 = 12;		// capple.htm		original: 9
+Len_text4 = 27;		// csnmp.htm		original: 24
 Len_text5 = 7;
 Len_text6 = 8;
-Len_text7 = 14;		// ERROR.HTM
-Len_text8 = 19;		// CNETWARE.HTM
-Len_text9 = 10;		// CSMB.HTM			original: 7
-Len_text10 = 31;	// CSERVICES.HTM	original: 26
+Len_text7 = 14;		// error.htm
+Len_text8 = 19;		// cnetware.htm
+Len_text9 = 10;		// csmb.htm			original: 7
+Len_text10 = 31;	// cservices.htm	original: 26
 
 htmArray = new Array(Len_html);
 

@@ -21,7 +21,7 @@ textArray1[iIndex++] = "重新啟動後，各項設定將被抹除，並回復�
 // Translate                               Only OK is to be translated
 textArray1[iIndex++] = '<input type=button  value="&nbsp;&nbsp;確定&nbsp;&nbsp;" onClick="return SaveIPSetting(';
 // Begin don't translate
-textArray1[iIndex++] = "'DRESTART.HTM');";
+textArray1[iIndex++] = "'drestart.htm');";
 textArray1[iIndex++] = '">';
 iIndex = 0;
 // End don't translate
@@ -41,7 +41,7 @@ textArray3[iIndex++]="你想要重新啟動印表伺服器嗎?<br>";
 // Translate                               Only OK is to be translated
 textArray3[iIndex++]='<input type=button value="&nbsp;&nbsp;確定&nbsp;&nbsp;" onClick="window.location=';
 // Begin don't translate
-textArray3[iIndex++]="'RESTART.HTM'";
+textArray3[iIndex++]="'restart.htm'";
 textArray3[iIndex++]='">';
 iIndex = 0;
 // End don't translate
@@ -68,46 +68,46 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('images/MenuBtn-CS-setup2.jpg','images/MenuBtn-CS-misc2.jpg','images/MenuBtn-CS-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('images/menubtn-cs-setup2.jpg','images/menubtn-cs-misc2.jpg','images/menubtn-cs-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/mainView-Title-CS.jpg" width="576" height="35" />');
+	document.write('<img src="images/mainview-title-cs.jpg" width="576" height="35" />');
 }
 
 // Row MenuBtn
 function RowMenuBtn()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>狀態</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetup" onClick="location.href=');
-	document.write("'CSYSTEM.HTM'");
+	document.write("'csystem.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>設定</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMiscSelected"');
 	document.write(' style="position:relative;"><div>其它</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
-	document.write("'RESET.HTM'");
+	document.write("'reset.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>重新啟動</div></div></td>');
 }
 
 function RowMenuBtn4()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>狀態</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetup" onClick="location.href=');
-	document.write("'CSYSTEM.HTM'");
+	document.write("'csystem.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>設定</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
-	document.write("'DEFAULT.HTM'");
+	document.write("'default.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>其它</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestartSelected"');

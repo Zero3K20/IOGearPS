@@ -21,7 +21,7 @@ textArray1[iIndex++] = "You cannot connect the print server with the current IP 
 // Translate                               Only OK is to be translated
 textArray1[iIndex++] = '<input type=button  value="&nbsp;&nbsp;OK&nbsp;&nbsp;" onClick="return SaveIPSetting(';
 // Begin don't translate
-textArray1[iIndex++] = "'DRESTART.HTM');";
+textArray1[iIndex++] = "'drestart.htm');";
 textArray1[iIndex++] = '">';
 iIndex = 0;
 // End don't translate
@@ -41,7 +41,7 @@ textArray3[iIndex++]="Do you want to save settings and restart the print server 
 // Translate                               Only OK is to be translated
 textArray3[iIndex++]='<input type=button value="&nbsp;&nbsp;OK&nbsp;&nbsp;" onClick="window.location=';
 // Begin don't translate
-textArray3[iIndex++]="'RESTART.HTM'";
+textArray3[iIndex++]="'restart.htm'";
 textArray3[iIndex++]='">';
 iIndex = 0;
 // End don't translate
@@ -68,46 +68,46 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('imgenus/MenuBtn-E-setup2.jpg','imgenus/MenuBtn-E-misc2.jpg','imgenus/MenuBtn-E-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('imgenus/menubtn-e-setup2.jpg','imgenus/menubtn-e-misc2.jpg','imgenus/menubtn-e-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="imgenus/mainView-Title-E.jpg" width="576" height="35" />');
+	document.write('<img src="imgenus/mainview-title-e.jpg" width="576" height="35" />');
 }
 
 // Row MenuBtn
 function RowMenuBtn()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Status</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetup" onClick="location.href=');
-	document.write("'CSYSTEM.HTM'");
+	document.write("'csystem.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Setup</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMiscSelected"');
 	document.write(' style="position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
-	document.write("'RESET.HTM'");
+	document.write("'reset.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Restart</div></div></td>');
 }
 
 function RowMenuBtn4()
 {
 	document.write('<td><div class="MenuBtnStatus" onClick="location.href=');
-	document.write("'SYSTEM.HTM'");
+	document.write("'system.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Status</div></div></td>');
 
 	document.write('<td><div class="MenuBtnSetup" onClick="location.href=');
-	document.write("'CSYSTEM.HTM'");
+	document.write("'csystem.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Setup</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
-	document.write("'DEFAULT.HTM'");
+	document.write("'default.htm'");
 	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestartSelected"');
