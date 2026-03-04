@@ -5,7 +5,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : English
-tabArray=['GPSU21','USB Port Print Server','System','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB','',''];
+tabArray=['IOGEAR GPSU21','USB Port Print Server','System','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB','',''];
 
 //csystem
 headArray[iIndex++] = "<BR>This setup page allows you to configure general system settings of the print server.<br>";

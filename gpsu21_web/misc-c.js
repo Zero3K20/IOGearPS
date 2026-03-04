@@ -6,7 +6,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : English
-tabArray=['GPSU21','USB Port Print Server','Factory Default','Firmware Upgrade'];
+tabArray=['IOGEAR GPSU21','USB Port Print Server','Factory Default','Firmware Upgrade'];
 
 	//upgrade.htm
 headArray[iIndex++] ="<br>This page allows you to upgrade the firmware of the print server.<br><br><font color=red>Note:</font> please make sure the firmware is correct before you proceed. If you do not know which firmware file you should use, please contact your local dealer for technical support.";

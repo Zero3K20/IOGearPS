@@ -6,7 +6,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : Chinese
-tabArray=['GPSU21','USB埠印表伺服器','回復出廠值','韌體升級'];
+tabArray=['IOGEAR GPSU21','USB埠印表伺服器','回復出廠值','韌體升級'];
 
 	//upgrade.htm
 headArray[iIndex++] ="<br>本頁可以讓您升級印表伺服器的韌體。<br><br><font color=red>附註:</font> 在執行升級之前, 請確定您的韌體是正確的。假如您不知道該用哪種韌體, 請與廠商聯絡以尋求技術上的支援。";

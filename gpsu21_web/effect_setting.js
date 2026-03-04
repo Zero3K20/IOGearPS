@@ -6,7 +6,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : Simplified Chinese
-tabArray=['GPSU21','USB口打印服务器','回到默认值','升级固件'];
+tabArray=['IOGEAR GPSU21','USB口打印服务器','回到默认值','升级固件'];
 
 	//upgrade.htm
 headArray[iIndex++] ="<br>此屏幕允许您升级打印服务器的固件。<br>注意: 在您继续之前请确认打印服务器的固件是正确的。如果您不能确认，请与当地供应商联系。";

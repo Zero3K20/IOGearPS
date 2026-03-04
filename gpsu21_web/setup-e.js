@@ -5,7 +5,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : Chinese
-tabArray=['GPSU21','USB埠印表伺服器','系統','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB','',''];
+tabArray=['IOGEAR GPSU21','USB埠印表伺服器','系統','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB','',''];
 
 //csystem
 headArray[iIndex++] = "<BR>本頁可以讓你修改此印表伺服器的基本設定。<br>";

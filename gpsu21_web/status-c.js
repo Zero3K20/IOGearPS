@@ -4,7 +4,7 @@ textindex = 0;
 
 var iIndex = 0;
 
-tabArray=['GPSU21','USB Port Print Server','System','Printer','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB',''];
+tabArray=['IOGEAR GPSU21','USB Port Print Server','System','Printer','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB',''];
 //Language : English
 
 //system.htm

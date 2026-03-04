@@ -4,7 +4,7 @@ textindex = 0;
 
 var iIndex = 0;
 
-tabArray=['GPSU21','USB埠印表伺服器','系統','印表機','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB',''];
+tabArray=['IOGEAR GPSU21','USB埠印表伺服器','系統','印表機','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB',''];
 //Language : Chinese
 
 //system.htm
