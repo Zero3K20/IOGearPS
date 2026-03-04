@@ -100,10 +100,11 @@ the web interface — after an extended uptime (typically hours to a day or more
 and require a power cycle to recover.
 
 **The firmware in this repository is build 9034, dated 2019/11/19** — the same
-9.09.56 firmware series but two years newer than the problematic 2017 build.
-Whether every freeze path was corrected in build 9034 is not confirmed, but it
-is the latest known release of the ZOT firmware for the MT7688-based GPSU21 and
-is the recommended choice over the 2017 build.
+9.09.56 firmware series but two years newer than the 2017 build.  Binary
+analysis confirms that **all four freeze mechanisms are present in both builds**
+(see the sections below).  Build 9034 is still the recommended choice over
+build 9032 because it contains a wireless driver overhaul that reduces
+unrelated error paths, but it does not eliminate the core stability issues.
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for the full version history.
 
@@ -114,9 +115,12 @@ with the tools in this repository, and the resulting 1.57 MB eCos binary
 contains embedded build-time assert strings and error messages that make
 several freeze mechanisms directly observable without any disassembly.
 
-The following findings apply to build 9034 (2019).  Build 9032 (2017) is
-an earlier build of the same codebase and likely has the same or additional
-issues, but it has not been analysed separately.
+Both builds (9032 from 2017 and 9034 from 2019) were decompressed and
+searched for the same indicator strings.  See
+"[Does the 2017 IOGear firmware have the same issues?](#does-the-2017-iogear-firmware-have-the-same-issues)"
+below for the complete side-by-side comparison.  The descriptions that follow
+use build 9034 as the reference, but every finding applies equally to build
+9032.
 
 #### Finding 1 — HTTP server socket pool exhaustion
 
@@ -267,6 +271,137 @@ state memory consumption.
 > (`index.htm`) pages in your browser after using them.  Leaving either page
 > open in a background tab causes a new HTTP connection every 5–10 seconds,
 > gradually draining the socket pool.
+
+### Does the 2017 IOGear firmware have the same issues?
+
+**Yes — every confirmed bug indicator is present in both builds.**
+
+The official IOGear firmware (`MPS56_IOG_GPSU21_20171123.zip`, build 9032)
+was downloaded from the URL in issue #11
+(`https://cdn.shopify.com/…/MPS56_IOG_GPSU21_20171123.zip`) and subjected to
+the same string-search analysis as build 9034.  The decompressed image is
+1.71 MB (versus 1.57 MB for 9034, the difference being a larger Wi-Fi driver
+in the older build).
+
+The table below shows every indicator string checked:
+
+| Bug indicator string | Build 9032 (2017 IOGear) | Build 9034 (2019 ZOT) |
+|---|:---:|:---:|
+| `http:1216, No free socket!` | ✅ present | ✅ present |
+| **`accept failure`** (HTTP accept() itself fails before pool is even checked) | **✅ present** | ❌ removed |
+| `mDNSPlatformTimeNow went backwards by %ld ticks` | ✅ present | ✅ present |
+| `mDNS_Lock: Locking failure! mDNS_busy (%ld) != mDNS_reentrancy (%ld)` | ✅ present | ✅ present |
+| `GetFreeCacheRR ERROR! Cache already locked!` | ✅ present | ✅ present |
+| `SendResponses exceeded loop limit %d: giving up` | ✅ present | ✅ present |
+| `ifra305x%d: txd%d is not free, cansend: %x` | ✅ present | ✅ present |
+| `Network unstable system is going to reset.....` | ❌ absent | ✅ present |
+| `wakeup_count overflow` | ✅ present | ✅ present |
+| `suspend_count overflow` | ✅ present | ✅ present |
+| `%s:%d malloc fail` | ✅ present | ✅ present |
+| `free mem negative!` | ✅ present | ✅ present |
+| `Attempt to open larger file descriptor than FOPEN_MAX!` | ✅ present | ✅ present |
+| `fd out of range` | ✅ present | ✅ present |
+| `Stack is so small size wrapped` | ✅ present | ✅ present |
+| `mod_timer: expires < 0 !` | ✅ present | ✅ present |
+| Auto-refresh `CONTENT="5"` (services page, every 5 s) | ✅ present | ✅ present |
+| Auto-refresh `CONTENT="10"` (IPP jobs page, every 10 s) | ✅ present | ✅ present |
+
+**Notable differences:**
+
+- **Build 9032 is worse for HTTP connections:** It logs `accept failure` before
+  reaching the socket pool check, meaning the `accept()` system call itself
+  starts failing earlier — the HTTP server in 9032 becomes unreachable
+  *sooner* under load than the same situation in 9034.
+- **Build 9034 added explicit watchdog logging** (`"Network unstable system is
+  going to reset....."`).  Build 9032 likely has the same hardware watchdog
+  path in the Ethernet driver (`if_ra305x.c`) but does not log it to the
+  diagnostic output — so the auto-reset happens silently.
+- **Both builds have the same auto-refreshing pages** at the same intervals
+  (5 s and 10 s), meaning the socket-drain issue from leaving browser tabs
+  open is equally severe on both.
+
+**Conclusion:** If you are using the 2017 IOGear firmware and experiencing
+freezes, switching to the 2019 build in this repository will not eliminate the
+freezes, but build 9034 is still marginally better because the `accept()`
+failure path was removed and error logging improved.  All workarounds and
+service-disablement recommendations that apply to build 9034 apply equally to
+build 9032.
+
+### Which issues can actually be fixed?
+
+Short answer:
+
+| Finding | Can it be fixed? | How |
+|---|---|---|
+| **Finding 1** — HTTP socket pool exhaustion | **Partially** — the auto-refresh contribution is fixable right now; the underlying pool size is not | Remove the `<meta HTTP-EQUIV="Refresh">` tags from `SERVICES.HTM` and `INDEX.HTM` using the existing repack tools |
+| **Finding 2** — mDNS/Bonjour lock corruption | Mitigated only | Disable Bonjour/Rendezvous in Setup → TCP/IP; the lock bug cannot be fixed without binary patching |
+| **Finding 3** — Ethernet TX-descriptor stall | No user fix needed | The Ethernet driver auto-resets; not a hard freeze |
+| **Finding 4** — eCos thread-counter overflow | Mitigated only | Disable unused services; the overflow cannot be fixed without binary patching |
+
+#### The one fix you can apply right now — remove the auto-refresh tags
+
+The `SERVICES.HTM` and `INDEX.HTM` (IPP jobs list) pages inside the firmware
+are plain HTML and can be modified using the existing
+`tools/unpack_gpsu21.py` / `tools/repack_gpsu21.py` scripts.  Both pages
+contain an unconditional auto-refresh meta tag that instructs every browser
+that opens the page to reload it on a short timer:
+
+```html
+<!-- SERVICES.HTM — reloads every 5 seconds -->
+<meta HTTP-EQUIV="Refresh" CONTENT="5;">
+
+<!-- INDEX.HTM (IPP Jobs List) — reloads every 10 seconds -->
+<meta HTTP-EQUIV="Refresh" CONTENT="10;">
+```
+
+Every reload opens a new TCP connection to the HTTP server.  If the connection
+is not fully closed before the next reload fires — which happens on any error
+path that skips `close()` — the socket pool shrinks by one.  Removing these
+tags eliminates the leak mechanism for idle browser tabs entirely.
+
+**Step-by-step:**
+
+```sh
+# 1. Extract the firmware web files
+python3 tools/unpack_gpsu21.py MPS56_90956F_9034_20191119.zip /tmp/gpsu21_patched/
+
+# 2. Edit SERVICES.HTM — delete the refresh line
+sed -i '/<meta HTTP-EQUIV="Refresh" CONTENT="5;">/d' /tmp/gpsu21_patched/SERVICES.HTM
+
+# 3. Edit INDEX.HTM — delete the refresh line
+sed -i '/<meta HTTP-EQUIV="Refresh" CONTENT="10;">/d' /tmp/gpsu21_patched/INDEX.HTM
+
+# 4. Repack into a new firmware image
+python3 tools/repack_gpsu21.py MPS56_90956F_9034_20191119.zip \
+        /tmp/gpsu21_patched/ modified_no_autorefresh.bin
+
+# 5. Flash modified_no_autorefresh.bin via the web interface
+#    (Setup → Upgrade → browse to the file → upload)
+```
+
+> **What this does not fix:** The underlying lwIP socket pool size, the mDNS
+> lock corruption, and the eCos thread-counter issues all remain.  Removing
+> the auto-refresh only removes one of the ways that browser tabs silently
+> drain the pool.  The device will still eventually need a reboot — it will
+> just happen less frequently if you regularly open the status pages in a
+> browser.
+
+#### The fixes that require binary patching
+
+The remaining three findings require locating the exact MIPS instruction(s)
+responsible for each bug, writing a replacement that fits in the same number
+of bytes (or using a trampoline), and repacking the LZMA-compressed binary.
+This is genuine reverse-engineering work; the section
+"[Why the crash cannot be directly patched](#why-the-crash-cannot-be-directly-patched)"
+below explains the constraints in full.
+
+A rough estimate of difficulty per finding:
+
+| Finding | Why it is hard to patch |
+|---|---|
+| **Finding 1** — socket pool size | The lwIP pool size is a compile-time constant baked into the data segment; changing it requires finding and modifying the pool descriptor structure and any code that initialises it — typically 4–8 locations that all have to agree |
+| **Finding 2** — mDNS lock | The lock is managed by a re-entrancy counter; the bug is that some call paths increment the counter without a matching decrement (or vice versa). Finding all call sites in ~350 KB of unnamed pseudocode takes significant effort |
+| **Finding 4** — eCos thread counters | The overflow happens in the eCos kernel scheduler — code that the ZOT developers did not write and that interacts with every other thread. Patching the counter width would require touching multiple scheduler data structures simultaneously |
 
 ### Why the crash cannot be directly patched
 
