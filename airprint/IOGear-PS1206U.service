@@ -2,17 +2,20 @@
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 
 <!--
-  Avahi/mDNS service definition to advertise the IOGear PS-1206U
-  print server as an AirPrint-compatible device.
+  OPTIONAL: Avahi/mDNS service definition for older AirPrint clients.
 
-  Deploy this file to /etc/avahi/services/ on any Linux system
-  (e.g. a router, NAS, or Raspberry Pi) that is on the same network
-  as the print server.  Replace PRINTER_IP_ADDRESS with the actual
-  IP address assigned to your PS-1206U.
+  The GPSU21/PS-1206U firmware already advertises _ipp._tcp via its
+  built-in Bonjour stack.  iOS 14+ and macOS 11+ (Big Sur and later)
+  discover and use it automatically — no additional software or files
+  are needed on any PC or server.
 
-  The print server's built-in IPP service listens on TCP port 631
-  at the path /ipp, so the full IPP URL is:
-      ipp://PRINTER_IP_ADDRESS:631/ipp
+  This file is only useful if you need to support:
+    - iOS 13 or earlier
+    - macOS 10.15 (Catalina) or earlier
+
+  If you do need it, deploy this file to /etc/avahi/services/ on a
+  Linux system (router, NAS, Raspberry Pi, etc.) on the same network.
+  Replace PRINTER_IP_ADDRESS with the actual IP of your print server.
 
   After placing the file, restart Avahi:
       sudo systemctl restart avahi-daemon

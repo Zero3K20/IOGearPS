@@ -25,79 +25,49 @@ Both the PS-1206U and the GPSU21 support the same set of printing protocols:
 
 ## AirPrint Support
 
-Both devices include a built-in IPP server (port 631, path `/ipp`).
-Because neither firmware includes an mDNS/Bonjour stack, iOS and macOS
-devices cannot discover the printer automatically via AirPrint without a small
-amount of additional setup.
+The GPSU21 firmware includes a **built-in Bonjour stack and IPP server** (port 631).
+It advertises itself as `_ipp._tcp` via mDNS automatically on your local network.
 
-The `airprint/` directory contains files for advertising the print server as an
-AirPrint-compatible device — choose the one that matches your OS:
+### No PC software needed for modern devices
+
+| Apple device | How to print |
+|---|---|
+| **iOS 14+** | Goes to Settings → Wi-Fi (on same network) → AirPrint appears automatically |
+| **macOS 11+ (Big Sur and later)** | System Preferences → Printers & Scanners → "+" → print server appears automatically |
+| iOS 13 or earlier | Requires optional helper (see below) |
+| macOS 10.15 (Catalina) or earlier | Requires optional helper (see below) |
+
+### Setup
+
+1. **Assign a static IP address** to the PS-1206U (via your router's DHCP
+   reservation or the print server's web interface at `http://<printer-ip>/`).
+2. **Enable IPP** — open the web interface, go to **Setup → Services** and
+   ensure *Use IPP* is set to *Enabled*.
+3. **Enable Bonjour** — on the **Setup → TCP/IP** page, set *Rendezvous (Bonjour)
+   Service* to *Enabled* and enter a descriptive *Service Name* (e.g. `IOGear
+   PS-1206U`).
+4. **Save & Restart** the device.
+
+The printer will now appear automatically on iOS 14+ and macOS 11+ devices that
+are on the same Wi-Fi network.
+
+### Optional: older Apple device support (iOS 13 / macOS 10.15 and earlier)
+
+The `airprint/` directory contains files for advertising the `_universal._sub._ipp._tcp`
+sub-type that older Apple clients require — choose the one for your helper OS:
 
 | File | Platform |
 |------|----------|
 | `airprint/IOGear-PS1206U.service` | Linux (Avahi/mDNS daemon) |
 | `airprint/windows-bonjour.bat` | Windows (Apple Bonjour) |
 
-### Quick-start on Windows
-
-1. **Install Apple Bonjour for Windows** — it is bundled with
-   [iTunes](https://www.apple.com/itunes/) or can be downloaded separately as
-   [Bonjour Print Services for Windows](https://support.apple.com/kb/DL999)
-   (free).
-
-2. **Assign a static IP address** to the PS-1206U (recommended: via your
-   router's DHCP reservation, or through the print server's web interface at
-   `http://<printer-ip>/`).
-
-3. **Edit `airprint\windows-bonjour.bat`** and replace `192.168.1.100` with
-   your PS-1206U's actual IP address.
-
-4. **Run the batch file** by double-clicking it.  Keep the window open — it
-   advertises the printer continuously while running.
-
-5. **Add the printer on your Apple device** — it should now appear as
-   *"IOGear PS-1206U"* in the AirPrint printer list.
-
-> To keep the advertisement running after reboots, create a Windows Scheduled
-> Task that launches the `.bat` file at startup.
-
-### Quick-start on Linux
-
-1. **Assign a static IP address** to the PS-1206U.
-
-2. **Copy the service file** to the Linux system that will provide mDNS
-   advertisement (it must be on the same network as the print server):
-
-   ```bash
-   sudo cp airprint/IOGear-PS1206U.service /etc/avahi/services/
-   ```
-
-3. **Edit the file** and replace every occurrence of `PRINTER_IP_ADDRESS`
-   with the actual IP address of your PS-1206U:
-
-   ```bash
-   sudo nano /etc/avahi/services/IOGear-PS1206U.service
-   ```
-
-4. **Restart Avahi** to apply the change:
-
-   ```bash
-   sudo systemctl restart avahi-daemon
-   ```
-
-5. **Add the printer on your Apple device** — it should now appear as
-   *"IOGear PS-1206U @ \<hostname\>"* in the AirPrint printer list.
-
-### Requirements
-
-- Either:
-  - **Windows:** Apple Bonjour for Windows installed, running `windows-bonjour.bat`
-  - **Linux:** `avahi-daemon` installed and running (on the same network segment)
-- The PS-1206U must be reachable on TCP port 631.
+> **Installing software on your PC is not required for iOS 14+ / macOS 11+.**
+> The helper files above are only needed if you must also support older Apple
+> devices.
 
 ### Supported Document Formats
 
-When printing via AirPrint the iOS/macOS client will send jobs in one
+When printing via AirPrint the iOS/macOS client sends jobs in one
 of the following formats, all of which are forwarded by the print server
 to the attached USB printer:
 

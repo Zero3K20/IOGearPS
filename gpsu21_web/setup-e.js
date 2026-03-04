@@ -53,12 +53,11 @@ textArray2[iIndex++]="指定 IP 位址";
 textArray2[iIndex++]="IP 位址 :";
 textArray2[iIndex++]="子網路遮罩 :";
 textArray2[iIndex++]="預設閘道器 :";
-//crandvoo.htm
-//textArray2[iIndex++]="Rendezvous (Bonjour) 設定";
-//textArray2[iIndex++]="服務 :";
-//textArray2[iIndex++]="停用";
-//textArray2[iIndex++]="啟用";
-//textArray2[iIndex++]="服務名稱 :";
+textArray2[iIndex++]="Rendezvous (Bonjour) 設定";
+textArray2[iIndex++]="服務 :";
+textArray2[iIndex++]="停用";
+textArray2[iIndex++]="啟用";
+textArray2[iIndex++]="服務名稱 :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray2[iIndex++]='<input type="button" value="儲存並重新啟動" onClick="return SaveSetting(';
 // Begin don't translate

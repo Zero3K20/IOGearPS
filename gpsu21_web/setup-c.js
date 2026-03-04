@@ -53,12 +53,11 @@ textArray2[iIndex++]="Use the following TCP/IP settings";
 textArray2[iIndex++]="IP Address :";
 textArray2[iIndex++]="Subnet Mask :";
 textArray2[iIndex++]="Default Gateway :";
-//crandvoo.htm
-//textArray2[iIndex++]="Rendezvous (Bonjour) Settings";
-//textArray2[iIndex++]="Service :";
-//textArray2[iIndex++]="Disable";
-//textArray2[iIndex++]="Enable";
-//textArray2[iIndex++]="Service Name :";
+textArray2[iIndex++]="Rendezvous (Bonjour) Settings";
+textArray2[iIndex++]="Service :";
+textArray2[iIndex++]="Disable";
+textArray2[iIndex++]="Enable";
+textArray2[iIndex++]="Service Name :";
 // Translate                                  only "Save & Restart" is to be translated
 textArray2[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveSetting(';
 // Begin don't translate

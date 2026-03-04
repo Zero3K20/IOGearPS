@@ -177,11 +177,40 @@ https://www.zot.com.tw/zot-file/pu211/MPS56_90956F_9034_20191119.zip
 
 ## AirPrint on the GPSU21
 
-The GPSU21 runs an **eCos**-based firmware with a built-in IPP server.  To
-enable AirPrint discovery, use the same mDNS advertisement approach as the
-PS-1206U:
+The GPSU21 firmware ships with a **built-in Bonjour (mDNS) stack** and an
+**IPP server on port 631**.  It automatically advertises itself as `_ipp._tcp`
+on the local network — no PC software or additional scripts are required for
+modern Apple devices.
 
-- **Windows:** run `airprint\windows-bonjour.bat` (edit the IP address first)
+### Device compatibility
+
+| Apple device | Support |
+|---|---|
+| **iOS 14+** | ✅ Native — print server appears automatically |
+| **macOS 11+ (Big Sur and later)** | ✅ Native — print server appears automatically |
+| iOS 13 or earlier | ⚠️ Needs optional Avahi/Bonjour helper |
+| macOS 10.15 (Catalina) or earlier | ⚠️ Needs optional Avahi/Bonjour helper |
+
+### Enabling AirPrint in the web interface
+
+After flashing the modified firmware:
+
+1. Open `http://<printer-ip>/` and navigate to **Setup → TCP/IP**.
+2. Under *Rendezvous (Bonjour) Settings*, set **Service** to *Enable* and enter
+   a **Service Name** (e.g. `IOGear GPSU21`).
+3. Navigate to **Setup → Services** and ensure **Use IPP** is set to *Enabled*.
+4. Click **Save & Restart**.
+
+The printer will appear automatically in the AirPrint list on iOS 14+ and
+macOS 11+ devices on the same network.
+
+### Optional helpers for older Apple devices
+
+If you also need to support iOS 13 / macOS 10.15 or earlier, deploy one of the
+optional helper files from the `airprint/` directory:
+
+- **Windows:** run `airprint\windows-bonjour.bat` (requires Apple Bonjour for
+  Windows — see [README.md](README.md#airprint-support) for instructions)
 - **Linux:** deploy `airprint/IOGear-PS1206U.service` with Avahi
 
-See [README.md](README.md#airprint-support) for the full setup guide.
+> **Installing software on your PC is NOT required for iOS 14+ / macOS 11+.**

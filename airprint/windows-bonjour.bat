@@ -1,9 +1,14 @@
 @echo off
-:: windows-bonjour.bat — Advertise the IOGear PS-1206U as an AirPrint printer
-:: on Windows using Apple's Bonjour (dns-sd.exe).
+:: windows-bonjour.bat -- OPTIONAL: advertise the IOGear PS-1206U as an AirPrint
+:: printer on Windows using Apple's Bonjour (dns-sd.exe).
 ::
-:: REQUIREMENTS
-:: ------------
+:: NOTE: This script is only needed for iOS 13 or earlier / macOS 10.15 or earlier.
+::       iOS 14+ and macOS 11+ (Big Sur and later) discover and print to the
+::       PS-1206U automatically via its built-in Bonjour (_ipp._tcp) -- no PC
+::       software or scripts required.
+::
+:: REQUIREMENTS (only if you need to support older Apple devices)
+:: --------------------------------------------------------------
 :: Apple Bonjour for Windows must be installed.  It is included with:
 ::   - iTunes for Windows  (free)  https://www.apple.com/itunes/
 ::   - Apple Bonjour Print Services for Windows (free)
@@ -16,8 +21,8 @@
 :: -----
 :: 1. Edit the PRINTER_IP line below with your PS-1206U's IP address.
 :: 2. Double-click this file (or run it from a Command Prompt window).
-::    Keep the window open — closing it stops the advertisement.
-:: 3. On iOS/macOS, the printer should appear as an AirPrint printer.
+::    Keep the window open -- closing it stops the advertisement.
+:: 3. On older iOS/macOS, the printer should appear as an AirPrint printer.
 ::
 :: To run at Windows startup, create a Scheduled Task that runs this script
 :: "At startup" with the option "Run whether user is logged on or not".
