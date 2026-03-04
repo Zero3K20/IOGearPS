@@ -87,6 +87,185 @@ to the attached USB printer:
 > ⚠️ These files target **different hardware** — see [COMPATIBILITY.md](COMPATIBILITY.md)
 > for the full hardware breakdown before flashing.
 
+---
+
+## Emergency Recovery — Bricked GPSU21
+
+If the device no longer responds after a firmware flash (web interface unreachable,
+device does not appear on the network), follow these steps in order from easiest to
+hardest.
+
+### Step 1 — Wait and check recovery IP
+
+Some ZOT firmware builds enter a recovery/rescue mode automatically when the
+application image is corrupt.  After powering on, wait **60 seconds**, then try:
+
+```
+ping 192.168.0.1
+http://192.168.0.1/
+```
+
+If the device responds, it may be running a minimal recovery web server.  Upload
+the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that page
+(extract it from `MPS56_90956F_9034_20191119.zip` in this repository first).
+
+### Step 2 — UART + U-Boot recovery (recommended before IC programmer)
+
+The GPSU21's MT7688 SoC boots U-Boot before loading the application firmware.
+If only the application partition is corrupt, U-Boot is still functional and can
+reflash the firmware over the network — **no hardware programmer is required**.
+
+#### Hardware needed
+
+- USB-to-TTL UART adapter (3.3 V logic; CP2102, CH340, FTDI, or similar)
+- Fine-tipped soldering iron and solder (to attach wires to UART pads)
+- A computer with a terminal emulator (PuTTY, minicom, screen)
+
+#### Finding the UART pads
+
+Open the GPSU21 enclosure.  On the PCB look for a row of unpopulated 2.54 mm
+through-holes or test pads labelled **TX**, **RX**, and **GND** (sometimes also
+**3V3** / **VCC**).  These pads are typically near the MT7688 SoC.
+
+Connect your adapter:
+
+| Adapter pin | GPSU21 pad |
+|-------------|------------|
+| GND         | GND        |
+| RX          | TX         |
+| TX          | RX         |
+
+> ⚠️ Do **not** connect the adapter's 3.3 V / 5 V power pin to the board —
+> power the GPSU21 from its own USB or barrel-jack supply.
+
+#### Entering the U-Boot console
+
+1. Open a terminal at **57600 baud, 8N1** (no hardware flow control).
+2. Power on the GPSU21.
+3. When you see `Hit any key to stop autoboot`, press a key immediately
+   (you have ~1–2 seconds).
+
+You should now see a `MT7688 #` or `zot #` prompt.
+
+#### Reflashing via TFTP
+
+Set up a TFTP server on your computer (e.g. *tftpd-hpa* on Linux,
+*SolarWinds TFTP Server* or *Tftpd64* on Windows) and copy
+`MPS56_90956F_9034_20191119.bin` (extracted from the ZIP in this repository)
+to its root directory.
+
+Then at the U-Boot prompt:
+
+```
+setenv ipaddr   192.168.0.1       # temporary IP for the GPSU21
+setenv serverip 192.168.0.100     # IP address of your computer
+# 0x80500000 = DRAM load address from the uImage header (load_addr field)
+tftpboot 0x80500000 MPS56_90956F_9034_20191119.bin
+```
+
+If the download succeeds, run the ZOT upgrade command to write the firmware to
+flash.  The exact command varies by U-Boot build; try:
+
+```
+run upgradefirmware
+```
+
+or, if that is not defined, use the manual erase-and-copy approach.  First run
+`printenv` to find the firmware partition start address (look for variables named
+`fwaddr`, `firmware_addr`, or similar):
+
+```
+# Example only — use the actual addresses from printenv on YOUR device.
+# The erase range must cover the entire firmware partition.
+erase 0x9C050000 +0x600000
+cp.b 0x80500000 0x9C050000 ${filesize}
+```
+
+> **Always use `printenv` to find the correct addresses** — the flash partition
+> start address and partition size vary by U-Boot build.  Any variable containing
+> `firmware`, `upgrade`, or `fwaddr` will show the correct values for your device.
+
+After writing, reboot:
+
+```
+reset
+```
+
+### Step 3 — IC programmer (last resort)
+
+Use an IC programmer only if U-Boot itself is also corrupt (the device shows no
+UART output at all and the ping/recovery-IP steps above produce no result).
+
+> ⚠️ **The firmware `.bin` file in this repository is NOT a full flash dump.**
+> It is the application firmware partition only (~342 KB).  Flashing it at
+> offset 0 will overwrite U-Boot and make recovery harder.  Before using a
+> programmer, obtain a **full flash dump** from a working GPSU21 unit.
+
+#### Identifying the flash chip
+
+The GPSU21's SPI NOR flash chip is an 8-pin package (SOIC-8 or WSON-8) located
+near the MT7688 SoC.  Read the part number printed on the chip.  The eCos
+firmware supports:
+
+| Manufacturer | Part numbers |
+|---|---|
+| Macronix | MX25L1605D, MX25L3205D, MX25L6405D, MX25L12805D |
+| Winbond | W25Q16DV, W25Q32BV, W25Q128BV |
+| GigaDevice | GD25Q32B |
+| Atmel/Adesto | AT25DF321 |
+
+All are standard SPI NOR flash chips compatible with common programmers.
+
+#### Programmer hardware
+
+Any programmer that supports SPI NOR flash and the SOP8/WSON8 package works:
+
+| Programmer | Notes |
+|---|---|
+| CH341A (MiniProgrammer) | Inexpensive; widely available; works with NeoProgrammer, AsProgrammer, flashrom |
+| RT809F / RT809H | Faster; more chip support |
+| XGECU T48 / T56 | Full-featured; higher cost |
+
+For **in-circuit programming** (chip stays on the board) use a SOP8 test clip.
+For a cleaner read/write, desolder the chip and use a ZIF or SOP8 socket adapter.
+
+#### Software
+
+| OS | Software |
+|---|---|
+| Windows | [NeoProgrammer](https://github.com/a3130/NeoProgrammer) (free), [AsProgrammer](https://github.com/nofeletru/UsbAsp-flash) (free) |
+| Linux / macOS | [flashrom](https://flashrom.org/) (`sudo apt install flashrom` on Debian/Ubuntu) |
+
+#### Recovery procedure
+
+1. **Obtain a full flash dump** from another working GPSU21 (use the programmer
+   to read the entire chip, e.g. `flashrom -p ch341a_spi -r gpsu21_flash_backup.bin`).
+2. Identify the flash chip on the bricked board.
+3. Connect the programmer to the chip (in-circuit with a clip, or desoldered).
+4. Write the full dump:
+   ```
+   flashrom -p ch341a_spi -w gpsu21_flash_backup.bin
+   ```
+5. Verify the write:
+   ```
+   flashrom -p ch341a_spi -v gpsu21_flash_backup.bin
+   ```
+6. Reinstall the chip (if desoldered) and power on the device.
+
+### Prevention — back up your flash before flashing
+
+Before flashing any modified firmware:
+
+```
+# Read the current full flash contents (via flashrom + CH341A):
+flashrom -p ch341a_spi -r gpsu21_flash_BACKUP_$(date +%Y%m%d).bin
+
+# Keep this file safe — it is your recovery image.
+```
+
+A backup lets you restore the device to its exact previous state without needing
+to find a donor unit.
+
 ## Flashing the Firmware
 
 ### IOGear PS-1206U
