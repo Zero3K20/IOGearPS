@@ -105,9 +105,18 @@ ping 192.168.0.1
 http://192.168.0.1/
 ```
 
+Also try the device's **last known IP address** (the one it used before it stopped
+responding) in case it kept its previous network configuration.
+
 If the device responds, it may be running a minimal recovery web server.  Upload
 the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that page
 (extract it from `MPS56_90956F_9034_20191119.zip` in this repository first).
+
+> **"Request timed out" / "Unable to connect"?**  This is the most common result
+> and does **not** mean you need an IC programmer.  The ZOT rescue web server is
+> only present in a small subset of firmware revisions.  Skip straight to Step 2
+> below — U-Boot is stored in a separate flash partition and is almost always
+> still intact after an application-firmware flash, so UART recovery will work.
 
 ### Step 2 — UART + U-Boot recovery (recommended before IC programmer)
 
