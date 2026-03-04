@@ -6,7 +6,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : Simplified Chinese
-tabArray=['PU211','USB口打印服务器','回到默认值','升级固件'];
+tabArray=['GPSU21','USB口打印服务器','回到默认值','升级固件'];
 
 	//upgrade.htm
 headArray[iIndex++] ="<br>此屏幕允许您升级打印服务器的固件。<br>注意: 在您继续之前请确认打印服务器的固件是正确的。如果您不能确认，请与当地供应商联系。";
@@ -61,7 +61,7 @@ iIndex = 0;
 // Title or Model Name
 function TitleModelName()
 {
-	document.write('<title>PU211 USB口打印服务器</title>');
+	document.write('<title>GPSU21 USB打印服务器</title>');
 }
 
 // MM_preloadImages
@@ -73,7 +73,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/mainview-title-cs.jpg" width="576" height="35" />');
+	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
 }
 
 // Row MenuBtn

@@ -5,7 +5,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : English
-tabArray=['PU211','USB Port Print Server','System','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB','',''];
+tabArray=['GPSU21','USB Port Print Server','System','TCP/IP','Services','NetWare','AppleTalk','SNMP','SMB','',''];
 
 //csystem
 headArray[iIndex++] = "<BR>This setup page allows you to configure general system settings of the print server.<br>";
@@ -289,7 +289,7 @@ function CheckSMB(szURL)
 // Title or Model Name
 function TitleModelName()
 {
-	document.write('<title>PU211 USB Port Print Server</title>');
+	document.write('<title>GPSU21 USB Print Server</title>');
 }
 
 // MM_preloadImages
@@ -301,7 +301,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="imgenus/mainview-title-e.jpg" width="576" height="35" />');
+	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
 }
 
 // Row MenuBtn

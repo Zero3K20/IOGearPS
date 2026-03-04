@@ -4,7 +4,7 @@ textindex = 0;
 
 var iIndex = 0;
 
-tabArray=['PU211','USB口打印服务器','系统','打印机','TCP/IP','服务','NetWare','AppleTalk','SNMP','SMB',''];
+tabArray=['GPSU21','USB口打印服务器','系统','打印机','TCP/IP','服务','NetWare','AppleTalk','SNMP','SMB',''];
 //Language : Simplified Chinese
 
 //system.htm
@@ -188,7 +188,7 @@ textArray8[iIndex++]="启用";
 // Title or Model Name
 function TitleModelName()
 {
-	document.write('<title>PU211 USB口打印服务器</title>');
+	document.write('<title>GPSU21 USB打印服务器</title>');
 }
 
 // MM_preloadImages
@@ -200,7 +200,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/mainview-title-cs.jpg" width="576" height="35">');
+	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
 }
 
 // Row MenuBtn

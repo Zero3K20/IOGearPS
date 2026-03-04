@@ -5,7 +5,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : Chinese
-tabArray=['PU211','USB埠印表伺服器','系統','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB','',''];
+tabArray=['GPSU21','USB埠印表伺服器','系統','TCP/IP','服務','NetWare','AppleTalk','SNMP','SMB','',''];
 
 //csystem
 headArray[iIndex++] = "<BR>本頁可以讓你修改此印表伺服器的基本設定。<br>";
@@ -277,7 +277,7 @@ function CheckSMB(szURL)
 // Title or Model Name
 function TitleModelName()
 {
-	document.write('<title>PU211 USB埠印表伺服器</title>');
+	document.write('<title>GPSU21 USB印表伺服器</title>');
 }
 
 // Character Encoding
@@ -290,7 +290,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/mainview-title-cs.jpg" width="576" height="35">');
+	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
 }
 
 // Row MenuBtn

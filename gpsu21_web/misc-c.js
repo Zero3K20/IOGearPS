@@ -6,7 +6,7 @@ textindex = 0;
 var iIndex = 0;
 
 //Language : English
-tabArray=['PU211','USB Port Print Server','Factory Default','Firmware Upgrade'];
+tabArray=['GPSU21','USB Port Print Server','Factory Default','Firmware Upgrade'];
 
 	//upgrade.htm
 headArray[iIndex++] ="<br>This page allows you to upgrade the firmware of the print server.<br><br><font color=red>Note:</font> please make sure the firmware is correct before you proceed. If you do not know which firmware file you should use, please contact your local dealer for technical support.";
@@ -62,7 +62,7 @@ iIndex = 0;
 // Title or Model Name
 function TitleModelName()
 {
-	document.write('<title>PU211 USB Port Print Server</title>');
+	document.write('<title>GPSU21 USB Print Server</title>');
 }
 
 // MM_preloadImages
@@ -74,7 +74,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="imgenus/mainview-title-e.jpg" width="576" height="35" />');
+	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
 }
 
 // Row MenuBtn

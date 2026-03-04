@@ -15,9 +15,9 @@ function Section1()
 	BrowserAdjustment();
 	document.write('</tr><tr><td height="35">');
 	//MainViewTitle();
-	document.write('<table width=100% border=0><tr><td height=35><font color=#AACD03 style="font-size:20pt"><b>');
+	document.write('<table width=100% border=0><tr><td height=35><font color=#CBCDCC style="font-size:20pt"><b>');
 	showtab(tabindex++);
-	document.write('</b></font></td><td><img src="images/arrows.jpg" height=33></td><td><font color=#AACD03 style="font-size:20pt"><b>');
+	document.write('</b></font></td><td><img src="images/arrows.jpg" height=33></td><td><font color=#CBCDCC style="font-size:20pt"><b>');
 	showtab(tabindex++);
 	document.write('</b></font></td></tr></table>');
 	document.write('</td></tr>');
@@ -176,7 +176,7 @@ function Section4()
 
 function Section5(strPage)
 {
-	document.write('<tr><td width="1024" height="100" bgcolor="#AACD03">');
+	document.write('<tr><td width="1024" height="100" bgcolor="#CBCDCC">');
 	document.write('<table width="960" border="0" align="center" cellpadding="0" cellspacing="15" id="info">');
 	document.write('<tr><td width="41" height="40" valign="bottom" class="infoImg">');
 	document.write('<BR><img src="images/infoimg.jpg" width="41" height="34" /></td>');
