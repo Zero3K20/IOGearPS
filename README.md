@@ -89,6 +89,147 @@ to the attached USB printer:
 
 ---
 
+## Stability & Known Issues
+
+### Reported freeze with the older 2017 IOGear firmware
+
+A freeze/lock-up bug has been widely reported with the **official IOGear 2017
+firmware** (`MPS56_IOG_GPSU21_20171123.zip`, build 9032, dated 2017/11/23).
+Affected devices stop responding to network requests — including print jobs and
+the web interface — after an extended uptime (typically hours to a day or more)
+and require a power cycle to recover.
+
+**The firmware in this repository is build 9034, dated 2019/11/19** — the same
+9.09.56 firmware series but two years newer than the problematic 2017 build.
+Whether every freeze path was corrected in build 9034 is not confirmed, but it
+is the latest known release of the ZOT firmware for the MT7688-based GPSU21 and
+is the recommended choice over the 2017 build.
+
+See [COMPATIBILITY.md](COMPATIBILITY.md) for the full version history.
+
+### Why the crash cannot be directly patched
+
+Short answer: **the firmware source code has never been released**.  The binary
+can be disassembled and partially decompiled, but the output is machine-
+reconstructed pseudocode — not real C source — and turning that into a working
+patch is a substantial expert undertaking.
+
+Here is the full picture:
+
+1. **Closed-source compiled binary.**
+   The GPSU21 firmware is a single LZMA-compressed blob produced by ZOT
+   Technology's proprietary build system.  It contains compiled MIPS machine
+   code for the eCos real-time operating system and ZOT's print-server
+   application.  ZOT has never published the C/C++ source.
+
+2. **The binary can be disassembled and decompiled — but only to pseudocode.**
+   Tools such as [Ghidra](https://ghidra-sre.org/) (free, open-source) can load
+   the ~350 KB MIPS binary and produce two views:
+   - **Disassembly** — the raw MIPS instructions, one per line, with addresses.
+   - **Decompiler view** — Ghidra's C-like pseudocode reconstruction of each
+     function.
+
+   What the decompiler **cannot** recover:
+   - Original variable and function names (replaced with `DAT_xxxxxxxx`,
+     `FUN_xxxxxxxx`, etc.).
+   - Original data-structure definitions and type information (all types appear
+     as `int`, `byte`, or raw pointer arithmetic).
+   - Comments, `#define` constants, or any information that exists only in the
+     source.
+
+   The result is valid pseudocode that roughly describes what the code *does*,
+   but it is not the original source and **cannot be compiled**.  To get a
+   working binary you must still write and assemble MIPS patches by hand.
+
+3. **Finding the freeze in ~350 KB of unnamed pseudocode is hard.**
+   Even with the decompiler output in hand, locating a subtle stability bug —
+   such as a slow memory leak, a socket-file-descriptor exhaustion, a deadlock
+   between two eCos threads, or an integer overflow in an uptime counter — means
+   reading and understanding thousands of reconstructed, unnamed functions.
+   Likely freeze candidates are:
+
+   | Candidate cause | What to look for in Ghidra |
+   |---|---|
+   | Memory/heap leak | `malloc` calls with no matching `free` inside loops or connection handlers |
+   | Socket leak | `socket()` / `accept()` calls where the descriptor is never closed on error paths |
+   | Thread deadlock | Two eCos mutex-lock calls that can acquire locks in opposite orders |
+   | Uptime counter overflow | A `uint32_t` counter incremented every second wraps at ~136 years (harmless), but a `uint16_t` seconds counter wraps in ~18 hours and a `uint8_t` in ~4 minutes — either could plausibly trigger a freeze at the rollover |
+
+   Identifying and confirming which cause (if any of these) applies to this
+   specific firmware takes days to weeks of focused analysis.
+
+4. **The patch must be written in MIPS assembly and fit in the existing binary.**
+   Once a bug site is found, the fix cannot simply be inserted — the binary is a
+   flat image where every function and variable sits at a fixed address baked
+   into thousands of branch targets and load instructions.  Adding even a single
+   instruction shifts everything that follows it, breaking every hard-coded
+   address in the image.  Patches therefore have to be written as *in-place*
+   replacements: the replacement instructions must fit in exactly the same number
+   of bytes as the original, or a trampoline technique must be used (overwrite
+   the buggy site with a jump to a free region in flash, place the fix there,
+   then jump back) — both of which require detailed knowledge of the surrounding
+   code.
+
+5. **Only the embedded web interface can be modified safely with the existing
+   tools.**
+   The `tools/unpack_gpsu21.py` / `tools/repack_gpsu21.py` scripts locate the
+   HTML, JavaScript, CSS, and image files stored *uncompressed* inside the
+   binary, swap them in-place, and recompress.  That technique is safe precisely
+   because it stays within the data region and never alters the compiled MIPS
+   code.  There is no equivalent safe mechanism for patching arbitrary code.
+
+6. **No hardware-watchdog access from the web interface.**
+   The MT7688 SoC includes a hardware watchdog timer that can reset the device
+   automatically if the firmware stops servicing it.  Whether the ZOT eCos build
+   enables and pets that watchdog — and whether a web-interface setting can
+   control it — is not publicly documented.  None of the 61 web pages in the
+   firmware's embedded interface (listed in `gpsu21_web/manifest.txt`) expose
+   an SSI variable or form field for it.
+
+**In summary:** decompilation with Ghidra is possible and would be the correct
+starting point for a patch, but it produces unnamed pseudocode, not compilable
+source.  Turning that pseudocode into a working MIPS patch that fits inside the
+existing binary image is a serious reverse-engineering project.  The most
+practical mitigation remains using the newer 2019 build (which may already
+contain a fix) and scheduling automatic daily reboots if freezes persist.
+
+### Workarounds for periodic freeze
+
+If you still experience occasional freezing after flashing the 2019 firmware,
+the following workarounds keep the device running reliably without manual
+intervention.
+
+#### Option 1 — Smart power outlet or hardware timer
+
+Use a programmable smart outlet or a mechanical timer to cut power once per day
+(e.g. at 3:00 AM) and restore it 10–30 seconds later.  No software is needed,
+and the device comes back up on its own after rebooting.
+
+#### Option 2 — Router-based scheduled reboot (OpenWrt / DD-WRT / Tomato)
+
+On a router running Linux-based firmware, add a cron entry that sends an HTTP
+request to the device's restart URL once a day:
+
+```sh
+# /etc/crontabs/root  (OpenWrt)
+0 3 * * * wget -q -O /dev/null http://<device-ip>/restart.htm
+```
+
+The device restarts in about 20 seconds and resumes normal operation.
+
+#### Option 3 — Server or Raspberry Pi cron job
+
+On any always-on Linux or macOS machine, schedule a daily reboot request:
+
+```sh
+# Run:  crontab -e
+0 3 * * * curl -sf http://<device-ip>/restart.htm > /dev/null
+```
+
+Replace `<device-ip>` with the static IP address of the GPSU21.
+
+---
+
 ## Emergency Recovery — Bricked GPSU21
 
 If the device no longer responds after a firmware flash (web interface unreachable,
