@@ -1,0 +1,40 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="misc.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</SCRIPT>
+<SCRIPT LANGUAGE=JavaScript>
+var iRestartTime;
+iRestartTime = 20000;
+function GoToLastPageTime()
+{
+var strRestartTime;
+if(iRestartTime < 0)
+document.location.href = '<!--# echo var="HomeAddr"-->';
+else
+{
+strRestartTime = iRestartTime / 1000 + " sec...";
+document.RestartTimeForm.RestartTimeText.value = strRestartTime;
+iRestartTime -= 1000;
+setTimeout("GoToLastPageTime()", 1000);
+}
+}
+</SCRIPT>
+</HEAD>
+<!-- Corpo (Body) -->
+<BODY TOPMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0 BGCOLOR=#CBCDCC onLoad="GoToLastPageTime()">
+<CENTER>
+<BR><BR><BR><BR><BR><BR>
+<font face="Arial" size="4" color="#FFFFFF"><b><Script Language="JavaScript">showtext6(textindex++);</script></b></font><BR><BR>
+<form name=RestartTimeForm>
+<input type=text name=RestartTimeText size=8>
+</form>
+<font face="Arial" size="4" color="#FFFFFF"><b><Script Language="JavaScript">showtext6(textindex++);</script></b></font>
+</CENTER>
+<!--# echo var="LoadDefault"-->  
+<!--# echo var="SysReset"-->
+</body>
+</html>

@@ -1,0 +1,48 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+
+<!--
+  OPTIONAL: Avahi/mDNS service definition for older AirPrint clients.
+
+  The GPSU21/PS-1206U firmware already advertises _ipp._tcp via its
+  built-in Bonjour stack.  iOS 14+ and macOS 11+ (Big Sur and later)
+  discover and use it automatically — no additional software or files
+  are needed on any PC or server.
+
+  This file is only useful if you need to support:
+    - iOS 13 or earlier
+    - macOS 10.15 (Catalina) or earlier
+
+  If you do need it, deploy this file to /etc/avahi/services/ on a
+  Linux system (router, NAS, Raspberry Pi, etc.) on the same network.
+  Replace PRINTER_IP_ADDRESS with the actual IP of your print server.
+
+  After placing the file, restart Avahi:
+      sudo systemctl restart avahi-daemon
+-->
+
+<service-group>
+  <name replace-wildcards="yes">IOGear PS-1206U @ %h</name>
+
+  <service>
+    <type>_ipp._tcp</type>
+    <subtype>_universal._sub._ipp._tcp</subtype>
+    <port>631</port>
+    <!-- Replace PRINTER_IP_ADDRESS with the static IP of your PS-1206U -->
+    <host-name>PRINTER_IP_ADDRESS</host-name>
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+    <txt-record>rp=ipp</txt-record>
+    <txt-record>ty=IOGear PS-1206U Print Server</txt-record>
+    <txt-record>adminurl=http://PRINTER_IP_ADDRESS/</txt-record>
+    <txt-record>note=IOGear PS-1206U</txt-record>
+    <txt-record>priority=25</txt-record>
+    <txt-record>product=(IOGear PS-1206U)</txt-record>
+    <txt-record>pdl=application/octet-stream,application/pdf,image/jpeg,image/png,image/urf</txt-record>
+    <txt-record>Color=F</txt-record>
+    <txt-record>Duplex=F</txt-record>
+    <txt-record>usb_MFG=IOGear</txt-record>
+    <txt-record>usb_MDL=PS-1206U</txt-record>
+    <txt-record>URF=none</txt-record>
+  </service>
+</service-group>

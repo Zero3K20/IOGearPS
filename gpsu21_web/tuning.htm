@@ -1,0 +1,107 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="misc.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<SCRIPT LANGUAGE=JavaScript>
+var btnclick=0;
+function WebUpgrade() {
+if( btnclick!= 0 )
+{ document.forms[0].action="urestart.htm"; return false; }
+if( document.forms[0].CODE2BIN.value == "" )
+{ alert("File name is empty!"); return false; }
+btnclick=1;
+document.forms[0].action="urestart.htm";
+document.forms[0].submit(); return false; }
+</SCRIPT>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<!-- Section 3m1: function Section3m1() -->
+<SCRIPT language="JavaScript">
+Section3m1('upgrade');
+</script>
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<!-- Assunto, Dica ou Ajuda -->
+<tr>
+<td width="1024" height="100" bgcolor="#CBCDCC">
+<table width="960" border="0" align="center" cellpadding="0" cellspacing="15" id="info">
+<tr>
+<td width="41" height="60" valign="bottom" class="infoImg"><BR><img src="images/infoimg.jpg" width="41" height="34" /></td>
+<td valign="middle" class="infoT"><Script Language="JavaScript">showhead('upgrade.htm');</script></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<FORM METHOD="POST" NAME="SETUP" enctype="multipart/form-data">
+<!-- Tabelas -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext2(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300" align="right"><Script Language="JavaScript">showtext2(textindex++);</script></td>
+<td class="Wh2"><INPUT NAME=CODE2BIN TYPE=FILE VALUE="" size="70"></td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- OK -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC" align="center">
+<Script Language="JavaScript">
+showtext2(textindex++);
+</script>
+</td>
+</tr>
+</FORM>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="200" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>

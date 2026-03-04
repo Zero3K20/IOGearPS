@@ -1,0 +1,142 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="setup.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<SCRIPT LANGUAGE=JavaScript>
+function GoToLastPage()
+{
+if(navigator.appVersion.indexOf("Safari")!=-1)
+window.history.go(-2);
+else
+window.history.go(-1);
+}
+</SCRIPT>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<tr>
+<td width="1024" height="46" bgcolor="#FFFFFF">
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0">
+<tr>
+<td width="1000" height="46" bgcolor="#FFFFFF">
+<table width="100%" height="44" border="0" align="left" cellpadding="0" cellspacing="0" class="itemMenu" id="itemMenu">
+<tr>
+<td width="100%" height="44">&nbsp;</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<SCRIPT language="JavaScript">findcook();</script>
+<!-- Assunto, Dica ou Ajuda -->
+<tr>
+<td width="1024" height="150" bgcolor="#CBCDCC">
+<table width="960" border="0" align="center" cellpadding="0" cellspacing="15" id="info">
+<tr>
+<td height="50" align="center" class="infoT"><Script Language="JavaScript">showtext7(textindex++);</script></td>
+</tr>
+<tr>
+<td height="50" align="center" class="infoTR">
+<Script Language="JavaScript">
+var strErrMsg = "<!--# echo var="ErrorMsg"-->";
+switch(strErrMsg)
+{
+case "Invalid IP Address":
+showtext7(textindex++);
+textindex += 10;
+break;
+case "Invalid Subnet Mask Address":
+textindex += 1;
+showtext7(textindex++);
+textindex += 9;
+break;
+case "Invalid Gateway Address":
+textindex += 2;
+showtext7(textindex++);
+textindex += 8;
+break;
+case "Invalid Polling Time Value":
+textindex += 3;
+showtext7(textindex++);
+textindex += 7;
+break;
+case "Invalid Print Server Name":
+textindex += 4;
+showtext7(textindex++);
+textindex += 6;
+break;
+case "Invalid File Server Name":
+textindex += 5;
+showtext7(textindex++);
+textindex += 5;
+break;
+case "DHCP/BOOTP Server not found":
+textindex += 6;
+showtext7(textindex++);
+textindex += 4;
+break;
+case "Invalid SNMP Trap IP Address":
+textindex += 7;
+showtext7(textindex++);
+textindex += 3;
+break;
+case "Setup password and confirmed do not match":
+textindex += 8;
+showtext7(textindex++);
+textindex += 2;
+break;
+case "Wrong firmware or upgrade failed":
+textindex += 9;
+showtext7(textindex++);
+textindex += 1;
+break;
+default:
+textindex += 10;
+showtext7(textindex++);
+break;
+}
+</script>
+.
+</td>
+</tr>
+<tr>
+<td height="50" align="center" class="infoT">
+<A HREF="#" onClick="return GoToLastPage()">
+<Script Language="JavaScript">showtext7(textindex++);</script></A>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="100" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+</table>
+</body>
+</html>

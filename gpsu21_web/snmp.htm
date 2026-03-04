@@ -1,0 +1,200 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="status.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<!-- Section 3: function Section3() -->
+<SCRIPT language="JavaScript">
+Section3();
+</script>
+<!-- Section 3a: function Section3a() -->
+<table width="50%" height="44" border="0" align="left" cellpadding="0" cellspacing="0" class="itemMenu" id="itemMenu">
+<tr>
+<td width="20%" height="44">&nbsp;</td>
+<td width="18%" align="center" class="chooseThis">
+<Script Language="JavaScript">showtab(tabindex++);</script></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="printer.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="tcpip.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="services.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+</tr>
+</table>
+<!-- Section 3b: function Section3b() -->
+<SCRIPT language="JavaScript">
+Section3b('status');
+</script>
+<!-- button -->
+<!-- Section 4: function Section4() -->
+<SCRIPT language="JavaScript">
+Section4();
+</script>
+</td>
+</tr>
+</table>
+<SCRIPT language="JavaScript">findcook();</script>
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<!-- Assunto, Dica ou Ajuda -->
+<!-- Section 5: function Section5() -->
+<SCRIPT language="JavaScript">
+Section5('system');
+</script>
+<!-- Tabelas -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><!--# echo var="BoxName"-->&nbsp;</td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><!--# echo var="SnmpSysContact"-->&nbsp;</td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><!--# echo var="SnmpSysLocation"-->&nbsp;</td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><!--# echo var="BoxUpTime"-->&nbsp;</td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><!--# echo var="Version"-->&nbsp;</td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><!--# echo var="NodeID"-->&nbsp;</td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300">
+<Script Language="JavaScript">
+var iALERT="<!--# echo var="ALert"-->";
+switch(iALERT)
+{
+case '0':
+showtext(textindex++);
+textindex += 1;
+break;
+case '1':
+textindex += 1;
+showtext(textindex++);
+break;
+default:
+showtext(textindex++);
+textindex += 1;
+break;
+}
+</Script>
+</td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- AirPrint -->
+<tr><td bgcolor="#CBCDCC" align="center"><b>AirPrint:</b> iOS 14+ / macOS 11+ prints via <b>_ipp._tcp</b> &mdash; no PC software needed</td></tr>
+<!-- Tabelas -->
+<tr>
+<td width="1024" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<div style="max-height:240px;overflow-y:auto;">
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="10" class="s1">
+<Script Language="JavaScript">showtext(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="10" bgcolor="#CBCDCC"></td>
+</tr>
+<tr>
+<td height="32" bgcolor="#FFFFFF"></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td align="center" class="Wh1"><Script Language="JavaScript">showtext(textindex++);</script></td>					
+<td bgcolor="#FFFFFF">&nbsp;</td>
+<td bgcolor="#FFFFFF"></td>
+</tr>
+<tr bgcolor="#FFFFFF"> <TD></TD>
+<!--# echo var="IPPJobs"-->	
+<TD></TD>	
+</tr>
+</table>
+</div>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="100" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+</table>
+</table>
+<script>setTimeout(function(){location.reload();},15000);</script>
+</body>
+</html>

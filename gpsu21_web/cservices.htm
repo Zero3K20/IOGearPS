@@ -1,0 +1,165 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="setup.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<!-- Section 3: function Section3() -->
+<SCRIPT language="JavaScript">
+Section3();
+</script>
+<!-- Section 3a: function Section3a() -->
+<SCRIPT language="JavaScript">
+Section3a('setup');
+</script>
+<!-- Section 3b: function Section3b() -->
+<table width="40%" height="44" border="0" align="left" cellpadding="0" cellspacing="0" class="itemMenu" id="itemMenu2">
+<tr>
+<td width="18%" align="center" class="noChoose" id="netware">
+<a href="cnetware.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose" id="apple">
+<a href="capple.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose" id="snmp">
+<a href="csnmp.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="chooseThis" id="smb">
+<Script Language="JavaScript">showtab(tabindex++);</script></td>
+<td width="22%">&nbsp;</td>
+</tr>
+</table>
+<!-- button -->
+<!-- Section 4: function Section4() -->
+<SCRIPT language="JavaScript">
+Section4();
+</script>
+</td>
+</tr>
+</table>
+<SCRIPT language="JavaScript">findcook();</script>
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<!-- Assunto, Dica ou Ajuda -->
+<!-- Section 5: function Section5() -->
+<SCRIPT language="JavaScript">
+Section5('csmb');
+</script>
+<FORM METHOD=GET NAME=SETUP ACTION=csmb.htm>
+<!-- Tabelas SMB -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext9(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
+<td class="Wh2" width="300">
+<!-- Use SMB -->
+<SCRIPT LANGUAGE=JavaScript>
+var iSMBMode = "<!--# echo var="SMB_MODE"-->";
+document.write("<SELECT NAME=SMB_MODE SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext9(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext9(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].SMB_MODE[iSMBMode].selected=true;
+</SCRIPT>
+</td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
+<td class="Na2"><INPUT TYPE=TEXT NAME="SMBWorkGroup" SIZE=18 MAXLENGTH=15 VALUE=<!--# echo var="SMBWorkGroup"-->></td>
+<td class="Na"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Tabelas Shared Printers -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext9(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
+<td class="Wh2" width="300"><INPUT TYPE=TEXT NAME="SMBPrint1" SIZE=15 MAXLENGTH=12 VALUE=<!--# echo var="SMBPrint1"-->></td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Save and Restart -->
+<tr>
+<td width="1024" height="50" bgcolor="#CBCDCC" align="center">
+<Script Language="JavaScript">
+showtext9(textindex++);
+showtext9(textindex++);
+showtext9(textindex++);
+</script>
+</td>
+</tr>
+</FORM>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="70" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+</table>
+</table>
+</body>
+</html>

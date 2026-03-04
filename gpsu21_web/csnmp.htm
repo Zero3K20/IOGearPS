@@ -1,0 +1,221 @@
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<SCRIPT language="JavaScript1.2" src="setup.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="top.js"></SCRIPT>
+<SCRIPT language="JavaScript1.2" src="effect_setting.js"></SCRIPT>
+<SCRIPT language="JavaScript">
+TitleModelName();
+</script>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+</HEAD>
+<CENTER>
+<!-- Corpo (Body) -->
+<SCRIPT language="JavaScript">
+BodyPreloadImages();
+</script>
+<br>
+<table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
+<tr>
+<td>
+<!-- Section 1: function Section1() -->
+<SCRIPT language="JavaScript">
+Section1();
+</script>
+<!-- Linha 1: Aba (Row MenuBtn) -->
+<!-- Section 2: function Section2() -->
+<SCRIPT language="JavaScript">
+Section2();
+</script>
+<!-- Linha 2: Sub-Aba -->
+<!-- Section 3: function Section3() -->
+<SCRIPT language="JavaScript">
+Section3();
+</script>
+<!-- Section 3a: function Section3a() -->
+<table width="50%" height="44" border="0" align="left" cellpadding="0" cellspacing="0" class="itemMenu" id="itemMenu">
+<tr>
+<td width="20%" height="44">&nbsp;</td>
+<td width="18%" align="center" class="chooseThis">
+<Script Language="JavaScript">showtab(tabindex++);</script></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="ctcpip.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+<td width="18%" align="center" class="noChoose">
+<a href="cservices.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
+<td width="2" class="Separator"><div align="center">|</div></td>
+</tr>
+</table>
+<!-- Section 3b: function Section3b() -->
+<SCRIPT language="JavaScript">
+Section3b('setup');
+</script>
+<!-- button -->
+<!-- Section 4: function Section4() -->
+<SCRIPT language="JavaScript">
+Section4();
+</script>
+</td>
+</tr>
+</table>
+<SCRIPT language="JavaScript">findcook();</script>
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<!-- Assunto, Dica ou Ajuda -->
+<!-- Section 5: function Section5() -->
+<SCRIPT language="JavaScript">
+Section5('csystem');
+</script>
+<FORM METHOD=GET NAME=CSYSTEM ACTION=restart.htm>
+<!-- Tabelas E-mail alert -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<!-- E-mail alert -->
+<SCRIPT LANGUAGE=JavaScript>
+var iALERT = "<!--# echo var="ALert"-->";
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=ALERT SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.CSYSTEM.ALERT[iALERT].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><INPUT TYPE=TEXT NAME="SMTPIP" SIZE=16 MAXLENGTH=15 VALUE="<!--# echo var="SMTPIP"-->"></td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><INPUT TYPE=TEXT NAME="SMTPMail" SIZE=32 MAXLENGTH=32 VALUE="<!--# echo var="SMTPMail"-->"></td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Tabelas System Settings -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><INPUT TYPE=TEXT NAME="BoxName" SIZE="20" MAXLENGTH="18" VALUE="<!--# echo var="BoxName"-->"></td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><INPUT TYPE=TEXT NAME="SnmpSysContact" SIZE="20" MAXLENGTH="15" VALUE="<!--# echo var="SnmpSysContact"-->"></td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><INPUT TYPE=TEXT NAME="SnmpSysLocation" SIZE="20" MAXLENGTH="24" VALUE="<!--# echo var="SnmpSysLocation"-->"></td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Tabelas Administrator -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<!-- Tabela 1 -->
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr>
+<td height="29" colspan="4" class="s1">
+<Script Language="JavaScript">showtext(textindex++);</script>
+</td>
+</tr>
+<tr>
+<td height="3" colspan="4"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Na2" width="300"><INPUT TYPE=PASSWORD NAME="SetupPWD" SIZE=12 MAXLENGTH=8 VALUE="<!--# echo var="SetupPWD"-->"></td>
+<td class="Na"></td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext(textindex++);</script></td>
+<td class="Wh2" width="300"><INPUT TYPE=PASSWORD NAME="ConfirmPWD" SIZE=12 MAXLENGTH=8 VALUE="<!--# echo var="ConfirmPWD"-->"></td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Save and Restart -->
+<tr>
+<td width="1024" height="50" bgcolor="#CBCDCC" align="center">
+<Script Language="JavaScript">
+showtext(textindex++);
+showtext(textindex++);
+showtext(textindex++);
+</script>
+</td>
+</tr>
+</FORM>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="60" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+</table>
+<tr>
+<td width="1024" height="30" bgcolor="#FFFFFF">&nbsp;</td>
+</tr>
+</table>
+</body>
+</html>

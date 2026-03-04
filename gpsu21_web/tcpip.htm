@@ -1,0 +1,30 @@
+<HTML>
+<HEAD>
+<META charset="ISO-8859-1">
+<TITLE>TUNING</TITLE>
+<LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+<BODY>
+<form method="GET" name="SETUP" action="restart.htm">
+<P>TimeOut Value: <input type="text" name="TimeOutValue" size=5 maxlength=3 value="<!--# echo var="TimeOutValue"-->">
+<P>PrnMon Recv Packet: <select name="NTMaxRecvPacket" size=1>
+<!--# echo var="NTMaxRecvPacket"-->
+</select>
+<P>Prn Q Test Mode: <select name="QTestMode" size=1>
+<!--# echo var="QTestMode"-->
+</select>
+<P>Port1:
+Printer Mode : <select name="SetP1MOD" size=1>
+<!--# echo var="SetP1MOD"-->
+</select> , Current mode = <!--# echo var="Port1MOD"-->
+<P>Port2:
+Printer Mode : <select name="SetP2MOD" size=1>
+<!--# echo var="SetP2MOD"-->
+</select> , Current mode = <!--# echo var="Port2MOD"-->
+<P>Port3:
+Printer Mode : <select name="SetP3MOD" size=1>
+<!--# echo var="SetP3MOD"-->
+</select> , Current mode = <!--# echo var="Port3MOD"-->
+<P><input type="submit" value="Submit">
+</form>
+</BODY>
+</HTML>
