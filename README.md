@@ -1,13 +1,19 @@
-# IOGear PS-1206U Print Server Firmware
+# IOGear PS-1206U and GPSU21 Print Server Firmware
 
-Firmware **version 8.8** (older release) for the IOGear PS-1206U (and
-compatible) network print server.
+This repository contains firmware for two **different** IOGear print servers.
+See [COMPATIBILITY.md](COMPATIBILITY.md) for a full hardware comparison.
 
-> **Using a GPSU21 or running a newer firmware version (e.g. 9.09.56I)?**  
-> See [COMPATIBILITY.md](COMPATIBILITY.md) for a full explanation of version
-> differences, downgrade considerations, and whether flashing is safe to try.
+| Device | Firmware file | CPU |
+|--------|--------------|-----|
+| IOGear PS-1206U | `PS-1206U_v8.8.bin` | Edimax 8820 (x86) |
+| IOGear GPSU21 | `MPS56_90956F_9034_20191119.zip` | MediaTek MT7688 (MIPS) |
+
+> ⚠️ **These firmware images are NOT interchangeable.** Flashing PS-1206U
+> firmware onto a GPSU21 (or vice versa) will brick the device.
 
 ## Supported Printing Protocols
+
+Both the PS-1206U and the GPSU21 support the same set of printing protocols:
 
 | Protocol | Status |
 |----------|--------|
@@ -19,8 +25,8 @@ compatible) network print server.
 
 ## AirPrint Support
 
-The PS-1206U firmware includes a built-in IPP server (port 631, path `/ipp`).
-Because the firmware does not include an mDNS/Bonjour stack, iOS and macOS
+Both devices include a built-in IPP server (port 631, path `/ipp`).
+Because neither firmware includes an mDNS/Bonjour stack, iOS and macOS
 devices cannot discover the printer automatically via AirPrint without a small
 amount of additional setup.
 
@@ -101,13 +107,19 @@ to the attached USB printer:
 - `image/urf` (Universal Raster Format)
 - `application/octet-stream` (raw)
 
-## Firmware File
+## Firmware Files
 
-| File | Description |
-|------|-------------|
-| `PS-1206U_v8.8.bin` | Firmware version 8.8 (older release). 512 KB image containing the main print-server firmware (`PS06EPS.BIN`) and the bootloader/upgrade utility (`PS06UPG.BIN`). If your device currently runs a newer firmware (e.g. 9.09.56I from 2017), see [COMPATIBILITY.md](COMPATIBILITY.md#what-if-my-device-runs-a-newer-version-than-v88) before flashing. |
+| File | Device | Version | Notes |
+|------|--------|---------|-------|
+| `PS-1206U_v8.8.bin` | IOGear PS-1206U (Edimax 8820) | v8.8 | 512 KB Edimax flat image |
+| `MPS56_90956F_9034_20191119.zip` | IOGear GPSU21 (MT7688) | 9.09.56F build 9034 (2019/11/19) | Extract the `.bin` before flashing |
+
+> ⚠️ These files target **different hardware** — see [COMPATIBILITY.md](COMPATIBILITY.md)
+> for the full hardware breakdown before flashing.
 
 ## Flashing the Firmware
+
+### IOGear PS-1206U
 
 The upgrade page works in **any browser on any operating system** (Windows,
 macOS, or Linux):
@@ -118,9 +130,16 @@ macOS, or Linux):
 4. Do **not** power-cycle the device during the upgrade.
 
 > **Safe to try:** The firmware upgrade page validates the file before writing
-> to flash.  If the firmware is incompatible with your device it will display
-> "Signature wrong" and refuse to flash — your device will not be bricked.
-> See [COMPATIBILITY.md](COMPATIBILITY.md) for details.
+> to flash.  If the firmware is incompatible it will display "Signature wrong"
+> and refuse to flash — the device will not be bricked.
+
+### IOGear GPSU21
+
+1. Extract `MPS56_90956F_9034_20191119.bin` from the ZIP file.
+2. Open the GPSU21 web interface at `http://<printer-ip>/`.
+3. Navigate to the firmware upgrade page.
+4. Upload the `.bin` file (not the ZIP).
+5. Do **not** power-cycle the device during the upgrade.
 
 ---
 
