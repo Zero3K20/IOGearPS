@@ -295,13 +295,13 @@ function TitleModelName()
 // MM_preloadImages
 function BodyPreloadImages()
 {
-	document.write("<body onload=MM_preloadImages('imgenus/menubtn-e-setup2.jpg','imgenus/menubtn-e-misc2.jpg','imgenus/menubtn-e-restart2.jpg')>");
+	document.write("<body onload=MM_preloadImages('images/menubtn-cs-setup2.jpg','images/menubtn-cs-misc2.jpg','images/menubtn-cs-restart2.jpg')>");
 }
 
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
+	document.write('<img src="images/left.gif"><img src="images/right.gif">');
 }
 
 // Row MenuBtn

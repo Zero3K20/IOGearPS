@@ -200,7 +200,7 @@ function BodyPreloadImages()
 // mainView-Title
 function MainViewTitle()
 {
-	document.write('<img src="images/gpsu21-logo.svg" width="576" height="35" />');
+	document.write('<img src="images/left.gif"><img src="images/right.gif">');
 }
 
 // Row MenuBtn
