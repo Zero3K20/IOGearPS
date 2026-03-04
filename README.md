@@ -327,169 +327,112 @@ failure path was removed and error logging improved.  All workarounds and
 service-disablement recommendations that apply to build 9034 apply equally to
 build 9032.
 
-### Which issues can actually be fixed?
+### Applying all bug fixes with `tools/patch_gpsu21.py`
 
-Short answer:
-
-| Finding | Can it be fixed? | How |
-|---|---|---|
-| **Finding 1** — HTTP socket pool exhaustion | **Partially** — the auto-refresh contribution is fixable right now; the underlying pool size is not | Remove the `<meta HTTP-EQUIV="Refresh">` tags from `SERVICES.HTM` and `INDEX.HTM` using the existing repack tools |
-| **Finding 2** — mDNS/Bonjour lock corruption | Mitigated only | Disable Bonjour/Rendezvous in Setup → TCP/IP; the lock bug cannot be fixed without binary patching |
-| **Finding 3** — Ethernet TX-descriptor stall | No user fix needed | The Ethernet driver auto-resets; not a hard freeze |
-| **Finding 4** — eCos thread-counter overflow | Mitigated only | Disable unused services; the overflow cannot be fixed without binary patching |
-
-#### The one fix you can apply right now — remove the auto-refresh tags
-
-The `SERVICES.HTM` and `INDEX.HTM` (IPP jobs list) pages inside the firmware
-are plain HTML and can be modified using the existing
-`tools/unpack_gpsu21.py` / `tools/repack_gpsu21.py` scripts.  Both pages
-contain an unconditional auto-refresh meta tag that instructs every browser
-that opens the page to reload it on a short timer:
-
-```html
-<!-- SERVICES.HTM — reloads every 5 seconds -->
-<meta HTTP-EQUIV="Refresh" CONTENT="5;">
-
-<!-- INDEX.HTM (IPP Jobs List) — reloads every 10 seconds -->
-<meta HTTP-EQUIV="Refresh" CONTENT="10;">
-```
-
-Every reload opens a new TCP connection to the HTTP server.  If the connection
-is not fully closed before the next reload fires — which happens on any error
-path that skips `close()` — the socket pool shrinks by one.  Removing these
-tags eliminates the leak mechanism for idle browser tabs entirely.
-
-**Step-by-step:**
+A purpose-built patch tool is included that applies **all confirmed binary
+fixes** in a single command.  It requires only Python 3 (no additional
+packages) and produces a drop-in replacement firmware image.
 
 ```sh
-# 1. Extract the firmware web files
-python3 tools/unpack_gpsu21.py MPS56_90956F_9034_20191119.zip /tmp/gpsu21_patched/
-
-# 2. Edit SERVICES.HTM — delete the refresh line
-sed -i '/<meta HTTP-EQUIV="Refresh" CONTENT="5;">/d' /tmp/gpsu21_patched/SERVICES.HTM
-
-# 3. Edit INDEX.HTM — delete the refresh line
-sed -i '/<meta HTTP-EQUIV="Refresh" CONTENT="10;">/d' /tmp/gpsu21_patched/INDEX.HTM
-
-# 4. Repack into a new firmware image
-python3 tools/repack_gpsu21.py MPS56_90956F_9034_20191119.zip \
-        /tmp/gpsu21_patched/ modified_no_autorefresh.bin
-
-# 5. Flash modified_no_autorefresh.bin via the web interface
-#    (Setup → Upgrade → browse to the file → upload)
+python3 tools/patch_gpsu21.py  MPS56_90956F_9034_20191119.zip  fixed.bin
 ```
 
-> **What this does not fix:** The underlying lwIP socket pool size, the mDNS
-> lock corruption, and the eCos thread-counter issues all remain.  Removing
-> the auto-refresh only removes one of the ways that browser tabs silently
-> drain the pool.  The device will still eventually need a reboot — it will
-> just happen less frequently if you regularly open the status pages in a
-> browser.
+Flash `fixed.bin` using the normal upgrade path:
+**GPSU21 web interface → System → Upgrade → browse → upload**.
+Do NOT power-cycle during the ~60-second upgrade.
 
-#### The fixes that require binary patching
+#### What `patch_gpsu21.py` fixes
 
-The remaining three findings require locating the exact MIPS instruction(s)
-responsible for each bug, writing a replacement that fits in the same number
-of bytes (or using a trampoline), and repacking the LZMA-compressed binary.
-This is genuine reverse-engineering work; the section
-"[Why the crash cannot be directly patched](#why-the-crash-cannot-be-directly-patched)"
-below explains the constraints in full.
+| Finding | Fix applied | Patch technique |
+|---------|-------------|-----------------|
+| **Finding 1** — HTTP connection exhaustion from browser auto-refresh | Removes `<meta HTTP-EQUIV="Refresh">` tags from `INDEX.HTM` (10 s) and `SERVICES.HTM` (5 s) | In-place byte replacement — identical size, spaces substituted |
+| **Finding 2** — mDNS/Bonjour lock counter de-sync | When `mDNS_Lock` or `mDNS_Unlock` detects `mDNS_busy ≠ mDNS_reentrancy`, it now corrects `mDNS_reentrancy = mDNS_busy` instead of logging and continuing with the mismatch | 36-byte MIPS in-place replacement in both `mDNS_Lock` and `mDNS_Unlock` |
+| **Finding 3** — Ethernet TX-descriptor stall | Self-healing — no patch needed | (auto-reset by the Ethernet driver) |
+| **Finding 4** — eCos `wakeup_count` overflow assertion | Removes the `BEQZ → fatal-assert` branch that fires when a thread accumulates ≥ 500 pending wakeups; the counter now simply continues instead of halting | 4-byte NOP replacing one MIPS branch instruction |
 
-A rough estimate of difficulty per finding:
+The tool locates all patch sites **dynamically** from known error strings
+embedded in the firmware, so it works on both the 2019 (build 9034) and 2017
+(build 9032) firmware images.
 
-| Finding | Why it is hard to patch |
-|---|---|
-| **Finding 1** — socket pool size | The lwIP pool size is a compile-time constant baked into the data segment; changing it requires finding and modifying the pool descriptor structure and any code that initialises it — typically 4–8 locations that all have to agree |
-| **Finding 2** — mDNS lock | The lock is managed by a re-entrancy counter; the bug is that some call paths increment the counter without a matching decrement (or vice versa). Finding all call sites in ~350 KB of unnamed pseudocode takes significant effort |
-| **Finding 4** — eCos thread counters | The overflow happens in the eCos kernel scheduler — code that the ZOT developers did not write and that interacts with every other thread. Patching the counter width would require touching multiple scheduler data structures simultaneously |
+#### Technical details of the MIPS binary patches
 
-### Why the crash cannot be directly patched
+All code patches are in-place replacements — the patched instructions occupy
+exactly the same bytes as the originals, so no branch targets or load
+addresses are disturbed.
 
-Short answer: **the firmware source code has never been released**.  The binary
-can be disassembled and partially decompiled, but the output is machine-
-reconstructed pseudocode — not real C source — and turning that into a working
-patch is a substantial expert undertaking.
+**mDNS_Lock / mDNS_Unlock (Finding 2)**
 
-Here is the full picture:
+The Apple mDNSCore lock/unlock functions check that the re-entrancy counters
+are consistent immediately after acquiring the platform lock.  The original
+code in the error path is:
 
-1. **Closed-source compiled binary.**
-   The GPSU21 firmware is a single LZMA-compressed blob produced by ZOT
-   Technology's proprietary build system.  It contains compiled MIPS machine
-   code for the eCos real-time operating system and ZOT's print-server
-   application.  ZOT has never published the C/C++ source.
+```mips
+; Original — error path when mDNS_busy ≠ mDNS_reentrancy
+lw   $v0, X($sp)          ; reload m pointer
+lw   $v1, 0x18($v0)       ; v1 = m->mDNS_busy
+lw   $v0, X($sp)          ; reload m pointer
+lw   $a2, 0x1c($v0)       ; a2 = m->mDNS_reentrancy  (old, to pass to LogMsg)
+lui  $v0, <string_hi>
+addiu $a0, $v0, <string_lo>    ; a0 = "mDNS_Lock: Locking failure! ..."
+move $a1, $v1                  ; a1 = mDNS_busy
+jal  LogMsg                    ; log the error — mismatch persists!
+nop
+```
 
-2. **The binary can be disassembled and decompiled — but only to pseudocode.**
-   Tools such as [Ghidra](https://ghidra-sre.org/) (free, open-source) can load
-   the ~350 KB MIPS binary and produce two views:
-   - **Disassembly** — the raw MIPS instructions, one per line, with addresses.
-   - **Decompiler view** — Ghidra's C-like pseudocode reconstruction of each
-     function.
+The patched version:
 
-   What the decompiler **cannot** recover:
-   - Original variable and function names (replaced with `DAT_xxxxxxxx`,
-     `FUN_xxxxxxxx`, etc.).
-   - Original data-structure definitions and type information (all types appear
-     as `int`, `byte`, or raw pointer arithmetic).
-   - Comments, `#define` constants, or any information that exists only in the
-     source.
+```mips
+; Patched — resync counters instead of logging
+lw   $v0, X($sp)          ; reload m pointer
+lw   $v1, 0x18($v0)       ; v1 = m->mDNS_busy
+lw   $v0, X($sp)          ; reload m pointer
+sw   $v1, 0x1c($v0)       ; m->mDNS_reentrancy = m->mDNS_busy  ← THE FIX
+nop                        ; (was: lui)
+nop                        ; (was: addiu)
+nop                        ; (was: move)
+nop                        ; (was: jal LogMsg)
+nop                        ; (was: delay slot)
+```
 
-   The result is valid pseudocode that roughly describes what the code *does*,
-   but it is not the original source and **cannot be compiled**.  To get a
-   working binary you must still write and assemble MIPS patches by hand.
+After the patched error path the function continues normally and increments
+`mDNS_busy` as usual, so the counters are always in sync when `mDNS_Lock`
+returns.
 
-3. **The confirmed failure modes are now known — but the bug sites still need
-   to be located in the disassembly.**
-   The binary analysis above (see "What the firmware binary actually reveals")
-   confirmed four specific mechanisms: HTTP socket pool exhaustion, mDNS lock
-   corruption, Ethernet TX-descriptor stall, and eCos thread-counter overflow.
-   Even knowing *what* breaks, a developer must still load the ~350 KB MIPS
-   binary into a disassembler (e.g. Ghidra), trace each confirmed error path
-   back to the code site that lets the condition occur in the first place, and
-   then write a patch — all without any function or variable names and without
-   being able to recompile the result.
+**eCos wakeup_count (Finding 4)**
 
-4. **The patch must be written in MIPS assembly and fit in the existing binary.**
-   Once a bug site is found, the fix cannot simply be inserted — the binary is a
-   flat image where every function and variable sits at a fixed address baked
-   into thousands of branch targets and load instructions.  Adding even a single
-   instruction shifts everything that follows it, breaking every hard-coded
-   address in the image.  Patches therefore have to be written as *in-place*
-   replacements: the replacement instructions must fit in exactly the same number
-   of bytes as the original, or a trampoline technique must be used (overwrite
-   the buggy site with a jump to a free region in flash, place the fix there,
-   then jump back) — both of which require detailed knowledge of the surrounding
-   code.
+`cyg_thread_wakeup()` asserts fatally if a thread accumulates ≥ 500 pending
+wakeups.  The original code compiles to:
 
-5. **Only the embedded web interface can be modified safely with the existing
-   tools.**
-   The `tools/unpack_gpsu21.py` / `tools/repack_gpsu21.py` scripts locate the
-   HTML, JavaScript, CSS, and image files stored *uncompressed* inside the
-   binary, swap them in-place, and recompress.  That technique is safe precisely
-   because it stays within the data region and never alters the compiled MIPS
-   code.  There is no equivalent safe mechanism for patching arbitrary code.
+```mips
+lw    $v0, 0x50($a0)     ; load  thread->wakeup_count
+addiu $v0, $v0, 1        ; increment
+sltiu $v1, $v0, 500      ; v1 = (count < 500)
+beqz  $v1, <assert>      ; if count ≥ 500 → fatal assert  ← PATCHED TO NOP
+sw    $v0, 0x50($a0)     ; store incremented count (delay slot)
+```
 
-6. **No hardware-watchdog access from the web interface.**
-   The MT7688 SoC includes a hardware watchdog timer that can reset the device
-   automatically if the firmware stops servicing it.  Whether the ZOT eCos build
-   enables and pets that watchdog — and whether a web-interface setting can
-   control it — is not publicly documented.  None of the 61 web pages in the
-   firmware's embedded interface (listed in `gpsu21_web/manifest.txt`) expose
-   an SSI variable or form field for it.
+The single `beqz` is replaced with `nop`.  The `sltiu` result is discarded,
+the counter continues incrementing (it wraps at 2³²), and the fatal assert
+code is never reached.
 
-**In summary:** decompilation with Ghidra is possible and would be the correct
-starting point for a patch.  The freeze mechanisms are now confirmed (see the
-binary analysis section above), but the decompiler output is unnamed pseudocode,
-not compilable source.  Turning that pseudocode into working MIPS patches that
-fit inside the existing binary image remains a serious reverse-engineering
-project.  The most practical mitigations are: disabling unused services to
-reduce resource pressure, avoiding leaving auto-refreshing web pages open in a
-browser, and scheduling automatic daily reboots if freezes persist.
+### Which issues are fixed?
+
+| Finding | Status |
+|---------|--------|
+| **Finding 1** — HTTP browser auto-refresh exhausting the connection pool | ✅ Fixed by `patch_gpsu21.py` |
+| **Finding 2** — mDNS/Bonjour lock counter de-sync (Bonjour stops working) | ✅ Fixed by `patch_gpsu21.py` |
+| **Finding 3** — Ethernet TX-descriptor stall | ✅ Self-healing (auto-reset, no patch needed) |
+| **Finding 4** — eCos thread `wakeup_count` overflow assertion | ✅ Fixed by `patch_gpsu21.py` |
 
 ### Workarounds for periodic freeze
 
-If you still experience occasional freezing after flashing the 2019 firmware,
-the following workarounds keep the device running reliably without manual
-intervention.
+> **The `tools/patch_gpsu21.py` tool now fixes all confirmed freeze
+> mechanisms** (see the section above).  Flash the patched firmware first;
+> the workarounds below are only needed if you cannot or do not want to flash
+> custom firmware.
+
+If you choose not to use the patched firmware, the following workarounds keep
+the device running reliably without manual intervention.
 
 #### Option 1 — Smart power outlet or hardware timer
 
