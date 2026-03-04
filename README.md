@@ -127,8 +127,8 @@ reflash the firmware over the network — **no hardware programmer is required**
 #### Hardware needed
 
 - USB-to-TTL UART adapter (3.3 V logic; CP2102, CH340, FTDI, or similar)
-- Fine-tipped soldering iron and solder (to attach wires to UART pads)
 - A computer with a terminal emulator (PuTTY, minicom, screen)
+- Fine-tipped soldering iron and solder *(optional — see "No-solder connection" below)*
 
 #### Finding the UART pads
 
@@ -146,6 +146,24 @@ Connect your adapter:
 
 > ⚠️ Do **not** connect the adapter's 3.3 V / 5 V power pin to the board —
 > power the GPSU21 from its own USB or barrel-jack supply.
+
+#### No-solder connection (solder-free alternatives)
+
+**Soldering is not required** if you are comfortable holding the connection steady
+while the terminal session is active.  Two common no-solder methods:
+
+1. **Press-fit jumper wires (easiest — works with 2.54 mm through-holes)**
+   Insert the male end of a Dupont/jumper wire into each through-hole and tilt it
+   slightly so the wire presses against the barrel of the hole.  The friction is
+   enough to keep contact.  Hold the board flat on a table while working so the
+   wires stay in place.  You only need to hold the interrupt key for ~1–2 seconds
+   at boot — after that the U-Boot console is interactive and the wires can rest
+   undisturbed.
+
+2. **Pogo-pin probes (works with both through-holes and bare test pads)**
+   Spring-loaded pogo pins (available cheaply as "IC test hook clips" or
+   "PCB probe pins") press against pads without any soldering.  Tape or clip them
+   in place, or hold them by hand, for the duration of the session.
 
 #### Entering the U-Boot console
 
