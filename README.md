@@ -112,11 +112,54 @@ If the device responds, it may be running a minimal recovery web server.  Upload
 the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that page
 (extract it from `MPS56_90956F_9034_20191119.zip` in this repository first).
 
-> **"Request timed out" / "Unable to connect"?**  This is the most common result
-> and does **not** mean you need an IC programmer.  The ZOT rescue web server is
-> only present in a small subset of firmware revisions.  Skip straight to Step 2
-> below — U-Boot is stored in a separate flash partition and is almost always
-> still intact after an application-firmware flash, so UART recovery will work.
+> **"Request timed out" / "Unable to connect"?**  Before concluding that Step 1
+> has failed, check for a **subnet mismatch**.  The recovery image uses the fixed
+> IP `192.168.0.1`.  If your home router hands out addresses on a *different*
+> subnet (e.g. `192.168.1.x`, `10.0.0.x`, `172.16.x.x`) the router will never
+> forward packets to `192.168.0.1` — so the ping times out even though the device
+> is alive and waiting.  **Try the direct-connection method below first.**
+
+#### Direct connection (bypasses the router — recommended first attempt)
+
+1. **Connect the GPSU21 directly to your PC** with an Ethernet cable.  If your PC
+   has no Ethernet port, use a **USB-to-Ethernet adapter** (any USB 2.0/3.0 to
+   10/100 adapter works).
+2. **Assign your PC's Ethernet adapter a static IP on the same subnet:**
+
+   - **Windows:** Control Panel → Network and Sharing Center → Change adapter
+     settings → right-click the Ethernet adapter → Properties →
+     *Internet Protocol Version 4 (TCP/IPv4)* → *Use the following IP address*:
+     - IP address: `192.168.0.100`
+     - Subnet mask: `255.255.255.0`
+     - Default gateway: *(leave blank)*
+     → OK
+   - **macOS:** System Preferences → Network → select the Ethernet adapter →
+     Configure IPv4: *Manually* → IP Address: `192.168.0.100`,
+     Subnet Mask: `255.255.255.0` → Apply
+   - **Linux:** `sudo ip addr add 192.168.0.100/24 dev eth0`
+     *(replace `eth0` with your adapter name shown by `ip link`)*
+
+3. Power on the GPSU21 and wait **60 seconds**.
+4. Try again:
+   ```
+   ping 192.168.0.1
+   ```
+   Then open `http://192.168.0.1/` in a browser.
+5. **After recovery, restore your network settings:**
+
+   - **Windows:** Return to the TCP/IPv4 properties dialog (same path as above)
+     and select *Obtain an IP address automatically* → OK
+   - **macOS:** Return to Network preferences → Configure IPv4: *Using DHCP* →
+     Apply
+   - **Linux:** `sudo ip addr del 192.168.0.100/24 dev eth0 && sudo dhclient eth0`
+     *(or restart your network service — e.g.
+     `sudo systemctl restart NetworkManager` on most distros,
+     `sudo systemctl restart systemd-networkd` on systemd-networkd systems)*
+
+> **Still timing out?**  The ZOT rescue web server is only present in a small
+> subset of firmware revisions.  If there is no response after the direct
+> connection, skip to Step 2 — U-Boot is stored in a separate flash partition
+> and is almost always still intact, so UART recovery will work.
 
 ### Step 2 — UART + U-Boot recovery (recommended before IC programmer)
 
