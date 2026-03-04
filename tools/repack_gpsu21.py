@@ -71,9 +71,13 @@ def _patch_uimage_crc(fw_bytes, new_payload_bytes):
     """
     Rebuild the uImage header at UIMAGE_OFFSET with corrected CRC fields.
 
-    The uImage wraps everything from UIMAGE_OFFSET+64 to end-of-file.
+    new_payload_bytes must be the complete uImage data region: the padding bytes
+    between the uImage header and the LZMA stream (0x0140-0x4ABF) concatenated
+    with the new LZMA payload.  The uImage data CRC and size fields cover this
+    entire region, not just the LZMA stream alone.
+
     We recalculate:
-      - data CRC32  (covers the new compressed payload)
+      - data CRC32  (covers padding + new LZMA payload)
       - header CRC32 (covers the 64-byte header with data CRC filled in, header CRC zeroed)
     """
     hdr = bytearray(fw_bytes[UIMAGE_OFFSET: UIMAGE_OFFSET + 64])
@@ -190,7 +194,9 @@ def repack(original_path, edited_dir, output_path):
     zot_header   = fw[:UIMAGE_OFFSET]            # 256 bytes
     padding      = fw[UIMAGE_OFFSET + 64 : LZMA_OFFSET]  # gap between uImage hdr and LZMA
 
-    new_uimage_hdr = _patch_uimage_crc(fw, new_lzma)
+    # The uImage "data" field covers everything after the 64-byte uImage header:
+    # padding (0x0140-0x4ABF) + new LZMA payload.  Pass both to get correct CRC/size.
+    new_uimage_hdr = _patch_uimage_crc(fw, bytes(padding) + new_lzma)
     new_fw = bytearray(zot_header + new_uimage_hdr + padding + new_lzma)
 
     # Update ZOT header payload-size field (bytes 8–11, LE uint32)
