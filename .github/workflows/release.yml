@@ -1,0 +1,87 @@
+name: Release Firmware
+
+"on":
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish firmware release
+    runs-on: ubuntu-latest
+
+    env:
+      PS1206U_BIN: PS-1206U_v8.8.bin
+      GPSU21_ZIP: MPS56_90956F_9034_20191119.zip
+      GPSU21_BIN: MPS56_90956F_9034_20191119.bin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Extract the GPSU21 .bin from the ZIP so it can be attached directly
+      - name: Extract GPSU21 firmware binary
+        run: |
+          python3 - <<'EOF'
+          import zipfile, os, sys
+          zip_path = os.environ["GPSU21_ZIP"]
+          with zipfile.ZipFile(zip_path) as zf:
+              bins = [n for n in zf.namelist() if n.lower().endswith(".bin")]
+              if not bins:
+                  print("ERROR: no .bin file found inside the ZIP")
+                  sys.exit(1)
+              zf.extract(bins[0], ".")
+              print(f"Extracted: {bins[0]}")
+          EOF
+
+      - name: Verify firmware files exist
+        run: |
+          missing=0
+          for f in "$PS1206U_BIN" "$GPSU21_BIN"; do
+            if [ ! -f "$f" ]; then
+              echo "ERROR: expected firmware file not found: $f"
+              missing=1
+            else
+              echo "OK: $f ($(stat -c%s "$f") bytes)"
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          DATE="$(date -u +'%Y%m%d')"
+          echo "tag=firmware-${DATE}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "name=Firmware build ${DATE} (${SHORT_SHA})" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.name }}
+          body: |
+            ## Firmware release
+
+            | File | Device | CPU |
+            |------|--------|-----|
+            | `PS-1206U_v8.8.bin` | IOGear PS-1206U | Edimax 8820 (x86) |
+            | `MPS56_90956F_9034_20191119.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) |
+
+            > ⚠️ **These firmware images are NOT interchangeable.**
+            > Flashing PS-1206U firmware onto a GPSU21 (or vice versa) will brick the device.
+            > See [COMPATIBILITY.md](https://github.com/${{ github.repository }}/blob/main/COMPATIBILITY.md) for details.
+
+            Built from commit ${{ github.sha }}.
+          files: |
+            PS-1206U_v8.8.bin
+            MPS56_90956F_9034_20191119.bin
+          fail_on_unmatched_files: true
