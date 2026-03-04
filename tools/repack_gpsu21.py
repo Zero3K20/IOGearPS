@@ -191,7 +191,18 @@ def repack(original_path, edited_dir, output_path):
     padding      = fw[UIMAGE_OFFSET + 64 : LZMA_OFFSET]  # gap between uImage hdr and LZMA
 
     new_uimage_hdr = _patch_uimage_crc(fw, new_lzma)
-    new_fw = zot_header + new_uimage_hdr + padding + new_lzma
+    new_fw = bytearray(zot_header + new_uimage_hdr + padding + new_lzma)
+
+    # Update ZOT header payload-size field (bytes 8–11, LE uint32)
+    # The field holds the number of bytes after the 256-byte ZOT header.
+    struct.pack_into("<I", new_fw, 8, len(new_fw) - UIMAGE_OFFSET)
+
+    # Recalculate ZOT header checksum (bytes 0–3, LE uint32).
+    # The device stores the bitwise complement of CRC32(fw[4:]).
+    zot_crc = zlib.crc32(bytes(new_fw[4:])) ^ 0xFFFFFFFF
+    struct.pack_into("<I", new_fw, 0, zot_crc)
+
+    new_fw = bytes(new_fw)
 
     print(f"  New firmware size:   {len(new_fw):,} bytes  "
           f"(original: {len(fw):,})")
