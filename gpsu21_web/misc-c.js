@@ -1,6 +1,6 @@
 
 
-//vaiable
+//variable
 tabindex = 0;
 textindex = 0;
 var iIndex = 0;
@@ -37,7 +37,7 @@ iIndex = 0;
 //reset.htm
 textArray3[iIndex++]="This page allows you to restart the print server.<br>";
 textArray3[iIndex++]="Restart The Print Server<br>";
-textArray3[iIndex++]="Do you want to save settings and restart the print server now ?<br>";
+textArray3[iIndex++]="Do you want to save settings and restart the print server now?<br>";
 // Translate                               Only OK is to be translated
 textArray3[iIndex++]='<input type=button value="&nbsp;&nbsp;OK&nbsp;&nbsp;" onClick="window.location=';
 // Begin don't translate
@@ -89,7 +89,7 @@ function RowMenuBtn()
 	document.write(';" style="cursor:pointer;position:relative;"><div>Setup</div></div></td>');
 
 	document.write('<td><div class="MenuBtnMiscSelected"');
-	document.write(' style="position:relative;"><div>Msic</div></div></td>');
+	document.write(' style="position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
 	document.write("'RESET.HTM'");
@@ -108,7 +108,7 @@ function RowMenuBtn4()
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
 	document.write("'DEFAULT.HTM'");
-	document.write(';" style="cursor:pointer;position:relative;"><div>Msic</div></div></td>');
+	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestartSelected"');
 	document.write(' style="position:relative;"><div>Restart</div></div></td>');

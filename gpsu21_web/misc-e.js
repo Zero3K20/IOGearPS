@@ -1,6 +1,6 @@
 
 
-//vaiable
+//variable
 tabindex = 0;
 textindex = 0;
 var iIndex = 0;

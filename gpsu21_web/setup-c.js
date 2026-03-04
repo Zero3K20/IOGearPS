@@ -1,5 +1,5 @@
 
-//vaiable
+//variable
 tabindex = 0;
 textindex = 0;
 var iIndex = 0;
@@ -19,7 +19,7 @@ headArray[iIndex++] = "<BR>This setup page allows you to configure the NetWare f
 headArray[iIndex++] ="<BR>This setup page allows you to configure AppleTalk settings of the print server.<br>";
 //csnmp.htm
 headArray[iIndex++] ="<BR>This setup page allows you to configure SNMP settings of the print server.";
-//csmp.htm
+//csmb.htm
 headArray[iIndex++] ="<BR>This page displays the printer sharing settings for Microsoft Windows networks.";
 iIndex = 0;
 
@@ -158,7 +158,7 @@ iIndex = 0;
 
 // CNETWARE.htm
 textArray8[iIndex++]="General Settings";
-textArray8[iIndex++]="Printer Server Name :";
+textArray8[iIndex++]="Print Server Name :";
 textArray8[iIndex++]="Polling Time :";
 textArray8[iIndex++]="&nbsp;seconds (min: 3 seconds, max: 29 seconds)";
 textArray8[iIndex++]="Logon Password :";
@@ -242,7 +242,7 @@ function CheckPwd(szURL)
 	return false;
 }
 
-// CTCPTP.HTM
+// CTCPIP.HTM
 
 // CNETWARE.HTM
 
@@ -316,7 +316,7 @@ function RowMenuBtn()
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
 	document.write("'DEFAULT.HTM'");
-	document.write(';" style="cursor:pointer;position:relative;"><div>Msic</div></div></td>');
+	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
 	document.write("'RESET.HTM'");

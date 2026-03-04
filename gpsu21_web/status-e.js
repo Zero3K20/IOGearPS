@@ -1,4 +1,4 @@
-//vaiable
+//variable
 tabindex = 0;
 textindex = 0;
 

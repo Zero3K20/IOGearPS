@@ -1,4 +1,4 @@
-//vaiable
+//variable
 tabindex = 0;
 textindex = 0;
 
@@ -62,7 +62,7 @@ textArray1[iIndex++]="Offline";
 textArray1[iIndex++]="Printing";
 textArray1[iIndex++]="Print Speed :";
 textArray1[iIndex++]="Fast";
-textArray1[iIndex++]="Middle";
+textArray1[iIndex++]="Medium";
 textArray1[iIndex++]="Slow";
 iIndex = 0;
 
@@ -217,7 +217,7 @@ function RowMenuBtn()
 
 	document.write('<td><div class="MenuBtnMisc" onClick="location.href=');
 	document.write("'DEFAULT.HTM'");
-	document.write(';" style="cursor:pointer;position:relative;"><div>Msic</div></div></td>');
+	document.write(';" style="cursor:pointer;position:relative;"><div>Misc</div></div></td>');
 
 	document.write('<td><div class="MenuBtnRestart" onClick="location.href=');
 	document.write("'RESET.HTM'");
