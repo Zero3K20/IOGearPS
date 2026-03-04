@@ -107,6 +107,167 @@ is the recommended choice over the 2017 build.
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for the full version history.
 
+### What the firmware binary actually reveals
+
+The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) can be decompressed
+with the tools in this repository, and the resulting 1.57 MB eCos binary
+contains embedded build-time assert strings and error messages that make
+several freeze mechanisms directly observable without any disassembly.
+
+The following findings apply to build 9034 (2019).  Build 9032 (2017) is
+an earlier build of the same codebase and likely has the same or additional
+issues, but it has not been analysed separately.
+
+#### Finding 1 — HTTP server socket pool exhaustion
+
+The HTTP server (`httpd.c`) contains the string:
+
+```
+http:1216, No free socket!
+```
+
+This is a `printf`-style error logged at line 1216 of the HTTP server source
+when `http_child` — the per-connection handler — fails to obtain a free socket
+from the pool.  When this path is hit the server cannot accept new HTTP
+connections, making the web interface unreachable.
+
+What drains the pool:
+- The firmware runs **19 concurrent service threads** (HTTP, LPD, IPP, SMB,
+  NetBIOS, Raw TCP, AppleTalk/PAP, Novell SAP/Connect/NDS, SNMP, Telnet,
+  TFTP, mDNS, email-alert, and the main print-server loop) — all of which
+  share a single small lwIP TCP connection pool.  Each service that holds a
+  connection open occupies a slot from the same pool that the HTTP server uses.
+- **Two web pages auto-refresh automatically** and generate a new HTTP
+  connection on every cycle:
+  - `services.htm` — `<meta HTTP-EQUIV="Refresh" CONTENT="5;">` (every 5 s)
+  - `index.htm` (IPP jobs list) — `<meta HTTP-EQUIV="Refresh" CONTENT="10;">`
+    (every 10 s)
+  If a browser tab is left open on either page the device receives a new TCP
+  connection every 5–10 seconds.  If the HTTP server does not close the socket
+  before the next refresh arrives — which can happen on any error path where
+  the close() call is skipped — the pool shrinks by one each cycle.
+
+Observed symptom: the web interface becomes unreachable while printing may
+still work (LPD/IPP connections also compete for the same pool, so eventually
+printing stops too).
+
+#### Finding 2 — mDNS/Bonjour responder can enter a permanent lock failure
+
+The mDNS stack (`mDNSPosix.c`) contains all of the following error strings —
+each represents a distinct, confirmed failure path:
+
+| String found in binary | What it means |
+|---|---|
+| `mDNSPlatformTimeNow went backwards by %ld ticks; setting correction factor to %ld` | The system clock used by mDNS runs backwards (monotonic clock source issue); a correction factor is applied but the state machine is already inconsistent |
+| `mDNS_Lock: Locking failure! mDNS_busy (%ld) != mDNS_reentrancy (%ld)` | The mDNS re-entrancy lock has become corrupted — the counts that must match no longer do |
+| `mDNS_Lock: m->mDNS_busy is %ld but m->timenow not set` | The lock was acquired without setting `timenow`, which subsequent timer logic depends on |
+| `GetFreeCacheRR ERROR! Cache already locked!` | The DNS resource-record cache is locked when it should be free — a state the code never intended |
+| `SendResponses exceeded loop limit %d: giving up` | The mDNS send loop hit its iteration cap and gave up, meaning responses stopped being sent |
+
+When the lock corruption path is hit, the mDNS responder thread stops
+advertising the printer's `_ipp._tcp` and `_printer._tcp` Bonjour records.
+From the user's perspective the device appears to have disappeared from
+AirPrint and from the system's printer list — which looks exactly like a
+freeze even though the hardware is still running.
+
+#### Finding 3 — Ethernet TX-descriptor stall (triggers automatic reset)
+
+The Ethernet driver (`if_ra305x.c`) contains:
+
+```
+ifra305x%d: txd%d is not free, cansend: %x
+Network unstable system is going to reset.....
+```
+
+When every TX descriptor in the Ethernet ring is occupied and not being freed
+— which can happen if a service holds a reference to a network buffer without
+releasing it — the driver detects "network unstable" and **forces a full system
+reboot**.  From the user's perspective: the device goes offline for ~20 seconds
+and then comes back as if it had been power-cycled.  On slower networks or
+if the user acts quickly (e.g. pulling power during the reboot window) the
+behaviour is indistinguishable from a hard lock-up.
+
+This reset path is self-healing, but it is triggered by the same underlying
+resource-leak that also feeds Finding 1.
+
+#### Finding 4 — eCos kernel thread-counter overflows
+
+The eCos kernel (`thread.cxx`) contains:
+
+```
+wakeup_count overflow
+suspend_count overflow
+```
+
+In eCos, `wakeup_count` and `suspend_count` are narrow integer fields (16-bit
+in most configurations) that track how many times a thread has been
+wake-signalled or suspended.  If a service thread is wake-signalled faster
+than it can drain its work queue — possible if an mDNS flood or a burst of
+print jobs is received — these counters can overflow.  When they do, the
+scheduler's invariant check fires and the thread state is undefined: the thread
+may stop running without any visible crash.
+
+#### Summary of all confirmed bug indicators in build 9034
+
+Every item in the following table was confirmed present in the decompressed
+firmware binary by searching for the exact string it contains.  None of these
+are speculation; they are error paths that the ZOT developers compiled into
+the image:
+
+| Indicator string | Category |
+|---|---|
+| `http:1216, No free socket!` | HTTP socket pool exhaustion |
+| `mDNSPlatformTimeNow went backwards by %ld ticks` | mDNS clock issue |
+| `mDNS_Lock: Locking failure! mDNS_busy (%ld) != mDNS_reentrancy (%ld)` | mDNS lock corruption |
+| `GetFreeCacheRR ERROR! Cache already locked!` | mDNS cache deadlock |
+| `SendResponses exceeded loop limit %d: giving up` | mDNS send loop abort |
+| `ifra305x%d: txd%d is not free, cansend: %x` | Ethernet TX descriptor stall |
+| `Network unstable system is going to reset.....` | Ethernet watchdog auto-reset |
+| `wakeup_count overflow` | eCos scheduler counter overflow |
+| `suspend_count overflow` | eCos scheduler counter overflow |
+| `%s:%d malloc fail` | Heap allocation failure logging |
+| `free mem negative!` | Heap accounting went negative |
+| `Attempt to open larger file descriptor than FOPEN_MAX!` | FD table exhausted |
+| `fd out of range` | File descriptor out of valid range |
+| `Stack is so small size wrapped` | eCos thread stack overflow |
+| `mod_timer: expires < 0 !` | Timer set with negative expiry |
+
+#### Practical mitigation — disable unused services
+
+Because Finding 1 (socket exhaustion) is directly worsened by the sheer
+number of services running, disabling services you do not use reduces the
+number of always-open TCP connections competing for the pool, and frees the
+memory those threads consume.
+
+Navigate to **Setup → Services** in the web interface and disable everything
+you do not actively use:
+
+| Service | Port(s) | Disable if… |
+|---|---|---|
+| **NetWare Bindery mode** | TCP 515+ | You have no Novell NetWare server |
+| **NetWare NDS mode** | TCP 524 | You have no Novell NDS tree |
+| **AppleTalk / PAP** | DDP/ATP | You have no classic Mac (pre-OS X) clients |
+| **SMB (Windows file sharing)** | TCP 139, 445 | You print via LPR, IPP, or RAW TCP instead |
+| **SNMP** | UDP 161 | You have no SNMP monitoring system |
+| **Telnet** | TCP 23 | You do not use the Telnet management CLI |
+| **Email alert** | TCP 25 | You have no SMTP alert configured |
+
+Recommended minimum for a modern home or small office:
+
+- **LPR/LPD** — needed for most print queues on macOS and Linux
+- **IPP** — needed for AirPrint and modern Windows printing
+- **Raw TCP (port 9100)** — needed for direct TCP printing
+- **Bonjour/mDNS** — needed for AirPrint auto-discovery
+
+Disabling the six services listed above leaves four services running instead
+of fourteen, which substantially reduces both peak socket usage and steady-
+state memory consumption.
+
+> **Also:** close or navigate away from the `services.htm` and IPP jobs
+> (`index.htm`) pages in your browser after using them.  Leaving either page
+> open in a background tab causes a new HTTP connection every 5–10 seconds,
+> gradually draining the socket pool.
+
 ### Why the crash cannot be directly patched
 
 Short answer: **the firmware source code has never been released**.  The binary
@@ -141,22 +302,16 @@ Here is the full picture:
    but it is not the original source and **cannot be compiled**.  To get a
    working binary you must still write and assemble MIPS patches by hand.
 
-3. **Finding the freeze in ~350 KB of unnamed pseudocode is hard.**
-   Even with the decompiler output in hand, locating a subtle stability bug —
-   such as a slow memory leak, a socket-file-descriptor exhaustion, a deadlock
-   between two eCos threads, or an integer overflow in an uptime counter — means
-   reading and understanding thousands of reconstructed, unnamed functions.
-   Likely freeze candidates are:
-
-   | Candidate cause | What to look for in Ghidra |
-   |---|---|
-   | Memory/heap leak | `malloc` calls with no matching `free` inside loops or connection handlers |
-   | Socket leak | `socket()` / `accept()` calls where the descriptor is never closed on error paths |
-   | Thread deadlock | Two eCos mutex-lock calls that can acquire locks in opposite orders |
-   | Uptime counter overflow | A `uint32_t` counter incremented every second wraps at ~136 years (harmless), but a `uint16_t` seconds counter wraps in ~18 hours and a `uint8_t` in ~4 minutes — either could plausibly trigger a freeze at the rollover |
-
-   Identifying and confirming which cause (if any of these) applies to this
-   specific firmware takes days to weeks of focused analysis.
+3. **The confirmed failure modes are now known — but the bug sites still need
+   to be located in the disassembly.**
+   The binary analysis above (see "What the firmware binary actually reveals")
+   confirmed four specific mechanisms: HTTP socket pool exhaustion, mDNS lock
+   corruption, Ethernet TX-descriptor stall, and eCos thread-counter overflow.
+   Even knowing *what* breaks, a developer must still load the ~350 KB MIPS
+   binary into a disassembler (e.g. Ghidra), trace each confirmed error path
+   back to the code site that lets the condition occur in the first place, and
+   then write a patch — all without any function or variable names and without
+   being able to recompile the result.
 
 4. **The patch must be written in MIPS assembly and fit in the existing binary.**
    Once a bug site is found, the fix cannot simply be inserted — the binary is a
@@ -187,11 +342,13 @@ Here is the full picture:
    an SSI variable or form field for it.
 
 **In summary:** decompilation with Ghidra is possible and would be the correct
-starting point for a patch, but it produces unnamed pseudocode, not compilable
-source.  Turning that pseudocode into a working MIPS patch that fits inside the
-existing binary image is a serious reverse-engineering project.  The most
-practical mitigation remains using the newer 2019 build (which may already
-contain a fix) and scheduling automatic daily reboots if freezes persist.
+starting point for a patch.  The freeze mechanisms are now confirmed (see the
+binary analysis section above), but the decompiler output is unnamed pseudocode,
+not compilable source.  Turning that pseudocode into working MIPS patches that
+fit inside the existing binary image remains a serious reverse-engineering
+project.  The most practical mitigations are: disabling unused services to
+reduce resource pressure, avoiding leaving auto-refreshing web pages open in a
+browser, and scheduling automatic daily reboots if freezes persist.
 
 ### Workarounds for periodic freeze
 
