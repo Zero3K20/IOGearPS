@@ -87,6 +87,255 @@ to the attached USB printer:
 > ⚠️ These files target **different hardware** — see [COMPATIBILITY.md](COMPATIBILITY.md)
 > for the full hardware breakdown before flashing.
 
+---
+
+## Emergency Recovery — Bricked GPSU21
+
+If the device no longer responds after a firmware flash (web interface unreachable,
+device does not appear on the network), follow these steps in order from easiest to
+hardest.
+
+### Step 1 — Wait and check recovery IP
+
+Some ZOT firmware builds enter a recovery/rescue mode automatically when the
+application image is corrupt.  After powering on, wait **60 seconds**, then try:
+
+```
+ping 192.168.0.1
+http://192.168.0.1/
+```
+
+Also try the device's **last known IP address** (the one it used before it stopped
+responding) in case it kept its previous network configuration.
+
+If the device responds, it may be running a minimal recovery web server.  Upload
+the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that page
+(extract it from `MPS56_90956F_9034_20191119.zip` in this repository first).
+
+> **"Request timed out" / "Unable to connect"?**  Before concluding that Step 1
+> has failed, check for a **subnet mismatch**.  The recovery image uses the fixed
+> IP `192.168.0.1`.  If your home router hands out addresses on a *different*
+> subnet (e.g. `192.168.1.x`, `10.0.0.x`, `172.16.x.x`) the router will never
+> forward packets to `192.168.0.1` — so the ping times out even though the device
+> is alive and waiting.  **Try the direct-connection method below first.**
+
+#### Direct connection (bypasses the router — recommended first attempt)
+
+1. **Connect the GPSU21 directly to your PC** with an Ethernet cable.  If your PC
+   has no Ethernet port, use a **USB-to-Ethernet adapter** (any USB 2.0/3.0 to
+   10/100 adapter works).
+2. **Assign your PC's Ethernet adapter a static IP on the same subnet:**
+
+   - **Windows:** Control Panel → Network and Sharing Center → Change adapter
+     settings → right-click the Ethernet adapter → Properties →
+     *Internet Protocol Version 4 (TCP/IPv4)* → *Use the following IP address*:
+     - IP address: `192.168.0.100`
+     - Subnet mask: `255.255.255.0`
+     - Default gateway: *(leave blank)*
+     → OK
+   - **macOS:** System Preferences → Network → select the Ethernet adapter →
+     Configure IPv4: *Manually* → IP Address: `192.168.0.100`,
+     Subnet Mask: `255.255.255.0` → Apply
+   - **Linux:** `sudo ip addr add 192.168.0.100/24 dev eth0`
+     *(replace `eth0` with your adapter name shown by `ip link`)*
+
+3. Power on the GPSU21 and wait **60 seconds**.
+4. Try again:
+   ```
+   ping 192.168.0.1
+   ```
+   Then open `http://192.168.0.1/` in a browser.
+5. **After recovery, restore your network settings:**
+
+   - **Windows:** Return to the TCP/IPv4 properties dialog (same path as above)
+     and select *Obtain an IP address automatically* → OK
+   - **macOS:** Return to Network preferences → Configure IPv4: *Using DHCP* →
+     Apply
+   - **Linux:** `sudo ip addr del 192.168.0.100/24 dev eth0 && sudo dhclient eth0`
+     *(or restart your network service — e.g.
+     `sudo systemctl restart NetworkManager` on most distros,
+     `sudo systemctl restart systemd-networkd` on systemd-networkd systems)*
+
+> **Still timing out?**  The ZOT rescue web server is only present in a small
+> subset of firmware revisions.  If there is no response after the direct
+> connection, skip to Step 2 — U-Boot is stored in a separate flash partition
+> and is almost always still intact, so UART recovery will work.
+
+### Step 2 — UART + U-Boot recovery (recommended before IC programmer)
+
+The GPSU21's MT7688 SoC boots U-Boot before loading the application firmware.
+If only the application partition is corrupt, U-Boot is still functional and can
+reflash the firmware over the network — **no hardware programmer is required**.
+
+#### Hardware needed
+
+- USB-to-TTL UART adapter (3.3 V logic; CP2102, CH340, FTDI, or similar)
+- A computer with a terminal emulator (PuTTY, minicom, screen)
+- Fine-tipped soldering iron and solder *(optional — see "No-solder connection" below)*
+
+#### Finding the UART pads
+
+Open the GPSU21 enclosure.  On the PCB look for a row of unpopulated 2.54 mm
+through-holes or test pads labelled **TX**, **RX**, and **GND** (sometimes also
+**3V3** / **VCC**).  These pads are typically near the MT7688 SoC.
+
+Connect your adapter:
+
+| Adapter pin | GPSU21 pad |
+|-------------|------------|
+| GND         | GND        |
+| RX          | TX         |
+| TX          | RX         |
+
+> ⚠️ Do **not** connect the adapter's 3.3 V / 5 V power pin to the board —
+> power the GPSU21 from its own USB or barrel-jack supply.
+
+#### No-solder connection (solder-free alternatives)
+
+**Soldering is not required** if you are comfortable holding the connection steady
+while the terminal session is active.  Two common no-solder methods:
+
+1. **Press-fit jumper wires (easiest — works with 2.54 mm through-holes)**
+   Insert the male end of a Dupont/jumper wire into each through-hole and tilt it
+   slightly so the wire presses against the barrel of the hole.  The friction is
+   enough to keep contact.  Hold the board flat on a table while working so the
+   wires stay in place.  You only need to hold the interrupt key for ~1–2 seconds
+   at boot — after that the U-Boot console is interactive and the wires can rest
+   undisturbed.
+
+2. **Pogo-pin probes (works with both through-holes and bare test pads)**
+   Spring-loaded pogo pins (available cheaply as "IC test hook clips" or
+   "PCB probe pins") press against pads without any soldering.  Tape or clip them
+   in place, or hold them by hand, for the duration of the session.
+
+#### Entering the U-Boot console
+
+1. Open a terminal at **57600 baud, 8N1** (no hardware flow control).
+2. Power on the GPSU21.
+3. When you see `Hit any key to stop autoboot`, press a key immediately
+   (you have ~1–2 seconds).
+
+You should now see a `MT7688 #` or `zot #` prompt.
+
+#### Reflashing via TFTP
+
+Set up a TFTP server on your computer (e.g. *tftpd-hpa* on Linux,
+*SolarWinds TFTP Server* or *Tftpd64* on Windows) and copy
+`MPS56_90956F_9034_20191119.bin` (extracted from the ZIP in this repository)
+to its root directory.
+
+Then at the U-Boot prompt:
+
+```
+setenv ipaddr   192.168.0.1       # temporary IP for the GPSU21
+setenv serverip 192.168.0.100     # IP address of your computer
+# 0x80500000 = DRAM load address from the uImage header (load_addr field)
+tftpboot 0x80500000 MPS56_90956F_9034_20191119.bin
+```
+
+If the download succeeds, run the ZOT upgrade command to write the firmware to
+flash.  The exact command varies by U-Boot build; try:
+
+```
+run upgradefirmware
+```
+
+or, if that is not defined, use the manual erase-and-copy approach.  First run
+`printenv` to find the firmware partition start address (look for variables named
+`fwaddr`, `firmware_addr`, or similar):
+
+```
+# Example only — use the actual addresses from printenv on YOUR device.
+# The erase range must cover the entire firmware partition.
+erase 0x9C050000 +0x600000
+cp.b 0x80500000 0x9C050000 ${filesize}
+```
+
+> **Always use `printenv` to find the correct addresses** — the flash partition
+> start address and partition size vary by U-Boot build.  Any variable containing
+> `firmware`, `upgrade`, or `fwaddr` will show the correct values for your device.
+
+After writing, reboot:
+
+```
+reset
+```
+
+### Step 3 — IC programmer (last resort)
+
+Use an IC programmer only if U-Boot itself is also corrupt (the device shows no
+UART output at all and the ping/recovery-IP steps above produce no result).
+
+> ⚠️ **The firmware `.bin` file in this repository is NOT a full flash dump.**
+> It is the application firmware partition only (~342 KB).  Flashing it at
+> offset 0 will overwrite U-Boot and make recovery harder.  Before using a
+> programmer, obtain a **full flash dump** from a working GPSU21 unit.
+
+#### Identifying the flash chip
+
+The GPSU21's SPI NOR flash chip is an 8-pin package (SOIC-8 or WSON-8) located
+near the MT7688 SoC.  Read the part number printed on the chip.  The eCos
+firmware supports:
+
+| Manufacturer | Part numbers |
+|---|---|
+| Macronix | MX25L1605D, MX25L3205D, MX25L6405D, MX25L12805D |
+| Winbond | W25Q16DV, W25Q32BV, W25Q128BV |
+| GigaDevice | GD25Q32B |
+| Atmel/Adesto | AT25DF321 |
+
+All are standard SPI NOR flash chips compatible with common programmers.
+
+#### Programmer hardware
+
+Any programmer that supports SPI NOR flash and the SOP8/WSON8 package works:
+
+| Programmer | Notes |
+|---|---|
+| CH341A (MiniProgrammer) | Inexpensive; widely available; works with NeoProgrammer, AsProgrammer, flashrom |
+| RT809F / RT809H | Faster; more chip support |
+| XGECU T48 / T56 | Full-featured; higher cost |
+
+For **in-circuit programming** (chip stays on the board) use a SOP8 test clip.
+For a cleaner read/write, desolder the chip and use a ZIF or SOP8 socket adapter.
+
+#### Software
+
+| OS | Software |
+|---|---|
+| Windows | [NeoProgrammer](https://github.com/a3130/NeoProgrammer) (free), [AsProgrammer](https://github.com/nofeletru/UsbAsp-flash) (free) |
+| Linux / macOS | [flashrom](https://flashrom.org/) (`sudo apt install flashrom` on Debian/Ubuntu) |
+
+#### Recovery procedure
+
+1. **Obtain a full flash dump** from another working GPSU21 (use the programmer
+   to read the entire chip, e.g. `flashrom -p ch341a_spi -r gpsu21_flash_backup.bin`).
+2. Identify the flash chip on the bricked board.
+3. Connect the programmer to the chip (in-circuit with a clip, or desoldered).
+4. Write the full dump:
+   ```
+   flashrom -p ch341a_spi -w gpsu21_flash_backup.bin
+   ```
+5. Verify the write:
+   ```
+   flashrom -p ch341a_spi -v gpsu21_flash_backup.bin
+   ```
+6. Reinstall the chip (if desoldered) and power on the device.
+
+### Prevention — back up your flash before flashing
+
+Before flashing any modified firmware:
+
+```
+# Read the current full flash contents (via flashrom + CH341A):
+flashrom -p ch341a_spi -r gpsu21_flash_BACKUP_$(date +%Y%m%d).bin
+
+# Keep this file safe — it is your recovery image.
+```
+
+A backup lets you restore the device to its exact previous state without needing
+to find a donor unit.
+
 ## Flashing the Firmware
 
 ### IOGear PS-1206U
