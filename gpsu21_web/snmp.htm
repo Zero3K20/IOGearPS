@@ -9,14 +9,6 @@ TitleModelName();
 </script>
 <LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
 </HEAD>
-<SCRIPT language="JavaScript">
-function onJobLog()
-{
-var strFeatures="left=24,screenX=24,top=24,screenY=24,width=600,height=420,scrollbars=1,resizable=1";
-newwindow=window.open("joblog.htm","",strFeatures);
-return false;
-}
-</script>
 <CENTER>
 <!-- Corpo (Body) -->
 <SCRIPT language="JavaScript">
@@ -165,6 +157,7 @@ break;
 <tr>
 <td width="1024" bgcolor="#CBCDCC">
 <!-- Tabela 1 -->
+<div style="max-height:240px;overflow-y:auto;">
 <table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
 <tr>
 <td height="29" colspan="10" class="s1">
@@ -187,16 +180,11 @@ break;
 <td bgcolor="#FFFFFF"></td>
 </tr>
 <tr bgcolor="#FFFFFF"> <TD></TD>
-<!--# echo var="CurJOBList"-->	
+<!--# echo var="IPPJobs"-->	
 <TD></TD>	
-</tr>					
-<tr>
-<td height="50" colspan="10" align="right" class="vJL">
-<a href="#" onClick="return onJobLog();">
-<Script Language="JavaScript">showtext(textindex++);</script></a>
-</td>
 </tr>
 </table>
+</div>
 </td>
 </tr>
 <!-- Nada (Nothing) -->
@@ -205,5 +193,6 @@ break;
 </tr>
 </table>
 </table>
+<script>setTimeout(function(){location.reload();},15000);</script>
 </body>
 </html>
