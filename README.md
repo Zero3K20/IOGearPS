@@ -165,7 +165,43 @@ python --version
 python3 --version
 ```
 
-### Firmware layout
+---
+
+### IOGear GPSU21 firmware tools
+
+The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) uses **eCos RTOS** on
+a MediaTek MT7688 MIPS SoC.  All 61 web interface files — HTML pages,
+JavaScript, CSS, and JPEG/GIF images — are stored **uncompressed inside the
+LZMA-compressed eCos binary** and can be extracted and repacked.
+
+```
+# Step 1 — Extract all web files
+# Windows:
+python tools\unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\
+# macOS / Linux:
+python3 tools/unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/
+
+# Step 2 — Edit files in gpsu21_extracted/ with any text editor
+#           (HTML pages, JS, CSS — keep file sizes the same or smaller)
+
+# Step 3 — Repack
+# Windows:
+python tools\repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\  gpsu21_modified.bin
+# macOS / Linux:
+python3 tools/repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/  gpsu21_modified.bin
+
+# Step 4 — Flash gpsu21_modified.bin via the GPSU21 web upgrade page
+```
+
+> **Size constraint:** each edited file must be ≤ its original size.
+> Pad shorter files with spaces or HTML comments to fill the gap.
+> See `tools/repack_gpsu21.py` for details.
+
+---
+
+### IOGear PS-1206U firmware tools
+
+#### Firmware layout
 
 ```
 0x00000   32 bytes   Header 1 ("Edimax8820 MTYPE/")

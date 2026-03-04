@@ -80,6 +80,7 @@ Internal device identifiers:
 - OEM model path: `pu211`
 - uImage name: `zot716u2`
 - CPU: `MT7688`
+- RTOS: **eCos** (confirmed by `cyg_flash_erase` and `ecosif_input` symbols in binary)
 
 ### Firmware in this repository
 
@@ -93,7 +94,7 @@ GPSU21:
 | Build date | 2019/11/19 13:00:10 |
 | File inside ZIP | `MPS56_90956F_9034_20191119.bin` |
 | Uncompressed size | 350,428 bytes |
-| Format | 256-byte ZOT header + uImage header + compressed payload |
+| Format | 256-byte ZOT header + uImage header + LZMA-compressed eCos binary |
 | CPU architecture | MIPS (MediaTek MT7688) |
 
 > Earlier builds of this same 9.09.56 series also exist (e.g. build 9032
@@ -113,6 +114,45 @@ Example from this firmware:
 ```
 MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10
 ```
+
+### Extracting and modifying the web interface
+
+The GPSU21 firmware is a single LZMA-compressed eCos binary.  All web
+interface files — HTML pages, JavaScript, CSS, and JPEG/GIF images — are
+stored **uncompressed inside that binary** and can be extracted, edited, and
+repacked using the tools in this repository.
+
+```
+# Windows (pass the .zip directly):
+python tools\unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\
+
+# macOS / Linux:
+python3 tools/unpack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/
+```
+
+This produces a directory containing 61 files:
+
+| Category | Files | Examples |
+|----------|-------|---------|
+| HTML pages | 28 | `IPP.HTM`, `UPGRADE.HTM`, `SYSTEM.HTM`, `TCPIP.HTM` |
+| JavaScript | 11 | `status.js`, `setup.js`, `navigator.htm` |
+| CSS | 1 | `basic_style.css` |
+| JPEG images | 15 | `images/InfoImg.jpg`, `images/MenuBtn-CS-*.jpg` |
+| GIF images | 2 | `images/disabled2.gif`, `images/enabled2.gif` |
+
+Edit any file, then repack and flash:
+
+```
+# Windows:
+python tools\repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted\  gpsu21_modified.bin
+
+# macOS / Linux:
+python3 tools/repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_extracted/  gpsu21_modified.bin
+```
+
+> **Size constraint:** each edited file must be the **same size or smaller**
+> than the original.  If you need to shorten a file, pad it to the original
+> size with spaces or HTML comments.  See `tools/repack_gpsu21.py` for details.
 
 ### Flashing the GPSU21
 
@@ -137,8 +177,9 @@ https://www.zot.com.tw/zot-file/pu211/MPS56_90956F_9034_20191119.zip
 
 ## AirPrint on the GPSU21
 
-The GPSU21 runs a Linux-based firmware with an IPP server.  To enable AirPrint
-discovery, use the same mDNS advertisement approach as the PS-1206U:
+The GPSU21 runs an **eCos**-based firmware with a built-in IPP server.  To
+enable AirPrint discovery, use the same mDNS advertisement approach as the
+PS-1206U:
 
 - **Windows:** run `airprint\windows-bonjour.bat` (edit the IP address first)
 - **Linux:** deploy `airprint/IOGear-PS1206U.service` with Avahi
