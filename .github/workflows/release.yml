@@ -57,8 +57,8 @@ jobs:
         id: ecos-src-cache
         uses: actions/cache@v4
         with:
-          path: ecos-src
-          key: ecos-src-ecos-3.0-aarnet
+          path: ecos-3.0
+          key: ecos-src-ecos-3.0-aarnet-v2
 
       - name: Download official eCos 3.0 release from aarnet mirror
         if: steps.ecos-src-cache.outputs.cache-hit != 'true'
@@ -70,22 +70,20 @@ jobs:
           curl -fL "${ECOS_RELEASE_URL}/sha512.sum" \
             | grep "ecos-3.0.i386linux.tar.bz2" \
             | (cd /tmp && sha512sum --check)
-          # Extract directly into ecos-src/, stripping the single top-level
-          # directory from the tarball so downstream steps use a stable path.
-          mkdir -p ecos-src
-          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2 --strip-components=1 -C ecos-src
+          # Extract the tarball; it unpacks into an ecos-3.0/ subdirectory.
+          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2
           rm /tmp/ecos-3.0.i386linux.tar.bz2
 
       # ── ecosconfig host tool ──────────────────────────────────────────────
       # The eCos 3.0 i386linux tarball includes the host tools source tree
-      # (ecos-src/host/configure), so ecosconfig is still built from source.
+      # (ecos-3.0/configure), so ecosconfig is still built from source.
       # Cache key is fixed to the eCos 3.0 release.
       - name: Cache ecosconfig host tool
         id: ecosconfig-cache
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/ecos-host
-          key: ecosconfig-${{ runner.os }}-ecos-3.0-aarnet
+          key: ecosconfig-${{ runner.os }}-ecos-3.0-aarnet-v2
 
       - name: Build ecosconfig host tool
         if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
@@ -93,7 +91,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ecos-host"
           mkdir -p "$RUNNER_TEMP/ecos-host-build"
           cd "$RUNNER_TEMP/ecos-host-build"
-          "$GITHUB_WORKSPACE/ecos-src/host/configure" --prefix="$RUNNER_TEMP/ecos-host"
+          "$GITHUB_WORKSPACE/ecos-3.0/configure" --prefix="$RUNNER_TEMP/ecos-host"
           make -j1
           make install
 
@@ -108,7 +106,7 @@ jobs:
       # ecosconfig to register packages from that directory twice.
       - name: Set ECOS_REPOSITORY
         run: |
-          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-src/packages" \
+          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-3.0/packages" \
             >> "$GITHUB_ENV"
 
       - name: Cache eCos kernel build
