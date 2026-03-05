@@ -44,7 +44,7 @@
 
 /* Service names */
 #define MDNS_HOSTNAME           "gpsu21"
-#define MDNS_SERVICE_NAME       "IOGear GPSU21"
+#define MDNS_SERVICE_NAME       "IOGear-GPSU21"
 #define MDNS_SERVICE_TYPE       "_ipp._tcp"
 #define MDNS_DOMAIN             "local"
 #define MDNS_PORT_IPP           631
@@ -129,10 +129,7 @@ static int build_announcement(dns_msg_t *m, uint32_t my_ip)
     char fqst[64];    /* service type.domain */
     uint8_t txt_rdata[256];
     int     txt_len;
-    char    srv_rdata[128];
-    int     srv_len;
     char    name_buf[128];
-    int     save_len;
     uint32_t ip_be;
 
     memset(m, 0, sizeof(*m));
@@ -197,8 +194,6 @@ static int build_announcement(dns_msg_t *m, uint32_t my_ip)
             memcpy(m->buf + m->len, tmp.buf, (size_t)tmp.len);
             m->len += tmp.len;
         }
-        (void)srv_rdata;
-        (void)srv_len;
     }
 
     /* ── TXT record with AirPrint capability key-value pairs ── */
@@ -238,7 +233,6 @@ static int build_announcement(dns_msg_t *m, uint32_t my_ip)
             memcpy(m->buf + m->len, txt_rdata, (size_t)txt_len);
             m->len += txt_len;
         }
-        (void)txt_rdata;
     }
 
     /* ── A record: <hostname>.local → <my IP address> ── */
@@ -248,9 +242,6 @@ static int build_announcement(dns_msg_t *m, uint32_t my_ip)
         memcpy(m->buf + m->len, &ip_be, 4);
         m->len += 4;
     }
-
-    (void)save_len;
-    (void)name_buf;
 
     return m->len;
 }
