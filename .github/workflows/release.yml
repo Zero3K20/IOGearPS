@@ -76,7 +76,6 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/ecos-host"
           cd ecos-src/host
-          autoreconf -fi
           ./configure --prefix="$RUNNER_TEMP/ecos-host"
           make -j$(nproc)
           make install
