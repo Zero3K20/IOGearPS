@@ -1,0 +1,130 @@
+# hal_mips_ralink_mt7688.cdl
+#
+# eCos Component Description Language (CDL) file for the MediaTek MT7688
+# MIPS32 SoC platform HAL.
+#
+# The MT7688 is a MIPS32r2 little-endian SoC from Ralink / MediaTek used in
+# the IOGear GPSU21 / ZOT Technology pu211 print server.  It runs at 580 MHz
+# with 64 MB SDRAM and 8 MB SPI NOR flash.
+#
+# This HAL builds on top of the generic MIPS32 architecture HAL
+# (CYGPKG_HAL_MIPS_MIPS32) and adds:
+#   - MT7688 clock and peripheral base addresses
+#   - UART0 diagnostic I/O (57600-8N1)
+#   - RAM startup memory layout (bootloader loads the image into DRAM)
+#   - Interrupt controller definitions (MIPS32 HW interrupts 0-5)
+
+cdl_package CYGPKG_HAL_MIPS_RALINK_MT7688 {
+    display       "Ralink/MediaTek MT7688 MIPS SoC HAL"
+    parent        CYGPKG_HAL_MIPS
+    hardware
+
+    include_dir   cyg/hal
+
+    requires      CYGPKG_HAL_MIPS_MIPS32
+
+    description   "
+        HAL support for the MediaTek MT7688 MIPS32r2 little-endian SoC.
+        Provides board startup, memory layout, UART I/O, and interrupt
+        handling needed to run eCos on the IOGear GPSU21 print server."
+
+    # Source files compiled into libtarget.a
+    compile       mt7688_startup.c
+
+    # Generated configuration header
+    define_header hal_mips_ralink_mt7688.h
+
+    # Pull in the parent HAL config headers so that platform code can use
+    # the full eCos HAL API without additional includes.
+    define_proc {
+        puts $::cdl_header "#include <pkgconf/hal_mips.h>"
+        puts $::cdl_header "#include <pkgconf/hal_mips_mips32.h>"
+    }
+
+    # ── Startup type ────────────────────────────────────────────────────────
+    # Only RAM startup is supported: the ZOT / U-Boot bootloader always
+    # decompresses the eCos image into DRAM before handing control to it.
+    cdl_component CYG_HAL_STARTUP {
+        display       "Startup type"
+        flavor        data
+        legal_values  { "RAM" }
+        default_value { "RAM" }
+        no_define
+        define -file system.h CYG_HAL_STARTUP
+        description   "
+            The MT7688 firmware is always loaded into RAM by the bootloader
+            (U-Boot / ZOT loader), so only RAM startup is needed."
+    }
+
+    # ── CPU clock ───────────────────────────────────────────────────────────
+    cdl_option CYGHWR_HAL_MIPS_CPU_FREQ {
+        display       "CPU clock frequency (MHz)"
+        flavor        data
+        legal_values  { 580 }
+        default_value { 580 }
+        description   "The MT7688 runs at 580 MHz."
+    }
+
+    # ── Debug UART ──────────────────────────────────────────────────────────
+    cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_DEFAULT {
+        display       "Default debug console channel"
+        flavor        data
+        legal_values  0 to 1
+        default_value 0
+        description   "UART0 is the default debug port."
+    }
+
+    cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_BAUD {
+        display       "Default baud rate"
+        flavor        data
+        legal_values  { 9600 19200 38400 57600 115200 }
+        default_value 57600
+        description   "57600 bps matches the stock ZOT firmware."
+    }
+
+    # ── Memory layout ────────────────────────────────────────────────────────
+    # eCos loads at 0x80000400 — the first 1 KiB of KSEG0 is reserved for
+    # the MIPS exception vectors.  The MT7688 has 64 MB SDRAM.
+    cdl_component CYGHWR_MEMORY_LAYOUT {
+        display       "Memory layout"
+        flavor        data
+        no_define
+        calculated    { "mips_mt7688_ram" }
+
+        cdl_option CYGHWR_MEMORY_LAYOUT_LDI {
+            display       "Linker description include"
+            flavor        data
+            no_define
+            calculated    { "<pkgconf/mlt_mips_mt7688_ram.ldi>" }
+        }
+
+        cdl_option CYGHWR_MEMORY_LAYOUT_H {
+            display       "Memory layout header"
+            flavor        data
+            no_define
+            calculated    { "<pkgconf/mlt_mips_mt7688_ram.h>" }
+        }
+    }
+
+    # ── Build flags ──────────────────────────────────────────────────────────
+    cdl_component CYGPKG_HAL_MIPS_RALINK_MT7688_OPTIONS {
+        display   "Build options"
+        flavor    none
+        no_define
+
+        cdl_option CYGPKG_HAL_MIPS_RALINK_MT7688_CFLAGS_ADD {
+            display       "Compiler flags"
+            flavor        data
+            no_define
+            default_value { "-march=mips32r2 -EL -msoft-float" }
+            description   "Extra flags for building the MT7688 HAL sources."
+        }
+
+        cdl_option CYGPKG_HAL_MIPS_RALINK_MT7688_CFLAGS_REMOVE {
+            display       "Removed compiler flags"
+            flavor        data
+            no_define
+            default_value { "" }
+        }
+    }
+}
