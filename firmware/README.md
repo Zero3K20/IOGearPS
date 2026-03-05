@@ -28,8 +28,13 @@ sudo apt-get install gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu
 
 ### Obtain eCos
 
+Use the GitHub mirror and check out the pinned commit to match the CI build
+exactly.  The canonical SourceForge repository may contain newer commits that
+have not yet been mirrored and could produce a different build.
+
 ```sh
-git clone https://git.code.sf.net/p/ecos/ecos ecos-src
+git clone https://github.com/ecos-rtos/ecos.git ecos-src
+git -C ecos-src checkout 597406b2dc19969f7e8ea72ee60af55d1c1b86a0
 export ECOS_REPOSITORY=$PWD/ecos-src/packages
 ```
 
