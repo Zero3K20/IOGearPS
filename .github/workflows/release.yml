@@ -18,9 +18,10 @@ jobs:
       CROSS_COMPILE: mipsel-linux-gnu-
       # Output firmware image path
       FW_OUT: firmware/build/gpsu21_ecos.bin
-      # Monthly cache-bust token — ensures eCos source and ecosconfig are
-      # refreshed once per month to pick up upstream fixes.
-      CACHE_MONTH: "2026-03"
+      # Base URL for the official eCos 3.0 release directory — contains the
+      # complete package tree (including net/lwip_tcpip / CYGPKG_NET_LWIP)
+      # plus host tools source.
+      ECOS_RELEASE_URL: "https://mirror.aarnet.edu.au/pub/sourceware/ecos/releases/ecos-3.0"
 
     steps:
       - name: Checkout repository
@@ -47,31 +48,45 @@ jobs:
             libtool
 
       # ── eCos source ───────────────────────────────────────────────────────
-      # Cache keyed on ecos.ecc content + year-month so we pick up upstream
-      # security/bug fixes automatically once per month.
+      # The official eCos 3.0 release tarball is used instead of the GitHub
+      # mirror because it contains the complete package tree, including
+      # net/lwip_tcpip (CYGPKG_NET_LWIP) and all other packages referenced in
+      # firmware/ecos.ecc.  The cache key is fixed to the release version since
+      # the tarball is immutable; no monthly bust token is required.
       - name: Cache eCos source tree
         id: ecos-src-cache
         uses: actions/cache@v4
         with:
           path: ecos-src
-          key: ecos-src-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
+          key: ecos-src-ecos-3.0-aarnet
 
-      - name: Checkout eCos source from GitHub mirror
+      - name: Download official eCos 3.0 release from aarnet mirror
         if: steps.ecos-src-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth=1 https://github.com/ecos-rtos/ecos.git ecos-src
+          # Download tarball with its canonical filename for checksum verification.
+          curl -fL "${ECOS_RELEASE_URL}/ecos-3.0.i386linux.tar.bz2" \
+            -o /tmp/ecos-3.0.i386linux.tar.bz2
+          # Verify integrity against the mirror's published SHA-512 checksum.
+          curl -fL "${ECOS_RELEASE_URL}/sha512.sum" \
+            | grep "ecos-3.0.i386linux.tar.bz2" \
+            | (cd /tmp && sha512sum --check)
+          # Discover the top-level directory name inside the tarball (e.g. ecos-3.0)
+          # and rename it to ecos-src so downstream steps use a stable path.
+          TOP=$(tar -tjf /tmp/ecos-3.0.i386linux.tar.bz2 | head -1 | cut -d/ -f1)
+          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2
+          mv "$TOP" ecos-src
+          rm /tmp/ecos-3.0.i386linux.tar.bz2
 
       # ── ecosconfig host tool ──────────────────────────────────────────────
-      # Cache key uses the same month token as the eCos source cache so both
-      # are refreshed together.  hashFiles on ecos-src/host/** is intentionally
-      # NOT used here because ecos-src may be restored from cache (not cloned),
-      # which means the directory may not exist when actions/cache evaluates the key.
+      # The eCos 3.0 i386linux tarball includes the host tools source tree
+      # (ecos-src/host/configure), so ecosconfig is still built from source.
+      # Cache key is fixed to the eCos 3.0 release.
       - name: Cache ecosconfig host tool
         id: ecosconfig-cache
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/ecos-host
-          key: ecosconfig-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
+          key: ecosconfig-${{ runner.os }}-ecos-3.0-aarnet
 
       - name: Build ecosconfig host tool
         if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
