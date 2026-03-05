@@ -10,13 +10,17 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish firmware release
+    name: Build GPSU21 firmware from eCos source
     runs-on: ubuntu-latest
 
     env:
-      GPSU21_ZIP: MPS56_90956F_9034_20191119.zip
-      GPSU21_WEB: gpsu21_web
-      GPSU21_OUT: GPSU21_modified.bin
+      # MIPS little-endian cross-toolchain prefix
+      CROSS_COMPILE: mipsel-linux-gnu-
+      # Output firmware image path
+      FW_OUT: firmware/build/gpsu21_ecos.bin
+      # Monthly cache-bust token — ensures eCos source and ecosconfig are
+      # refreshed once per month to pick up upstream fixes.
+      CACHE_MONTH: "2026-03"
 
     steps:
       - name: Checkout repository
@@ -27,36 +31,130 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Rebuild the GPSU21 firmware from the web sources in gpsu21_web/
-      - name: Build modified GPSU21 firmware
+      # ── Toolchain & build prerequisites ──────────────────────────────────
+      - name: Install MIPS cross-compiler and eCos build prerequisites
         run: |
-          python3 tools/repack_gpsu21.py \
-            "$GPSU21_ZIP" \
-            "$GPSU21_WEB" \
-            "$GPSU21_OUT"
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            gcc-mipsel-linux-gnu \
+            binutils-mipsel-linux-gnu \
+            tcl \
+            tcl-dev \
+            autoconf \
+            automake \
+            libtool
 
-      # Apply all binary patches: mDNS/Bonjour lock counter resync,
-      # eCos wakeup_count overflow bypass, HTML auto-refresh removal
-      - name: Apply binary patches to GPSU21 firmware
+      # ── eCos source ───────────────────────────────────────────────────────
+      # Cache keyed on ecos.ecc content + year-month so we pick up upstream
+      # security/bug fixes automatically once per month.
+      - name: Cache eCos source tree
+        id: ecos-src-cache
+        uses: actions/cache@v4
+        with:
+          path: ecos-src
+          key: ecos-src-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
+
+      - name: Clone eCos source
+        if: steps.ecos-src-cache.outputs.cache-hit != 'true'
         run: |
-          python3 tools/patch_gpsu21.py \
-            "$GPSU21_OUT" \
-            GPSU21_patched.bin
-          mv GPSU21_patched.bin "$GPSU21_OUT"
+          git clone --depth=1 https://git.code.sf.net/p/ecos/ecos ecos-src
 
-      - name: Verify firmware files exist
+      # ── ecosconfig host tool ──────────────────────────────────────────────
+      # Cache key uses the same month token as the eCos source cache so both
+      # are refreshed together.  hashFiles on ecos-src/host/** is intentionally
+      # NOT used here because ecos-src may be restored from cache (not cloned),
+      # which means the directory may not exist when actions/cache evaluates the key.
+      - name: Cache ecosconfig host tool
+        id: ecosconfig-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ecos-host
+          key: ecosconfig-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
+
+      - name: Build ecosconfig host tool
+        if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
         run: |
-          missing=0
-          for f in "$GPSU21_OUT"; do
-            if [ ! -f "$f" ]; then
-              echo "ERROR: expected firmware file not found: $f"
-              missing=1
-            else
-              echo "OK: $f ($(stat -c%s "$f") bytes)"
-            fi
-          done
-          [ "$missing" -eq 0 ] || exit 1
+          mkdir -p "$RUNNER_TEMP/ecos-host"
+          cd ecos-src/host
+          autoreconf -fi
+          ./configure --prefix="$RUNNER_TEMP/ecos-host"
+          make -j$(nproc)
+          make install
 
+      - name: Add ecosconfig to PATH
+        run: echo "$RUNNER_TEMP/ecos-host/bin" >> "$GITHUB_PATH"
+
+      # ── eCos kernel build ─────────────────────────────────────────────────
+      # ECOS_REPOSITORY includes:
+      #   1. the mainline eCos packages from the git clone
+      #   2. firmware/hal/ — the MT7688 platform HAL provided in this repo
+      - name: Set ECOS_REPOSITORY
+        run: |
+          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-src/packages:$GITHUB_WORKSPACE/firmware/hal" \
+            >> "$GITHUB_ENV"
+
+      - name: Cache eCos kernel build
+        id: ecos-kernel-cache
+        uses: actions/cache@v4
+        with:
+          path: firmware/ecos_build
+          key: ecos-kernel-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc', 'firmware/hal/**') }}
+
+      - name: Configure and build eCos kernel library
+        if: steps.ecos-kernel-cache.outputs.cache-hit != 'true'
+        run: |
+          make -C firmware ecos-build \
+            CROSS_COMPILE="$CROSS_COMPILE"
+
+      # ── Application + firmware image ──────────────────────────────────────
+      - name: Build application and package firmware
+        run: |
+          make -C firmware app-build firmware \
+            CROSS_COMPILE="$CROSS_COMPILE"
+
+      # ── Verification ──────────────────────────────────────────────────────
+      - name: Verify firmware image structure and checksums
+        run: |
+          python3 - <<'PYEOF'
+          import struct, zlib, lzma, sys, os
+
+          fw_path = os.environ["FW_OUT"]
+          with open(fw_path, "rb") as f:
+              fw = f.read()
+
+          # ZOT header magic
+          magic = struct.unpack_from("<I", fw, 4)[0]
+          assert magic == 0x68617964, f"Bad ZOT magic: {magic:#010x}"
+
+          # U-Boot uImage magic
+          uimage_magic = struct.unpack_from(">I", fw, 0x100)[0]
+          assert uimage_magic == 0x27051956, f"Bad uImage magic: {uimage_magic:#010x}"
+
+          # ZOT header checksum: ~CRC32(fw[4:])
+          stored  = struct.unpack_from("<I", fw, 0)[0]
+          computed = zlib.crc32(fw[4:]) ^ 0xFFFFFFFF
+          assert stored == computed & 0xFFFFFFFF, \
+              f"ZOT CRC mismatch: stored={stored:#010x} computed={computed & 0xFFFFFFFF:#010x}"
+
+          # uImage header CRC
+          hdr = bytearray(fw[0x100:0x140])
+          stored_hcrc = struct.unpack_from(">I", hdr, 4)[0]
+          struct.pack_into(">I", hdr, 4, 0)
+          computed_hcrc = zlib.crc32(bytes(hdr)) & 0xFFFFFFFF
+          assert stored_hcrc == computed_hcrc, \
+              f"uImage header CRC mismatch: stored={stored_hcrc:#010x} computed={computed_hcrc:#010x}"
+
+          # Firmware version string
+          ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
+          assert ver.startswith("MT7688-"), f"Unexpected version string: {ver!r}"
+
+          # LZMA payload decompresses
+          raw = lzma.decompress(fw[0x4AC0:])
+
+          print(f"OK  {len(fw):,} bytes  version={ver}  decompressed={len(raw):,} bytes")
+          PYEOF
+
+      # ── Release ───────────────────────────────────────────────────────────
       - name: Determine release tag
         id: tag
         run: |
@@ -71,21 +169,22 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.name }}
           body: |
-            ## Firmware release
+            ## Firmware release (built from eCos RTOS source)
 
             | File | Device | CPU | Notes |
             |------|--------|-----|-------|
-            | `GPSU21_modified.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Web edits + binary patches applied |
+            | `gpsu21_ecos.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Compiled from eCos RTOS source; all stability fixes incorporated |
 
-            ### Binary patches included in `GPSU21_modified.bin`
+            ### Stability fixes incorporated at source level
 
-            | Patch | Effect |
-            |-------|--------|
-            | mDNS_Lock + mDNS_Unlock counter resync | Bonjour/AirPrint stays working after a transient lock inconsistency |
-            | eCos `wakeup_count` overflow bypass | Scheduler no longer hits a fatal assertion under heavy Bonjour traffic |
-            | HTML auto-refresh removal (`INDEX.HTM`, `SERVICES.HTM`) | Prevents browser tabs from exhausting the HTTP connection pool |
+            | Fix | Implementation |
+            |-----|----------------|
+            | mDNS/Bonjour lock counter de-sync | Clean mDNS re-implementation (`firmware/src/mdns.c`) |
+            | eCos `wakeup_count` overflow assertion | `CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX = 0` in `firmware/ecos.ecc` |
+            | Browser auto-refresh HTTP connection exhaustion | Auto-refresh `<meta>` tags absent from `gpsu21_web/` source HTML |
 
             Built from commit ${{ github.sha }}.
           files: |
-            GPSU21_modified.bin
+            firmware/build/gpsu21_ecos.bin
           fail_on_unmatched_files: true
+

@@ -1,8 +1,13 @@
 # Top-level Makefile for the IOGear GPSU21 eCos firmware build.
 #
 # Prerequisites:
-#   - ECOS_REPOSITORY  pointing to the eCos packages directory
+#   - ECOS_REPOSITORY  set to a colon-separated list that includes BOTH:
+#       1. the mainline eCos packages directory  (from the eCos git clone)
+#       2. $(TOP_DIR)/hal                        (the MT7688 HAL in this repo)
+#     Example (CI):
+#       export ECOS_REPOSITORY=/workspace/ecos-src/packages:/workspace/firmware/hal
 #   - mipsel-elf-gcc   (or mipsel-linux-gnu-gcc) on $PATH
+#   - ecosconfig       on $PATH  (built from ecos-src/host)
 #   - Python 3 with the 'lzma' module (stdlib — no extra packages needed)
 #
 # Usage:
@@ -28,6 +33,7 @@ BUILD_DIR   := $(TOP_DIR)/build
 ECOS_BUILD  := $(TOP_DIR)/ecos_build
 SRC_DIR     := $(TOP_DIR)/src
 WEB_DIR     := $(TOP_DIR)/../gpsu21_web
+HAL_DIR     := $(TOP_DIR)/hal        # MT7688 HAL — provided in this repository
 
 ECC_FILE    := $(TOP_DIR)/ecos.ecc
 PKG_SCRIPT  := $(TOP_DIR)/package_firmware.py
@@ -35,6 +41,11 @@ PKG_SCRIPT  := $(TOP_DIR)/package_firmware.py
 ELF_OUT     := $(BUILD_DIR)/gpsu21_app.elf
 BIN_OUT     := $(BUILD_DIR)/gpsu21_app.bin
 FW_OUT      := $(BUILD_DIR)/gpsu21_ecos.bin
+
+# Extend ECOS_REPOSITORY to include our custom HAL packages.
+# ECOS_REPOSITORY may already be set by the caller (e.g. CI); we append
+# the firmware/hal directory so ecosconfig can find CYGPKG_HAL_MIPS_RALINK_MT7688.
+export ECOS_REPOSITORY := $(ECOS_REPOSITORY):$(HAL_DIR)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Default target
@@ -49,9 +60,9 @@ all: firmware
 ecos-build: $(ECOS_BUILD)/install/lib/libtarget.a
 
 $(ECOS_BUILD)/install/lib/libtarget.a: $(ECC_FILE)
-	@echo "=== Configuring eCos for MT7688 ==="
+	@echo "=== Configuring eCos for MT7688 (ECOS_REPOSITORY=$(ECOS_REPOSITORY)) ==="
 	mkdir -p $(ECOS_BUILD)
-	cd $(ECOS_BUILD) && ecosconfig --config=$(ECC_FILE) import $(ECC_FILE)
+	cd $(ECOS_BUILD) && ecosconfig import $(ECC_FILE)
 	cd $(ECOS_BUILD) && ecosconfig check
 	$(MAKE) -C $(ECOS_BUILD)
 	@echo "=== eCos kernel library built ==="

@@ -1,0 +1,21 @@
+# eCos Package Database — custom packages for the IOGear GPSU21 build.
+#
+# This file is discovered automatically when ECOS_REPOSITORY contains the
+# directory that holds this file.  The CI sets:
+#
+#   ECOS_REPOSITORY=$ECOS_SRC/packages:$REPO/firmware/hal
+#
+# so that ecosconfig finds both the mainline eCos packages and the packages
+# declared here.
+
+package CYGPKG_HAL_MIPS_RALINK_MT7688 {
+    alias          { "Ralink/MediaTek MT7688 MIPS SoC HAL"
+                     hal_mips_ralink_mt7688 }
+    directory      mips/ralink_mt7688
+    script         hal_mips_ralink_mt7688.cdl
+    description    "
+        HAL support for the MediaTek MT7688 MIPS32 SoC.  This package
+        provides the board-specific startup, memory map, interrupt
+        definitions, and UART I/O needed to run eCos on the MT7688
+        (as used in the IOGear GPSU21 / ZOT Technology pu211)."
+}
