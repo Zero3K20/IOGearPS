@@ -46,63 +46,47 @@ cdl_configuration eCos {
     template    "" ;
 
     # ── Architecture / CPU ───────────────────────────────────────────────────
-    package CYGPKG_HAL current ;
-    package CYGPKG_HAL_MIPS current ;
-    package CYGPKG_HAL_MIPS_MIPS32 current ;
+    package CYGPKG_HAL v3_0 ;
+    package CYGPKG_HAL_MIPS v3_0 ;
+    package CYGPKG_HAL_MIPS_MIPS32 v3_0 ;
     # MT7688 board HAL — supplied in firmware/hal/ (not in mainline eCos)
     package CYGPKG_HAL_MIPS_RALINK_MT7688 current ;
 
     # ── eCos infrastructure / kernel ─────────────────────────────────────────
-    package CYGPKG_INFRA current ;
-    package CYGPKG_KERNEL current ;
-    package CYGPKG_MEMALLOC current ;
-    package CYGPKG_ISOINFRA current ;
-    package CYGPKG_ERROR current ;
+    package CYGPKG_INFRA v3_0 ;
+    package CYGPKG_KERNEL v3_0 ;
+    package CYGPKG_MEMALLOC v3_0 ;
+    package CYGPKG_ISOINFRA v3_0 ;
+    package CYGPKG_ERROR v3_0 ;
 
     # ── C library ────────────────────────────────────────────────────────────
-    package CYGPKG_LIBC_STRING current ;
-    package CYGPKG_LIBC_STDIO current ;
-    package CYGPKG_LIBC_STDLIB current ;
-    package CYGPKG_LIBC_TIME current ;
+    package CYGPKG_LIBC_STRING v3_0 ;
+    package CYGPKG_LIBC_STDIO v3_0 ;
+    package CYGPKG_LIBC_STDLIB v3_0 ;
+    package CYGPKG_LIBC_TIME v3_0 ;
 
     # ── POSIX ────────────────────────────────────────────────────────────────
-    package CYGPKG_POSIX current ;
+    package CYGPKG_POSIX v3_0 ;
 
     # ── I/O infrastructure ───────────────────────────────────────────────────
-    package CYGPKG_IO current ;
-    package CYGPKG_IO_SERIAL current ;        # console UART (debug output)
-    package CYGPKG_IO_ETH_DRIVERS current ;   # Ethernet I/O framework
+    package CYGPKG_IO v3_0 ;
+    package CYGPKG_IO_SERIAL v3_0 ;        # console UART (debug output)
+    package CYGPKG_IO_ETH_DRIVERS v3_0 ;   # Ethernet I/O framework
 
     # ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────
-    package CYGPKG_NET_LWIP current ;
+    package CYGPKG_NET_LWIP v3_0 ;
 
     # ── Flash I/O ────────────────────────────────────────────────────────────
-    package CYGPKG_IO_FLASH current ;
+    package CYGPKG_IO_FLASH v3_0 ;
 };
 
 # ---- contents --------------------------------------------------------
 
 # ── eCos kernel ──────────────────────────────────────────────────────────────
 
-# Allow up to 32 concurrent threads (19 are used by the stock firmware)
-cdl_option CYGNUM_KERNEL_THREADS_MAX {
-    user_value 32 ;
-};
-
-# Raise the wakeup_count limit to prevent the fatal overflow assertion
-# that is triggered under heavy Bonjour traffic (see README — Finding 4).
-cdl_option CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX {
-    user_value 0 ;
-};
-
 # Use multi-level queue scheduler (mlqueue) — same as the stock firmware
 cdl_option CYGSEM_KERNEL_SCHED_MLQUEUE {
     user_value 1 ;
-};
-
-# Time slice length (10 ms, matching the stock firmware calibration)
-cdl_option CYGNUM_KERNEL_COUNTERS_RTC_PERIOD {
-    user_value 10 ;
 };
 
 # Stack size for newly created threads (8 KB default)
@@ -112,10 +96,8 @@ cdl_option CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE {
 
 # ── C library / heap ─────────────────────────────────────────────────────────
 
-# Heap size — the stock firmware uses ~512 KB for the application heap
-cdl_option CYGNUM_LIBC_MALLOC_HEAP_SIZE {
-    user_value 524288 ;
-};
+# (Heap size is determined by the platform memory layout, not a CDL option
+# in eCos 3.0.  CYGNUM_LIBC_MALLOC_HEAP_SIZE does not exist in eCos 3.0.)
 
 # ── POSIX ────────────────────────────────────────────────────────────────────
 
@@ -132,19 +114,15 @@ cdl_component CYGPKG_POSIX_TIMERS {
     user_value 1 ;
 };
 
-cdl_option CYGNUM_POSIX_TIMER_SIGNO {
-    user_value 27 ;
-};
-
 # ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────────
 
 # Connection pool: 36 simultaneous TCP connections
 # (HTTP, LPD, IPP, SMB, Raw TCP all share this pool — see README Finding 1)
-cdl_option CYGNUM_LWIP_NUM_TCPCONN {
+cdl_option CYGNUM_LWIP_MEMP_NUM_NETCONN {
     user_value 36 ;
 };
 
-cdl_option CYGNUM_LWIP_NUM_PBUF {
+cdl_option CYGNUM_LWIP_PBUF_POOL_SIZE {
     user_value 64 ;
 };
 
@@ -157,21 +135,19 @@ cdl_option CYGNUM_LWIP_MEMP_NUM_TCP_PCB {
 };
 
 # Enable DNS resolver (needed for email-alert feature)
-cdl_component CYGPKG_NET_LWIP_DNS {
+cdl_component CYGPKG_LWIP_DNS {
     user_value 1 ;
 };
 
 # Bonjour/mDNS uses raw UDP sockets
-cdl_component CYGPKG_NET_LWIP_RAW {
+cdl_component CYGPKG_LWIP_RAW {
     user_value 1 ;
 };
 
 # ── Flash I/O ────────────────────────────────────────────────────────────────
 
-# MT7688 has 8 MB SPI NOR flash
-cdl_option CYGNUM_IO_FLASH_BLOCK_SIZE {
-    user_value 65536 ;
-};
+# (MT7688 flash block size is determined by the hardware driver, not a generic
+# CDL option.  CYGNUM_IO_FLASH_BLOCK_SIZE does not exist in eCos 3.0.)
 
 # ── Debugging / diagnostics ──────────────────────────────────────────────────
 
@@ -181,11 +157,6 @@ cdl_option CYGDBG_USE_ASSERTS {
 };
 
 cdl_option CYGDBG_USE_TRACING {
-    user_value 0 ;
-};
-
-# Embed assert strings in the binary so string-search analysis works
-cdl_option CYGDBG_INFRA_DEBUG_ASSERT_BOOL {
     user_value 0 ;
 };
 
