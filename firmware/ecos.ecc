@@ -3,11 +3,11 @@
 # Board:   IOGear GPSU21 / ZOT Technology pu211
 # eCos:    3.0
 #
-# Import this file with the ecosconfig tool:
+# Build with the ecosconfig tool:
 #
 #   export ECOS_REPOSITORY=/path/to/ecos-src/packages:/path/to/firmware/hal
-#   ecosconfig import ecos.ecc
-#   ecosconfig check
+#   mkdir -p ecos_build && cp ecos.ecc ecos_build/
+#   cd ecos_build && ecosconfig check && ecosconfig tree
 #   make -C ecos_build
 #
 # The build produces ecos_build/install/lib/libtarget.a which is linked
