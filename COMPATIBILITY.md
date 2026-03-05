@@ -146,6 +146,27 @@ The printer will appear automatically in the AirPrint list on **iOS 14–15** an
 **macOS 11–12** devices on the same network.  For iOS 16+ (including iOS 26.x)
 and macOS 13+, also follow the steps in the next section.
 
+### Why the firmware cannot advertise `_universal._sub._ipp._tcp` natively
+
+The GPSU21 firmware ships with an older build of Apple's **mDNSResponder Posix**
+library (the embedded mDNS stack).  This version of the library:
+
+- Validates that every registered service type has **exactly two DNS labels**
+  (e.g. `_ipp` + `_tcp`).  Service types with more labels are rejected at
+  registration time with the internal error *"Service type must have only two
+  labels"*.
+- Does **not** contain the `mDNS_AddServiceSubtype()` API that later mDNS
+  versions use to attach the `_universal._sub._ipp._tcp` sub-type PTR record to
+  an existing `_ipp._tcp` registration.
+
+Passing `_universal._sub._ipp._tcp` directly to the firmware's service
+registration function would trigger that validation error and the advertisement
+would never appear on the network.
+
+Adding true sub-type support would require **replacing the mDNS library** inside
+the firmware — a change that goes beyond binary patching and would need source-
+level modifications to the eCos build.
+
 ### Required helper for iOS 16+ / iOS 26.x and macOS 13+
 
 iOS 16 and later — including all iOS 26.x releases — require the printer to be
@@ -153,8 +174,9 @@ advertised with the `_universal._sub._ipp._tcp` Bonjour sub-type in addition to
 the base `_ipp._tcp` service.  The same requirement applies to macOS 13 (Ventura)
 and later.
 
-You can satisfy this requirement without modifying the printer firmware by
-running a small Bonjour proxy on any always-on device on the same network:
+Because the firmware's built-in mDNS library cannot advertise this sub-type
+natively (see the note above), you need a small Bonjour proxy running on any
+always-on device on the same network:
 
 **Linux (Avahi)**
 
