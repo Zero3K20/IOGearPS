@@ -33,7 +33,8 @@ BUILD_DIR   := $(TOP_DIR)/build
 ECOS_BUILD  := $(TOP_DIR)/ecos_build
 SRC_DIR     := $(TOP_DIR)/src
 WEB_DIR     := $(TOP_DIR)/../gpsu21_web
-HAL_DIR     := $(TOP_DIR)/hal        # MT7688 HAL — provided in this repository
+# MT7688 HAL — provided in this repository (no trailing spaces: Make includes them in variable values)
+HAL_DIR     := $(TOP_DIR)/hal
 
 ECC_FILE    := $(TOP_DIR)/ecos.ecc
 PKG_SCRIPT  := $(TOP_DIR)/package_firmware.py
