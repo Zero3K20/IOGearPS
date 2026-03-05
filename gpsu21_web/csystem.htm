@@ -98,10 +98,24 @@ Section5('ctcpip');
 <td class="Na2"><INPUT TYPE=TEXT NAME="Gateway" SIZE=16 MAXLENGTH="15" VALUE="<!--# echo var="Gateway"-->" onChange="if(SETUP.DHCP[0].checked) this.value=''"></td>
 <td class="Na"></td>
 </tr>
-<tr><td class="Wh1"><SCRIPT>textindex++;showtext2(textindex++);</SCRIPT></td>
-<td class="Wh2"><SCRIPT>var iRV="<!--# echo var="Randvous"-->";document.write("<SELECT NAME=Randvous><OPTION VALUE=0>");showtext2(textindex++);document.write("</OPTION><OPTION VALUE=1>");showtext2(textindex++);document.write("</OPTION></SELECT>");document.forms[0].Randvous[iRV].selected=true;</SCRIPT></td></tr>
-<tr><td class="Na1"><SCRIPT>showtext2(textindex++);</SCRIPT></td>
-<td class="Na2"><INPUT TYPE=TEXT NAME="RandvousName" SIZE=25 MAXLENGTH=31 VALUE="<!--# echo var="RandvousName"-->"></td></tr>
+<tr>
+<td height="29" colspan="5" class="s1">
+<SCRIPT>showtext2(textindex++);</SCRIPT>
+</td>
+</tr>
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="150"><SCRIPT>showtext2(textindex++);</SCRIPT></td>
+<td class="Wh2" colspan="2"><SCRIPT>var iRV="<!--# echo var="Randvous"-->";document.write("<SELECT NAME=Randvous><OPTION VALUE=0>");showtext2(textindex++);document.write("</OPTION><OPTION VALUE=1>");showtext2(textindex++);document.write("</OPTION></SELECT>");document.forms[0].Randvous[iRV].selected=true;</SCRIPT></td>
+<td class="Wh"></td>
+</tr>
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1">&nbsp;</td>
+<td class="Na1"><SCRIPT>showtext2(textindex++);</SCRIPT></td>
+<td class="Na2"><INPUT TYPE=TEXT NAME="RandvousName" SIZE=25 MAXLENGTH=31 VALUE="<!--# echo var="RandvousName"-->"></td>
+<td class="Na"></td>
+</tr>
 </table>
 </td>
 </tr>
