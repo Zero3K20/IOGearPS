@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      PS1206U_BIN: PS-1206U_v8.8.bin
       GPSU21_ZIP: MPS56_90956F_9034_20191119.zip
       GPSU21_WEB: gpsu21_web
       GPSU21_OUT: GPSU21_modified.bin
@@ -48,7 +47,7 @@ jobs:
       - name: Verify firmware files exist
         run: |
           missing=0
-          for f in "$PS1206U_BIN" "$GPSU21_OUT"; do
+          for f in "$GPSU21_OUT"; do
             if [ ! -f "$f" ]; then
               echo "ERROR: expected firmware file not found: $f"
               missing=1
@@ -76,12 +75,7 @@ jobs:
 
             | File | Device | CPU | Notes |
             |------|--------|-----|-------|
-            | `PS-1206U_v8.8.bin` | IOGear PS-1206U | Edimax 8820 (x86) | Original firmware |
             | `GPSU21_modified.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Web edits + binary patches applied |
-
-            > ⚠️ **These firmware images are NOT interchangeable.**
-            > Flashing PS-1206U firmware onto a GPSU21 (or vice versa) will brick the device.
-            > See [COMPATIBILITY.md](https://github.com/${{ github.repository }}/blob/main/COMPATIBILITY.md) for details.
 
             ### Binary patches included in `GPSU21_modified.bin`
 
@@ -93,6 +87,5 @@ jobs:
 
             Built from commit ${{ github.sha }}.
           files: |
-            PS-1206U_v8.8.bin
             GPSU21_modified.bin
           fail_on_unmatched_files: true

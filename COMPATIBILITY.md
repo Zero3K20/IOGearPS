@@ -1,70 +1,4 @@
-# Compatibility — IOGear GPSU21 and PS-1206U Firmware
-
-> **Important:** The IOGear PS-1206U and the IOGear GPSU21 use **completely
-> different hardware** and their firmware images are **not interchangeable**.
-> See the hardware table below before attempting to flash any firmware.
-
----
-
-## Hardware comparison
-
-| | IOGear PS-1206U | IOGear GPSU21 |
-|---|---|---|
-| **OEM manufacturer** | Edimax Technology | ZOT Technology (`zot.com.tw`) |
-| **OEM model code** | PS-1206U (`Edimax8820`) | `pu211` / `zot716u2` |
-| **CPU** | Edimax 8820 (x86 real-mode) | MediaTek MT7688 (MIPS 24KEc) |
-| **Firmware format** | 512 KB flat flash image (Edimax header + ZIP archives) | 350 KB uImage (ZOT header + uImage + compressed payload) |
-| **Firmware in this repo** | `PS-1206U_v8.8.bin` | `MPS56_90956F_9034_20191119.zip` |
-| **Cross-flashable?** | ❌ **No** | ❌ **No** |
-
-**Do not attempt to flash PS-1206U firmware onto a GPSU21, or vice versa.**
-The two devices have incompatible CPUs, flash memory sizes, and firmware
-formats.  Doing so will render the device unbootable and require physical
-flash chip reprogramming to recover.
-
----
-
-## IOGear PS-1206U
-
-### Firmware in this repository
-
-`PS-1206U_v8.8.bin` — version 8.8, an older release of the Edimax print server
-firmware.
-
-### Firmware version format
-
-The version is displayed on the device's web **Status** page:
-
-```
-<major>.<minor>.<release><suffix> <build> (<date> <time>)
-```
-
-Example: `8.8.xx` or a version in that older series.
-
-### Upgrade validation
-
-The PS-1206U web interface validates the uploaded file before writing to flash:
-
-1. **File size** — must be exactly 512 KB (524,288 bytes).
-2. **Magic bytes** — the first 6 bytes must be `45 01 FA EB 13 90`.
-3. **MTYPE label** — the model tag (`Edimax8820 MTYPE/`) must match.
-
-The validator does **not** check the firmware version number.  If any check
-fails, the page shows an error and does **not** touch the flash:
-
-| Error page | Cause |
-|------------|-------|
-| "Invalid size" | File is not exactly 512 KB |
-| "Signature wrong" | Magic bytes or MTYPE tag do not match |
-| "Upgrade Failed" | Flash write error (hardware fault) |
-
-### Flashing procedure
-
-1. Open `http://<printer-ip>/` and log in (default password: `1234`).
-2. Navigate to **System → Upgrade**.
-3. Click **Browse**, select `PS-1206U_v8.8.bin`, then click **Next / OK**.
-4. Wait for the "Upgrade successfully!" message.
-5. **Do not power-cycle** during the upgrade.
+# Compatibility — IOGear GPSU21 Firmware
 
 ---
 
@@ -73,8 +7,7 @@ fails, the page shows an error and does **not** touch the flash:
 ### About the hardware
 
 The GPSU21 is manufactured by **ZOT Technology** (`zot.com.tw`) and uses a
-**MediaTek MT7688** MIPS SoC.  It is sold by IOGear under their brand but is
-completely different hardware from the PS-1206U.
+**MediaTek MT7688** MIPS SoC.  It is sold by IOGear under their brand.
 
 Internal device identifiers:
 - OEM model path: `pu211`
@@ -206,11 +139,8 @@ macOS 11+ devices on the same network.
 
 ### Optional helpers for older Apple devices
 
-If you also need to support iOS 13 / macOS 10.15 or earlier, deploy one of the
-optional helper files from the `airprint/` directory:
-
-- **Windows:** run `airprint\windows-bonjour.bat` (requires Apple Bonjour for
-  Windows — see [README.md](README.md#airprint-support) for instructions)
-- **Linux:** deploy `airprint/IOGear-PS1206U.service` with Avahi
+If you also need to support iOS 13 / macOS 10.15 or earlier, you can manually
+advertise the `_universal._sub._ipp._tcp` sub-type using an Avahi service file
+on Linux or a Bonjour helper script on Windows.
 
 > **Installing software on your PC is NOT required for iOS 14+ / macOS 11+.**
