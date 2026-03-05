@@ -21,118 +21,182 @@
 # they are not in mainline eCos.  Hardware access for those peripherals is
 # handled directly in the application sources (firmware/src/).
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Architecture / CPU
-# ──────────────────────────────────────────────────────────────────────────────
+# ---- commands --------------------------------------------------------
+# This section contains information about the savefile format.
+# It should not be edited. Any modifications made to this section
+# may make it impossible for the configuration tools to read
+# the savefile.
 
-package CYGPKG_HAL_MIPS {
-    hardware
-    package CYGPKG_HAL_MIPS_MIPS32 {
-        hardware
-    }
+cdl_savefile_version 1;
+cdl_savefile_command cdl_savefile_version {};
+cdl_savefile_command cdl_savefile_command {};
+cdl_savefile_command cdl_configuration { description hardware template package };
+cdl_savefile_command cdl_package { value_source user_value wizard_value inferred_value };
+cdl_savefile_command cdl_component { value_source user_value wizard_value inferred_value };
+cdl_savefile_command cdl_option { value_source user_value wizard_value inferred_value };
+cdl_savefile_command cdl_interface { value_source user_value wizard_value inferred_value };
+
+# ---- toplevel --------------------------------------------------------
+# Hardware target: MediaTek MT7688 (no pre-defined hardware template in
+# mainline eCos — all packages are listed explicitly below).
+
+cdl_configuration eCos {
+    description "IOGear GPSU21 / MediaTek MT7688 eCos firmware" ;
+    hardware    "" ;
+    template    "" ;
+
+    # ── Architecture / CPU ───────────────────────────────────────────────────
+    package CYGPKG_HAL current ;
+    package CYGPKG_HAL_MIPS current ;
+    package CYGPKG_HAL_MIPS_MIPS32 current ;
     # MT7688 board HAL — supplied in firmware/hal/ (not in mainline eCos)
-    package CYGPKG_HAL_MIPS_RALINK_MT7688 {
-        hardware
-    }
-}
+    package CYGPKG_HAL_MIPS_RALINK_MT7688 current ;
 
-# ──────────────────────────────────────────────────────────────────────────────
-# eCos kernel
-# ──────────────────────────────────────────────────────────────────────────────
+    # ── eCos infrastructure / kernel ─────────────────────────────────────────
+    package CYGPKG_INFRA current ;
+    package CYGPKG_KERNEL current ;
+    package CYGPKG_MEMALLOC current ;
+    package CYGPKG_ISOINFRA current ;
+    package CYGPKG_ERROR current ;
 
-package CYGPKG_KERNEL {
-    # Allow up to 32 concurrent threads (19 are used by the stock firmware)
-    CYGNUM_KERNEL_THREADS_MAX = 32
+    # ── C library ────────────────────────────────────────────────────────────
+    package CYGPKG_LIBC_STRING current ;
+    package CYGPKG_LIBC_STDIO current ;
+    package CYGPKG_LIBC_STDLIB current ;
+    package CYGPKG_LIBC_TIME current ;
 
-    # Raise the wakeup_count limit to prevent the fatal overflow assertion
-    # that is triggered under heavy Bonjour traffic (see README — Finding 4).
-    CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX = 0
+    # ── POSIX ────────────────────────────────────────────────────────────────
+    package CYGPKG_POSIX current ;
 
-    # Use multi-level queue scheduler (mlqueue) — same as the stock firmware
-    CYGSEM_KERNEL_SCHED_MLQUEUE = 1
+    # ── I/O infrastructure ───────────────────────────────────────────────────
+    package CYGPKG_IO current ;
+    package CYGPKG_IO_SERIAL current ;        # console UART (debug output)
+    package CYGPKG_IO_ETH_DRIVERS current ;   # Ethernet I/O framework
 
-    # Time slice length (10 ms, matching the stock firmware calibration)
-    CYGNUM_KERNEL_COUNTERS_RTC_PERIOD = 10
+    # ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────
+    package CYGPKG_NET_LWIP current ;
 
-    # Stack size for newly created threads (8 KB default)
-    CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE = 8192
-}
+    # ── Flash I/O ────────────────────────────────────────────────────────────
+    package CYGPKG_IO_FLASH current ;
+};
 
-# ──────────────────────────────────────────────────────────────────────────────
-# libc / POSIX support
-# ──────────────────────────────────────────────────────────────────────────────
+# ---- contents --------------------------------------------------------
 
-package CYGPKG_LIBC {
-    CYGPKG_LIBC_STRING   = 1
-    CYGPKG_LIBC_STDIO    = 1
-    CYGPKG_LIBC_STDLIB   = 1
-    CYGPKG_LIBC_TIME     = 1
+# ── eCos kernel ──────────────────────────────────────────────────────────────
 
-    # Heap size — the stock firmware uses ~512 KB for the application heap
-    CYGNUM_LIBC_MALLOC_HEAP_SIZE = 524288
-}
+# Allow up to 32 concurrent threads (19 are used by the stock firmware)
+cdl_option CYGNUM_KERNEL_THREADS_MAX {
+    user_value 32 ;
+};
 
-package CYGPKG_POSIX {
-    # POSIX threads (pthreads) are used by the mDNS stack
-    CYGPKG_POSIX_PTHREAD        = 1
-    CYGPKG_POSIX_SIGNALS        = 1
-    CYGPKG_POSIX_TIMERS         = 1
-    CYGNUM_POSIX_TIMER_SIGNO    = 27
-}
+# Raise the wakeup_count limit to prevent the fatal overflow assertion
+# that is triggered under heavy Bonjour traffic (see README — Finding 4).
+cdl_option CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX {
+    user_value 0 ;
+};
 
-# ──────────────────────────────────────────────────────────────────────────────
-# I/O infrastructure
-# ──────────────────────────────────────────────────────────────────────────────
+# Use multi-level queue scheduler (mlqueue) — same as the stock firmware
+cdl_option CYGSEM_KERNEL_SCHED_MLQUEUE {
+    user_value 1 ;
+};
 
-package CYGPKG_IO {
-    CYGPKG_IO_SERIAL      = 1   # console UART (debug output only)
-    CYGPKG_IO_ETH_DRIVERS = 1   # Ethernet I/O framework
-}
+# Time slice length (10 ms, matching the stock firmware calibration)
+cdl_option CYGNUM_KERNEL_COUNTERS_RTC_PERIOD {
+    user_value 10 ;
+};
 
-# ──────────────────────────────────────────────────────────────────────────────
-# TCP/IP stack (lwIP)
-# ──────────────────────────────────────────────────────────────────────────────
+# Stack size for newly created threads (8 KB default)
+cdl_option CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE {
+    user_value 8192 ;
+};
 
-package CYGPKG_NET_LWIP {
-    # Connection pool: 36 simultaneous TCP connections
-    # (HTTP, LPD, IPP, SMB, Raw TCP all share this pool — see README Finding 1)
-    CYGNUM_LWIP_NUM_TCPCONN      = 36
-    CYGNUM_LWIP_NUM_PBUF         = 64
-    CYGNUM_LWIP_MEM_SIZE         = 65536
-    CYGNUM_LWIP_MEMP_NUM_TCP_PCB = 36
+# ── C library / heap ─────────────────────────────────────────────────────────
 
-    # Enable DNS resolver (needed for email-alert feature)
-    CYGPKG_NET_LWIP_DNS  = 1
+# Heap size — the stock firmware uses ~512 KB for the application heap
+cdl_option CYGNUM_LIBC_MALLOC_HEAP_SIZE {
+    user_value 524288 ;
+};
 
-    # Bonjour/mDNS uses raw UDP sockets
-    CYGPKG_NET_LWIP_RAW  = 1
-}
+# ── POSIX ────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Flash I/O
-# ──────────────────────────────────────────────────────────────────────────────
+# POSIX threads (pthreads) are used by the mDNS stack
+cdl_component CYGPKG_POSIX_PTHREAD {
+    user_value 1 ;
+};
 
-package CYGPKG_IO_FLASH {
-    # MT7688 has 8 MB SPI NOR flash
-    CYGNUM_IO_FLASH_BLOCK_SIZE = 65536
-}
+cdl_component CYGPKG_POSIX_SIGNALS {
+    user_value 1 ;
+};
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Debugging / diagnostics
-# ──────────────────────────────────────────────────────────────────────────────
+cdl_component CYGPKG_POSIX_TIMERS {
+    user_value 1 ;
+};
 
-package CYGPKG_INFRA {
-    # Route CYG_TRACE / CYG_ASSERT output to UART (disabled in release builds)
-    CYGDBG_USE_ASSERTS   = 0
-    CYGDBG_USE_TRACING   = 0
+cdl_option CYGNUM_POSIX_TIMER_SIGNO {
+    user_value 27 ;
+};
 
-    # Embed assert strings in the binary so string-search analysis works
-    CYGDBG_INFRA_DEBUG_ASSERT_BOOL = 0
-}
+# ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────────
 
-package CYGPKG_HAL {
-    # Diagnostic UART: UART0 at 57600 bps (same as stock firmware)
-    CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_DEFAULT = 0
-    CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_BAUD    = 57600
-}
+# Connection pool: 36 simultaneous TCP connections
+# (HTTP, LPD, IPP, SMB, Raw TCP all share this pool — see README Finding 1)
+cdl_option CYGNUM_LWIP_NUM_TCPCONN {
+    user_value 36 ;
+};
+
+cdl_option CYGNUM_LWIP_NUM_PBUF {
+    user_value 64 ;
+};
+
+cdl_option CYGNUM_LWIP_MEM_SIZE {
+    user_value 65536 ;
+};
+
+cdl_option CYGNUM_LWIP_MEMP_NUM_TCP_PCB {
+    user_value 36 ;
+};
+
+# Enable DNS resolver (needed for email-alert feature)
+cdl_component CYGPKG_NET_LWIP_DNS {
+    user_value 1 ;
+};
+
+# Bonjour/mDNS uses raw UDP sockets
+cdl_component CYGPKG_NET_LWIP_RAW {
+    user_value 1 ;
+};
+
+# ── Flash I/O ────────────────────────────────────────────────────────────────
+
+# MT7688 has 8 MB SPI NOR flash
+cdl_option CYGNUM_IO_FLASH_BLOCK_SIZE {
+    user_value 65536 ;
+};
+
+# ── Debugging / diagnostics ──────────────────────────────────────────────────
+
+# Route CYG_TRACE / CYG_ASSERT output to UART (disabled in release builds)
+cdl_option CYGDBG_USE_ASSERTS {
+    user_value 0 ;
+};
+
+cdl_option CYGDBG_USE_TRACING {
+    user_value 0 ;
+};
+
+# Embed assert strings in the binary so string-search analysis works
+cdl_option CYGDBG_INFRA_DEBUG_ASSERT_BOOL {
+    user_value 0 ;
+};
+
+# ── HAL / console ────────────────────────────────────────────────────────────
+
+# Diagnostic UART: UART0 at 57600 bps (same as stock firmware)
+cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_DEFAULT {
+    user_value 0 ;
+};
+
+cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_BAUD {
+    user_value 57600 ;
+};
 
