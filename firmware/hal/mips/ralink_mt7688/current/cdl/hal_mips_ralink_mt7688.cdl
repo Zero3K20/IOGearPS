@@ -56,15 +56,6 @@ cdl_package CYGPKG_HAL_MIPS_RALINK_MT7688 {
             (U-Boot / ZOT loader), so only RAM startup is needed."
     }
 
-    # ── CPU clock ───────────────────────────────────────────────────────────
-    cdl_option CYGHWR_HAL_MIPS_CPU_FREQ {
-        display       "CPU clock frequency (MHz)"
-        flavor        data
-        legal_values  { 580 }
-        default_value { 580 }
-        description   "The MT7688 runs at 580 MHz."
-    }
-
     # ── Debug UART ──────────────────────────────────────────────────────────
     cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_DEFAULT {
         display       "Default debug console channel"
