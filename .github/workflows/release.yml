@@ -40,6 +40,8 @@ jobs:
             binutils-mipsel-linux-gnu \
             tcl \
             tcl-dev \
+            tk \
+            tk-dev \
             autoconf \
             automake \
             libtool
