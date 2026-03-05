@@ -84,37 +84,14 @@ cdl_configuration eCos {
 
 # ── eCos kernel ──────────────────────────────────────────────────────────────
 
-# Allow up to 32 concurrent threads (19 are used by the stock firmware)
-cdl_option CYGNUM_KERNEL_THREADS_MAX {
-    user_value 32 ;
-};
-
-# Raise the wakeup_count limit to prevent the fatal overflow assertion
-# that is triggered under heavy Bonjour traffic (see README — Finding 4).
-cdl_option CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX {
-    user_value 0 ;
-};
-
 # Use multi-level queue scheduler (mlqueue) — same as the stock firmware
 cdl_option CYGSEM_KERNEL_SCHED_MLQUEUE {
     user_value 1 ;
 };
 
-# Time slice length (10 ms, matching the stock firmware calibration)
-cdl_option CYGNUM_KERNEL_COUNTERS_RTC_PERIOD {
-    user_value 10 ;
-};
-
 # Stack size for newly created threads (8 KB default)
 cdl_option CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE {
     user_value 8192 ;
-};
-
-# ── C library / heap ─────────────────────────────────────────────────────────
-
-# Heap size — the stock firmware uses ~512 KB for the application heap
-cdl_option CYGNUM_LIBC_MALLOC_HEAP_SIZE {
-    user_value 524288 ;
 };
 
 # ── POSIX ────────────────────────────────────────────────────────────────────
@@ -132,19 +109,15 @@ cdl_component CYGPKG_POSIX_TIMERS {
     user_value 1 ;
 };
 
-cdl_option CYGNUM_POSIX_TIMER_SIGNO {
-    user_value 27 ;
-};
-
 # ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────────
 
 # Connection pool: 36 simultaneous TCP connections
 # (HTTP, LPD, IPP, SMB, Raw TCP all share this pool — see README Finding 1)
-cdl_option CYGNUM_LWIP_NUM_TCPCONN {
+cdl_option CYGNUM_LWIP_MEMP_NUM_NETCONN {
     user_value 36 ;
 };
 
-cdl_option CYGNUM_LWIP_NUM_PBUF {
+cdl_option CYGNUM_LWIP_MEMP_NUM_PBUF {
     user_value 64 ;
 };
 
@@ -157,20 +130,13 @@ cdl_option CYGNUM_LWIP_MEMP_NUM_TCP_PCB {
 };
 
 # Enable DNS resolver (needed for email-alert feature)
-cdl_component CYGPKG_NET_LWIP_DNS {
+cdl_component CYGPKG_LWIP_DNS {
     user_value 1 ;
 };
 
 # Bonjour/mDNS uses raw UDP sockets
-cdl_component CYGPKG_NET_LWIP_RAW {
+cdl_component CYGPKG_LWIP_RAW {
     user_value 1 ;
-};
-
-# ── Flash I/O ────────────────────────────────────────────────────────────────
-
-# MT7688 has 8 MB SPI NOR flash
-cdl_option CYGNUM_IO_FLASH_BLOCK_SIZE {
-    user_value 65536 ;
 };
 
 # ── Debugging / diagnostics ──────────────────────────────────────────────────
@@ -181,11 +147,6 @@ cdl_option CYGDBG_USE_ASSERTS {
 };
 
 cdl_option CYGDBG_USE_TRACING {
-    user_value 0 ;
-};
-
-# Embed assert strings in the binary so string-search analysis works
-cdl_option CYGDBG_INFRA_DEBUG_ASSERT_BOOL {
     user_value 0 ;
 };
 
