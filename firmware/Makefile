@@ -63,8 +63,9 @@ ecos-build: $(ECOS_BUILD)/install/lib/libtarget.a
 $(ECOS_BUILD)/install/lib/libtarget.a: $(ECC_FILE)
 	@echo "=== Configuring eCos for MT7688 (ECOS_REPOSITORY=$(ECOS_REPOSITORY)) ==="
 	mkdir -p $(ECOS_BUILD)
-	cd $(ECOS_BUILD) && ecosconfig import $(ECC_FILE)
+	cp $(ECC_FILE) $(ECOS_BUILD)/ecos.ecc
 	cd $(ECOS_BUILD) && ecosconfig check
+	cd $(ECOS_BUILD) && ecosconfig tree
 	$(MAKE) -C $(ECOS_BUILD)
 	@echo "=== eCos kernel library built ==="
 
