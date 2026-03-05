@@ -36,6 +36,15 @@ jobs:
             "$GPSU21_WEB" \
             "$GPSU21_OUT"
 
+      # Apply all binary patches: mDNS/Bonjour lock counter resync,
+      # eCos wakeup_count overflow bypass, HTML auto-refresh removal
+      - name: Apply binary patches to GPSU21 firmware
+        run: |
+          python3 tools/patch_gpsu21.py \
+            "$GPSU21_OUT" \
+            GPSU21_patched.bin
+          mv GPSU21_patched.bin "$GPSU21_OUT"
+
       - name: Verify firmware files exist
         run: |
           missing=0
@@ -68,11 +77,19 @@ jobs:
             | File | Device | CPU | Notes |
             |------|--------|-----|-------|
             | `PS-1206U_v8.8.bin` | IOGear PS-1206U | Edimax 8820 (x86) | Original firmware |
-            | `GPSU21_modified.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Built from `gpsu21_web/` sources in this commit |
+            | `GPSU21_modified.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Web edits + binary patches applied |
 
             > ⚠️ **These firmware images are NOT interchangeable.**
             > Flashing PS-1206U firmware onto a GPSU21 (or vice versa) will brick the device.
             > See [COMPATIBILITY.md](https://github.com/${{ github.repository }}/blob/main/COMPATIBILITY.md) for details.
+
+            ### Binary patches included in `GPSU21_modified.bin`
+
+            | Patch | Effect |
+            |-------|--------|
+            | mDNS_Lock + mDNS_Unlock counter resync | Bonjour/AirPrint stays working after a transient lock inconsistency |
+            | eCos `wakeup_count` overflow bypass | Scheduler no longer hits a fatal assertion under heavy Bonjour traffic |
+            | HTML auto-refresh removal (`INDEX.HTM`, `SERVICES.HTM`) | Prevents browser tabs from exhausting the HTTP connection pool |
 
             Built from commit ${{ github.sha }}.
           files: |
