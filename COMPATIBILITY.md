@@ -111,18 +111,26 @@ https://www.zot.com.tw/zot-file/pu211/MPS56_90956F_9034_20191119.zip
 ## AirPrint on the GPSU21
 
 The GPSU21 firmware ships with a **built-in Bonjour (mDNS) stack** and an
-**IPP server on port 631**.  It automatically advertises itself as `_ipp._tcp`
-on the local network — no PC software or additional scripts are required for
-modern Apple devices.
+**IPP server on port 631**.  It advertises itself as `_ipp._tcp` on the local
+network.
 
 ### Device compatibility
 
 | Apple device | Support |
 |---|---|
-| **iOS 14+** | ✅ Native — print server appears automatically |
-| **macOS 11+ (Big Sur and later)** | ✅ Native — print server appears automatically |
-| iOS 13 or earlier | ⚠️ Needs optional Avahi/Bonjour helper |
-| macOS 10.15 (Catalina) or earlier | ⚠️ Needs optional Avahi/Bonjour helper |
+| **iOS 14 – iOS 15** | ✅ Native — print server appears automatically |
+| **macOS 11 (Big Sur) – macOS 12 (Monterey)** | ✅ Native — print server appears automatically |
+| **iOS 16+ (including iOS 26.x)** | ⚠️ Needs `_universal._sub._ipp._tcp` helper — see below |
+| **macOS 13 (Ventura) and later** | ⚠️ Needs `_universal._sub._ipp._tcp` helper — see below |
+| iOS 13 or earlier | ⚠️ Needs `_universal._sub._ipp._tcp` helper — see below |
+| macOS 10.15 (Catalina) or earlier | ⚠️ Needs `_universal._sub._ipp._tcp` helper — see below |
+
+> **Why iOS 16+ also needs the helper:** Starting with iOS 16, Apple tightened
+> AirPrint discovery.  Devices running iOS 16 or later (including iOS 26.x)
+> require the printer to be advertised with the `_universal._sub._ipp._tcp`
+> Bonjour sub-type.  The GPSU21 firmware advertises only the base `_ipp._tcp`
+> service, so iOS 16+ devices will report "No AirPrint Printers Found" unless
+> the sub-type is re-advertised by a helper on the same network.
 
 ### Enabling AirPrint in the web interface
 
@@ -134,13 +142,64 @@ After flashing the modified firmware:
 3. Navigate to **Setup → Services** and ensure **Use IPP** is set to *Enabled*.
 4. Click **Save & Restart**.
 
-The printer will appear automatically in the AirPrint list on iOS 14+ and
-macOS 11+ devices on the same network.
+The printer will appear automatically in the AirPrint list on **iOS 14–15** and
+**macOS 11–12** devices on the same network.  For iOS 16+ (including iOS 26.x)
+and macOS 13+, also follow the steps in the next section.
 
-### Optional helpers for older Apple devices
+### Required helper for iOS 16+ / iOS 26.x and macOS 13+
 
-If you also need to support iOS 13 / macOS 10.15 or earlier, you can manually
-advertise the `_universal._sub._ipp._tcp` sub-type using an Avahi service file
-on Linux or a Bonjour helper script on Windows.
+iOS 16 and later — including all iOS 26.x releases — require the printer to be
+advertised with the `_universal._sub._ipp._tcp` Bonjour sub-type in addition to
+the base `_ipp._tcp` service.  The same requirement applies to macOS 13 (Ventura)
+and later.
 
-> **Installing software on your PC is NOT required for iOS 14+ / macOS 11+.**
+You can satisfy this requirement without modifying the printer firmware by
+running a small Bonjour proxy on any always-on device on the same network:
+
+**Linux (Avahi)**
+
+Create `/etc/avahi/services/airprint.service` with the following content,
+replacing `<printer-ip>` and `<service-name>` with your actual values:
+
+```xml
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h AirPrint</name>
+  <service>
+    <type>_ipp._tcp</type>
+    <subtype>_universal._sub._ipp._tcp</subtype>
+    <port>631</port>
+    <host-name><printer-ip></host-name>
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+    <txt-record>rp=ipp/print</txt-record>
+    <txt-record>ty=<service-name></txt-record>
+    <txt-record>adminurl=http://<printer-ip>/</txt-record>
+    <txt-record>pdl=application/octet-stream,application/pdf,image/jpeg,image/png</txt-record>
+    <txt-record>URF=none</txt-record>
+  </service>
+</service-group>
+```
+
+Then reload Avahi:
+
+```bash
+sudo systemctl reload avahi-daemon
+```
+
+**Windows / macOS (dns-sd)**
+
+```
+dns-sd -R "IOGear GPSU21" _ipp._tcp,_universal._sub._ipp._tcp local 631 \
+  txtvers=1 qtotal=1 rp=ipp/print ty="IOGear GPSU21" \
+  adminurl=http://<printer-ip>/ \
+  pdl=application/octet-stream,application/pdf,image/jpeg,image/png \
+  URF=none
+```
+
+Once the helper is running, iOS 16+ / iOS 26.x and macOS 13+ devices on the
+same network will discover the printer through AirPrint.
+
+> **Note:** The helper only advertises the printer — all print jobs still go
+> directly from the Apple device to the GPSU21 at `<printer-ip>:631`.
