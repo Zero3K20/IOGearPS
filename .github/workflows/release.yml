@@ -18,8 +18,8 @@ jobs:
       CROSS_COMPILE: mipsel-linux-gnu-
       # Output firmware image path
       FW_OUT: firmware/build/gpsu21_ecos.bin
-      # Monthly cache-bust token — ensures eCos source and ecosconfig are
-      # refreshed once per month to pick up upstream fixes.
+      # Monthly cache-bust token — ensures the eCos installer output and
+      # ecosconfig are refreshed once per month to pick up upstream fixes.
       CACHE_MONTH: "2026-03"
 
     steps:
@@ -42,28 +42,51 @@ jobs:
             tcl-dev \
             autoconf \
             automake \
-            libtool
+            libtool \
+            wget
 
       # ── eCos source ───────────────────────────────────────────────────────
-      # Cache keyed on ecos.ecc content + year-month so we pick up upstream
-      # security/bug fixes automatically once per month.
+      # The official eCos installer (ecos-install.tcl) is used to download and
+      # install the eCos packages directly from the upstream FTP server.
+      # Passing the install directory as a positional argument suppresses both
+      # the directory-selection prompt and the GNU-tools selection menu.
+      # Passing -m suppresses the distribution-site selection menu.
+      # Together these flags make the installer fully non-interactive.
       - name: Cache eCos source tree
         id: ecos-src-cache
         uses: actions/cache@v4
         with:
           path: ecos-src
-          key: ecos-src-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
+          key: ecos-src-installer-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
 
-      - name: Checkout eCos source via git
+      - name: Download eCos install script
         if: steps.ecos-src-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth=1 https://github.com/ecos-rtos/ecos.git ecos-src
+          # NOTE: ecos.sourceware.org only serves ecos-install.tcl over plain
+          # FTP (no TLS / HTTPS alternative is provided by the eCos project).
+          # The risk is accepted here because this is the official upstream
+          # distribution method for eCos.
+          wget --passive-ftp ftp://ecos.sourceware.org/pub/ecos/ecos-install.tcl
+
+      - name: Install eCos source via official installer
+        if: steps.ecos-src-cache.outputs.cache-hit != 'true'
+        run: |
+          # -m sets the download mirror, suppressing the interactive mirror-
+          #    selection menu.
+          # Positional arg sets the install directory, suppressing both the
+          #    directory prompt and the GNU-tools selection menu (the tools
+          #    menu is only shown when no directory is provided on the command
+          #    line).  No other prompts are presented by the installer.
+          sh ecos-install.tcl \
+            -m ftp://ecos.sourceware.org/pub/ecos \
+            "$GITHUB_WORKSPACE/ecos-src"
 
       # ── ecosconfig host tool ──────────────────────────────────────────────
       # Cache key uses the same month token as the eCos source cache so both
-      # are refreshed together.  hashFiles on ecos-src/host/** is intentionally
-      # NOT used here because ecos-src may be restored from cache (not cloned),
-      # which means the directory may not exist when actions/cache evaluates the key.
+      # are refreshed together.  hashFiles on ecos-src/** is intentionally
+      # NOT used here because ecos-src may be restored from cache (not freshly
+      # installed), which means the directory may not exist when
+      # actions/cache evaluates the key.
       - name: Cache ecosconfig host tool
         id: ecosconfig-cache
         uses: actions/cache@v4
@@ -75,7 +98,7 @@ jobs:
         if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/ecos-host"
-          cd ecos-src/host
+          cd ecos-src/ecos-3.0/host
           autoreconf -fi
           ./configure --prefix="$RUNNER_TEMP/ecos-host"
           make -j$(nproc)
@@ -86,11 +109,15 @@ jobs:
 
       # ── eCos kernel build ─────────────────────────────────────────────────
       # ECOS_REPOSITORY includes:
-      #   1. the mainline eCos packages from the git clone
+      #   1. the mainline eCos packages from the official eCos installer
       #   2. firmware/hal/ — the MT7688 platform HAL provided in this repo
       - name: Set ECOS_REPOSITORY
         run: |
-          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-src/packages:$GITHUB_WORKSPACE/firmware/hal" \
+          # The installer generates ecosenv.sh inside the install directory
+          # with ECOS_REPOSITORY already pointing at the installed packages.
+          # Source it, then append the MT7688 HAL from this repository.
+          source "$GITHUB_WORKSPACE/ecos-src/ecosenv.sh"
+          echo "ECOS_REPOSITORY=$ECOS_REPOSITORY:$GITHUB_WORKSPACE/firmware/hal" \
             >> "$GITHUB_ENV"
 
       - name: Cache eCos kernel build

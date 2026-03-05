@@ -28,14 +28,31 @@ sudo apt-get install gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu
 
 ### Obtain eCos
 
-Use the GitHub mirror and check out the pinned commit to match the CI build
-exactly.  The canonical SourceForge repository may contain newer commits that
-have not yet been mirrored and could produce a different build.
+Use the official eCos installer to download and install the eCos source
+packages directly from the upstream FTP server:
 
 ```sh
-git clone https://github.com/ecos-rtos/ecos.git ecos-src
-git -C ecos-src checkout 597406b2dc19969f7e8ea72ee60af55d1c1b86a0
-export ECOS_REPOSITORY=$PWD/ecos-src/packages
+wget --passive-ftp ftp://ecos.sourceware.org/pub/ecos/ecos-install.tcl
+sh ecos-install.tcl -m ftp://ecos.sourceware.org/pub/ecos ~/ecos-src
+```
+
+> **Note:** The eCos project distributes `ecos-install.tcl` exclusively over
+> plain FTP; no HTTPS alternative is provided.  This is the official upstream
+> distribution method.
+
+The `-m` flag specifies the distribution mirror, which suppresses the
+interactive mirror-selection menu.  Passing the install directory as the
+second positional argument suppresses both the directory prompt and the
+GNU-tools selection menu (that menu only appears when no directory is
+provided on the command line).  Together these flags make the installer
+fully non-interactive.
+
+After installation, set `ECOS_REPOSITORY` by sourcing the generated
+environment script and appending the MT7688 HAL from this repository:
+
+```sh
+source ~/ecos-src/ecosenv.sh
+export ECOS_REPOSITORY="$ECOS_REPOSITORY:$PWD/firmware/hal"
 ```
 
 ---
