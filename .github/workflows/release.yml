@@ -93,7 +93,7 @@ jobs:
           cd "$RUNNER_TEMP/ecos-host-build"
           "$GITHUB_WORKSPACE/ecos-3.0/configure" --prefix="$RUNNER_TEMP/ecos-host"
           make -j1
-          make install
+          sudo make install
 
       - name: Add ecosconfig to PATH
         run: echo "$RUNNER_TEMP/ecos-host/bin" >> "$GITHUB_PATH"
