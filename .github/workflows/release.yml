@@ -87,12 +87,14 @@ jobs:
         run: echo "$RUNNER_TEMP/ecos-host/bin" >> "$GITHUB_PATH"
 
       # ── eCos kernel build ─────────────────────────────────────────────────
-      # ECOS_REPOSITORY includes:
-      #   1. the mainline eCos packages from the git clone
-      #   2. firmware/hal/ — the MT7688 platform HAL provided in this repo
+      # Export only the mainline eCos packages path here.  The firmware/hal/
+      # directory (MT7688 platform HAL) is appended automatically by the
+      # firmware/Makefile via: export ECOS_REPOSITORY := $(ECOS_REPOSITORY):$(HAL_DIR)
+      # Setting it here too would double-append firmware/hal and could cause
+      # ecosconfig to register packages from that directory twice.
       - name: Set ECOS_REPOSITORY
         run: |
-          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-src/packages:$GITHUB_WORKSPACE/firmware/hal" \
+          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-src/packages" \
             >> "$GITHUB_ENV"
 
       - name: Cache eCos kernel build
