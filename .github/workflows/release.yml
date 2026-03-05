@@ -42,8 +42,7 @@ jobs:
             tcl-dev \
             autoconf \
             automake \
-            libtool \
-            cvs
+            libtool
 
       # ── eCos source ───────────────────────────────────────────────────────
       # Cache keyed on ecos.ecc content + year-month so we pick up upstream
@@ -55,11 +54,10 @@ jobs:
           path: ecos-src
           key: ecos-src-${{ hashFiles('firmware/ecos.ecc') }}-${{ env.CACHE_MONTH }}
 
-      - name: Checkout eCos source via anonymous CVS
+      - name: Checkout eCos source from GitHub mirror
         if: steps.ecos-src-cache.outputs.cache-hit != 'true'
         run: |
-          cvs -z3 -d :pserver:anoncvs@ecos.sourceware.org:/cvs/ecos co -P ecos
-          mv ecos ecos-src
+          git clone --depth=1 https://github.com/ecos-rtos/ecos.git ecos-src
 
       # ── ecosconfig host tool ──────────────────────────────────────────────
       # Cache key uses the same month token as the eCos source cache so both
