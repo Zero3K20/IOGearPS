@@ -75,8 +75,9 @@ jobs:
         if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/ecos-host"
-          cd ecos-src/host
-          ./configure --prefix="$RUNNER_TEMP/ecos-host"
+          mkdir -p "$RUNNER_TEMP/ecos-host-build"
+          cd "$RUNNER_TEMP/ecos-host-build"
+          "$GITHUB_WORKSPACE/ecos-src/host/configure" --prefix="$RUNNER_TEMP/ecos-host"
           make -j$(nproc)
           make install
 
