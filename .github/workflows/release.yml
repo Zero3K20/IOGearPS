@@ -70,11 +70,10 @@ jobs:
           curl -fL "${ECOS_RELEASE_URL}/sha512.sum" \
             | grep "ecos-3.0.i386linux.tar.bz2" \
             | (cd /tmp && sha512sum --check)
-          # Discover the top-level directory name inside the tarball (e.g. ecos-3.0)
-          # and rename it to ecos-src so downstream steps use a stable path.
-          TOP=$(tar -tjf /tmp/ecos-3.0.i386linux.tar.bz2 | head -1 | cut -d/ -f1)
-          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2
-          mv "$TOP" ecos-src
+          # Extract directly into ecos-src/, stripping the single top-level
+          # directory from the tarball so downstream steps use a stable path.
+          mkdir -p ecos-src
+          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2 --strip-components=1 -C ecos-src
           rm /tmp/ecos-3.0.i386linux.tar.bz2
 
       # ── ecosconfig host tool ──────────────────────────────────────────────
