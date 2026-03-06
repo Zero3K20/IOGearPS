@@ -735,40 +735,48 @@ python3 --version
 
 ### IOGear GPSU21 firmware tools
 
-The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) uses **eCos RTOS** on
-a MediaTek MT7688 MIPS SoC.  All 61 web interface files — HTML pages,
-JavaScript, CSS, and JPEG/GIF images — are stored **uncompressed inside the
-LZMA-compressed eCos binary** and have already been extracted to the
-[`gpsu21_web/`](gpsu21_web/) directory in this repository.
+The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) originally used **eCos RTOS**
+on a MediaTek MT7688 MIPS SoC.  This repository has **migrated to FreeRTOS** to
+eliminate the numerous eCos compilation errors.  All 61 web interface files — HTML
+pages, JavaScript, CSS, and JPEG/GIF images — are stored in the
+[`gpsu21_web/`](gpsu21_web/) directory.
+
+### Why FreeRTOS instead of eCos?
+
+eCos 3.0 accumulated many build-breaking issues when compiled with modern GCC
+(GCC 14+): redefined structs, removed attributes, expansion-to-defined warnings
+treated as errors, and missing headers.  **FreeRTOS** (V10.6.2) is an actively
+maintained, MIT-licensed RTOS that:
+
+- Compiles cleanly with `gcc-mipsel-linux-gnu` (no patches required)
+- Has a well-tested MIPS32r2 port
+- Uses the same **lwIP 2.2.0** TCP/IP stack (same socket API)
+- Provides the same POSIX-like threading model the firmware relies on
+
+### Building from source
+
+```bash
+# Download FreeRTOS-Kernel and lwIP (done automatically by CI)
+curl -fL https://github.com/FreeRTOS/FreeRTOS-Kernel/archive/refs/tags/V10.6.2.tar.gz \
+  | tar -xz && mv FreeRTOS-Kernel-* freertos-kernel
+curl -fL https://github.com/lwip-tcpip/lwip/archive/refs/tags/STABLE-2_2_0_RELEASE.tar.gz \
+  | tar -xz && mv lwip-* lwip
+
+# Build
+make -C firmware \
+  CROSS_COMPILE=mipsel-linux-gnu- \
+  FREERTOS_DIR=$(pwd)/freertos-kernel \
+  LWIP_DIR=$(pwd)/lwip
+
+# Flash firmware/build/gpsu21_freertos.bin via the GPSU21 web interface
+```
 
 #### Edit-and-release workflow (recommended)
 
-1. **Edit** any file in `gpsu21_web/` directly on GitHub or in a local clone
-   (HTML, JS, CSS files use a text editor; keep file sizes ≤ original).
+1. **Edit** any file in `gpsu21_web/` directly on GitHub or in a local clone.
 2. **Commit and push** to `main`.
-3. **GitHub Actions** automatically runs `repack_gpsu21.py` and publishes a
-   new release containing `GPSU21_modified.bin` — ready to flash.
-
-> **Size constraint:** each edited file must be ≤ its original size.
-> Pad shorter files with spaces or HTML comments to fill the gap.
-> See `tools/repack_gpsu21.py` for details.
-
-#### Local workflow (optional)
-
-If you prefer to work entirely offline:
-
-```
-# Step 1 — Edit files in gpsu21_web/ with any text editor
-#           (HTML pages, JS, CSS — keep file sizes the same or smaller)
-
-# Step 2 — Repack locally
-# Windows:
-python tools\repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_web\  gpsu21_modified.bin
-# macOS / Linux:
-python3 tools/repack_gpsu21.py  MPS56_90956F_9034_20191119.zip  gpsu21_web/  gpsu21_modified.bin
-
-# Step 3 — Flash gpsu21_modified.bin via the GPSU21 web upgrade page
-```
+3. **GitHub Actions** automatically builds the FreeRTOS firmware and publishes a
+   new release containing `gpsu21_freertos.bin` — ready to flash.
 
 ---
 

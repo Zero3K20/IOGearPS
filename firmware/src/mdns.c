@@ -21,8 +21,7 @@
  *   A    gpsu21.local.             → <device IP>
  */
 
-#include <cyg/kernel/kapi.h>
-#include <cyg/infra/diag.h>
+#include "rtos.h"
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-package_firmware.py — Package a raw eCos binary into an IOGear GPSU21
+package_firmware.py — Package a raw FreeRTOS binary into an IOGear GPSU21
                        flashable firmware image.
 
 The GPSU21 bootloader expects a specific binary layout:
@@ -159,7 +159,7 @@ def _patch_zot_crc(fw_bytes):
 
 
 def package(input_path, output_path, version_str=DEFAULT_VERSION):
-    print(f"Loading raw eCos binary: {input_path}")
+    print(f"Loading raw FreeRTOS binary: {input_path}")
     with open(input_path, "rb") as f:
         raw = f.read()
     print(f"  Input size:       {len(raw):,} bytes")

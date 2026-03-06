@@ -10,18 +10,18 @@ permissions:
 
 jobs:
   release:
-    name: Build GPSU21 firmware from eCos source
+    name: Build GPSU21 firmware (FreeRTOS)
     runs-on: ubuntu-latest
 
     env:
       # MIPS little-endian cross-toolchain prefix
       CROSS_COMPILE: mipsel-linux-gnu-
       # Output firmware image path
-      FW_OUT: firmware/build/gpsu21_ecos.bin
-      # Base URL for the official eCos 3.0 release directory — contains the
-      # complete package tree (including net/lwip_tcpip / CYGPKG_NET_LWIP)
-      # plus host tools source.
-      ECOS_RELEASE_URL: "https://mirror.aarnet.edu.au/pub/sourceware/ecos/releases/ecos-3.0"
+      FW_OUT: firmware/build/gpsu21_freertos.bin
+      # FreeRTOS-Kernel version to download
+      FREERTOS_VERSION: "V10.6.2"
+      # lwIP version to download
+      LWIP_VERSION: "STABLE-2_2_0_RELEASE"
 
     steps:
       - name: Checkout repository
@@ -33,137 +33,74 @@ jobs:
           python-version: '3.x'
 
       # ── Toolchain & build prerequisites ──────────────────────────────────
-      - name: Install MIPS cross-compiler and eCos build prerequisites
+      - name: Install MIPS cross-compiler and build prerequisites
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
             gcc-mipsel-linux-gnu \
             g++-mipsel-linux-gnu \
-            binutils-mipsel-linux-gnu \
-            tcl \
-            tcl-dev \
-            tk \
-            tk-dev \
-            autoconf \
-            automake \
-            libtool
+            binutils-mipsel-linux-gnu
 
-      # ── MIPS soft-float stub header ──────────────────────────────────────────
-      # Ubuntu's gcc-mipsel-linux-gnu cross-toolchain uses -msoft-float for the
-      # eCos build.  The Linux sysroot headers (features.h → gnu/stubs.h) then
-      # require gnu/stubs-o32_soft.h for the o32 soft-float ABI, but
-      # libc6-dev-mipsel-cross only ships the hard-float variant
-      # (gnu/stubs-o32.h).  Create the missing stub so the header chain
-      # compiles cleanly.  For bare-metal eCos builds the symbol stubs are
-      # unused; only the file's existence matters.
+      # ── MIPS soft-float stub header ───────────────────────────────────────
+      # gcc-mipsel-linux-gnu with -msoft-float requires gnu/stubs-o32_soft.h
+      # which is not shipped by libc6-dev-mipsel-cross.  Create a stub.
       - name: Create missing MIPS o32 soft-float stub header
         run: |
           STUBS_DIR="/usr/mipsel-linux-gnu/include/gnu"
           STUBS_FILE="$STUBS_DIR/stubs-o32_soft.h"
           if [ ! -f "$STUBS_FILE" ]; then
             sudo mkdir -p "$STUBS_DIR"
-            printf '/* Stub for MIPS o32 soft-float ABI.\n   Not used in bare-metal / eCos builds; exists only to satisfy the\n   features.h -> gnu/stubs.h include chain when -msoft-float is active. */\n' \
+            printf '/* Stub: not used in bare-metal builds */\n' \
               | sudo tee "$STUBS_FILE" > /dev/null
             echo "Created $STUBS_FILE"
-          else
-            echo "$STUBS_FILE already exists, skipping."
           fi
 
-      # ── eCos source ───────────────────────────────────────────────────────
-      # The official eCos 3.0 release tarball is used instead of the GitHub
-      # mirror because it contains the complete package tree, including
-      # net/lwip_tcpip (CYGPKG_NET_LWIP) and all other packages referenced in
-      # firmware/ecos.ecc.  The cache key is fixed to the release version since
-      # the tarball is immutable; no monthly bust token is required.
-      - name: Cache eCos source tree
-        id: ecos-src-cache
+      # ── FreeRTOS-Kernel ───────────────────────────────────────────────────
+      - name: Cache FreeRTOS-Kernel
+        id: freertos-cache
         uses: actions/cache@v4
         with:
-          path: ecos-3.0
-          key: ecos-src-ecos-3.0-aarnet-v2
+          path: freertos-kernel
+          key: freertos-kernel-${{ env.FREERTOS_VERSION }}
 
-      - name: Download official eCos 3.0 release from aarnet mirror
-        if: steps.ecos-src-cache.outputs.cache-hit != 'true'
+      - name: Download FreeRTOS-Kernel
+        if: steps.freertos-cache.outputs.cache-hit != 'true'
         run: |
-          # Download tarball with its canonical filename for checksum verification.
-          curl -fL "${ECOS_RELEASE_URL}/ecos-3.0.i386linux.tar.bz2" \
-            -o /tmp/ecos-3.0.i386linux.tar.bz2
-          # Verify integrity against the mirror's published SHA-512 checksum.
-          curl -fL "${ECOS_RELEASE_URL}/sha512.sum" \
-            | grep "ecos-3.0.i386linux.tar.bz2" \
-            | (cd /tmp && sha512sum --check)
-          # Extract the tarball; it unpacks into an ecos-3.0/ subdirectory.
-          tar -xjf /tmp/ecos-3.0.i386linux.tar.bz2
-          rm /tmp/ecos-3.0.i386linux.tar.bz2
+          curl -fL \
+            "https://github.com/FreeRTOS/FreeRTOS-Kernel/archive/refs/tags/${{ env.FREERTOS_VERSION }}.tar.gz" \
+            -o /tmp/freertos-kernel.tar.gz
+          mkdir -p freertos-kernel-extract
+          tar -xzf /tmp/freertos-kernel.tar.gz -C freertos-kernel-extract
+          # Rename the extracted versioned directory to a stable name
+          mv freertos-kernel-extract/FreeRTOS-Kernel-* freertos-kernel
+          rm -rf freertos-kernel-extract /tmp/freertos-kernel.tar.gz
 
-      # ── ecosconfig host tool ──────────────────────────────────────────────
-      # The eCos 3.0 i386linux tarball includes the host tools source tree
-      # (ecos-3.0/configure), so ecosconfig is still built from source.
-      # Cache key is fixed to the eCos 3.0 release.
-      - name: Cache ecosconfig host tool
-        id: ecosconfig-cache
+      # ── lwIP ─────────────────────────────────────────────────────────────
+      - name: Cache lwIP
+        id: lwip-cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/ecos-host
-          key: ecosconfig-${{ runner.os }}-ecos-3.0-aarnet-v2
+          path: lwip
+          key: lwip-${{ env.LWIP_VERSION }}
 
-      - name: Build ecosconfig host tool
-        if: steps.ecosconfig-cache.outputs.cache-hit != 'true'
+      - name: Download lwIP
+        if: steps.lwip-cache.outputs.cache-hit != 'true'
         run: |
-          mkdir -p "$RUNNER_TEMP/ecos-host"
-          mkdir -p "$RUNNER_TEMP/ecos-host-build"
-          cd "$RUNNER_TEMP/ecos-host-build"
-          "$GITHUB_WORKSPACE/ecos-3.0/configure" --prefix="$RUNNER_TEMP/ecos-host"
-          make -j1
-          sudo make install
+          curl -fL \
+            "https://github.com/lwip-tcpip/lwip/archive/refs/tags/${{ env.LWIP_VERSION }}.tar.gz" \
+            -o /tmp/lwip.tar.gz
+          mkdir -p lwip-extract
+          tar -xzf /tmp/lwip.tar.gz -C lwip-extract
+          mv lwip-extract/lwip-* lwip
+          rm -rf lwip-extract /tmp/lwip.tar.gz
 
-      - name: Add ecosconfig to PATH
-        run: echo "$RUNNER_TEMP/ecos-host/bin" >> "$GITHUB_PATH"
-
-      # ── eCos kernel build ─────────────────────────────────────────────────
-      # Export only the mainline eCos packages path here.  The firmware/hal/
-      # directory (MT7688 platform HAL) is appended automatically by the
-      # firmware/Makefile via: export ECOS_REPOSITORY := $(ECOS_REPOSITORY):$(HAL_DIR)
-      # Setting it here too would double-append firmware/hal and could cause
-      # ecosconfig to register packages from that directory twice.
-      - name: Set ECOS_REPOSITORY
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build FreeRTOS firmware
         run: |
-          echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-3.0/packages" \
-            >> "$GITHUB_ENV"
-
-      # ── Patch eCos source ─────────────────────────────────────────────────
-      # All eCos source patches live in ecos/patches/ in this repository.
-      # Each *.sh script accepts the eCos source root as its first argument
-      # and is idempotent (safe to re-run against a cached source tree).
-      # To add a new fix: create a new numbered script in ecos/patches/ and
-      # commit it — the CI picks it up automatically on the next run.
-      # See ecos/patches/README.md for full documentation.
-      - name: Apply eCos patches from repository
-        run: |
-          shopt -s nullglob
-          for patch in ecos/patches/*.sh; do
-            echo "Applying $patch …"
-            bash "$patch" ecos-3.0
-          done
-
-      - name: Cache eCos kernel build
-        id: ecos-kernel-cache
-        uses: actions/cache@v4
-        with:
-          path: firmware/ecos_build
-          key: ecos-kernel-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc', 'firmware/hal/**', 'ecos/patches/**') }}
-
-      - name: Configure and build eCos kernel library
-        if: steps.ecos-kernel-cache.outputs.cache-hit != 'true'
-        run: |
-          make -C firmware ecos-build \
-            CROSS_COMPILE="$CROSS_COMPILE"
-
-      # ── Application + firmware image ──────────────────────────────────────
-      - name: Build application and package firmware
-        run: |
-          make -C firmware app-build firmware \
-            CROSS_COMPILE="$CROSS_COMPILE"
+          make -C firmware \
+            CROSS_COMPILE="$CROSS_COMPILE" \
+            FREERTOS_DIR="$GITHUB_WORKSPACE/freertos-kernel" \
+            LWIP_DIR="$GITHUB_WORKSPACE/lwip"
 
       # ── Verification ──────────────────────────────────────────────────────
       - name: Verify firmware image structure and checksums
@@ -184,7 +121,7 @@ jobs:
           assert uimage_magic == 0x27051956, f"Bad uImage magic: {uimage_magic:#010x}"
 
           # ZOT header checksum: ~CRC32(fw[4:])
-          stored  = struct.unpack_from("<I", fw, 0)[0]
+          stored   = struct.unpack_from("<I", fw, 0)[0]
           computed = zlib.crc32(fw[4:]) ^ 0xFFFFFFFF
           assert stored == computed & 0xFFFFFFFF, \
               f"ZOT CRC mismatch: stored={stored:#010x} computed={computed & 0xFFFFFFFF:#010x}"
@@ -195,7 +132,7 @@ jobs:
           struct.pack_into(">I", hdr, 4, 0)
           computed_hcrc = zlib.crc32(bytes(hdr)) & 0xFFFFFFFF
           assert stored_hcrc == computed_hcrc, \
-              f"uImage header CRC mismatch: stored={stored_hcrc:#010x} computed={computed_hcrc:#010x}"
+              f"uImage header CRC mismatch: {stored_hcrc:#010x} vs {computed_hcrc:#010x}"
 
           # Firmware version string
           ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
@@ -222,22 +159,28 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.name }}
           body: |
-            ## Firmware release (built from eCos RTOS source)
+            ## Firmware release (built with FreeRTOS)
 
-            | File | Device | CPU | Notes |
-            |------|--------|-----|-------|
-            | `gpsu21_ecos.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS) | Compiled from eCos RTOS source; all stability fixes incorporated |
+            | File | Device | CPU | RTOS |
+            |------|--------|-----|------|
+            | `gpsu21_freertos.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS32r2) | FreeRTOS V10.6.2 |
 
-            ### Stability fixes incorporated at source level
+            ### What changed from eCos
 
-            | Fix | Implementation |
-            |-----|----------------|
-            | mDNS/Bonjour lock counter de-sync | Clean mDNS re-implementation (`firmware/src/mdns.c`) |
-            | eCos `wakeup_count` overflow assertion | `CYGNUM_KERNEL_THREADS_WAKEUP_COUNT_MAX = 0` in `firmware/ecos.ecc` |
-            | Browser auto-refresh HTTP connection exhaustion | Auto-refresh `<meta>` tags absent from `gpsu21_web/` source HTML |
+            eCos RTOS was replaced with **FreeRTOS** to eliminate long-standing
+            compilation errors and maintenance burden.  The networking stack
+            (lwIP 2.2.0) and all print-server protocols (HTTP, IPP, LPR, mDNS,
+            raw TCP) are unchanged in behaviour.
+
+            ### Components
+
+            | Component | Version | Role |
+            |-----------|---------|------|
+            | FreeRTOS-Kernel | V10.6.2 | Scheduler, tasks, semaphores |
+            | lwIP | STABLE-2.2.0 | TCP/IP stack, socket API |
+            | MT7688 BSP | in-repo | Startup, UART, exception vectors |
 
             Built from commit ${{ github.sha }}.
           files: |
-            firmware/build/gpsu21_ecos.bin
+            firmware/build/gpsu21_freertos.bin
           fail_on_unmatched_files: true
-

@@ -12,8 +12,7 @@
  *   0x05  Remove jobs                  (stubbed — returns success)
  */
 
-#include <cyg/kernel/kapi.h>
-#include <cyg/infra/diag.h>
+#include "rtos.h"
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>

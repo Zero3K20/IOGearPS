@@ -1,0 +1,12 @@
+# Build artefacts — never commit these
+firmware/build/
+*.o
+*.a
+*.map
+*.elf
+*.bin
+
+# Temporary / editor files
+*.swp
+*~
+.DS_Store

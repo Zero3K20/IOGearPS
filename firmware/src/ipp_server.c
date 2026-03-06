@@ -20,8 +20,7 @@
  * IPP URI and capability attributes as _ipp._tcp Bonjour records.
  */
 
-#include <cyg/kernel/kapi.h>
-#include <cyg/infra/diag.h>
+#include "rtos.h"
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
