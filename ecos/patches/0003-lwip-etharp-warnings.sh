@@ -181,7 +181,7 @@ new = re.sub(
 )
 new = re.sub(
     r'(} PACK_STRUCT_STRUCT;\s*\nPACK_STRUCT_END\s*)',
-    r'\1\n#pragma GCC diagnostic pop /* ip_hdr -Wattributes */',
+    r'\1\n#pragma GCC diagnostic pop /* ip_hdr -Wattributes */\n',
     new,
     count=1
 )
