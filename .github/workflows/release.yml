@@ -48,6 +48,27 @@ jobs:
             automake \
             libtool
 
+      # ── MIPS soft-float stub header ──────────────────────────────────────────
+      # Ubuntu's gcc-mipsel-linux-gnu cross-toolchain uses -msoft-float for the
+      # eCos build.  The Linux sysroot headers (features.h → gnu/stubs.h) then
+      # require gnu/stubs-o32_soft.h for the o32 soft-float ABI, but
+      # libc6-dev-mipsel-cross only ships the hard-float variant
+      # (gnu/stubs-o32.h).  Create the missing stub so the header chain
+      # compiles cleanly.  For bare-metal eCos builds the symbol stubs are
+      # unused; only the file's existence matters.
+      - name: Create missing MIPS o32 soft-float stub header
+        run: |
+          STUBS_DIR="/usr/mipsel-linux-gnu/include/gnu"
+          STUBS_FILE="$STUBS_DIR/stubs-o32_soft.h"
+          if [ ! -f "$STUBS_FILE" ]; then
+            sudo mkdir -p "$STUBS_DIR"
+            printf '/* Stub for MIPS o32 soft-float ABI.\n   Not used in bare-metal / eCos builds; exists only to satisfy the\n   features.h -> gnu/stubs.h include chain when -msoft-float is active. */\n' \
+              | sudo tee "$STUBS_FILE" > /dev/null
+            echo "Created $STUBS_FILE"
+          else
+            echo "$STUBS_FILE already exists, skipping."
+          fi
+
       # ── eCos source ───────────────────────────────────────────────────────
       # The official eCos 3.0 release tarball is used instead of the GitHub
       # mirror because it contains the complete package tree, including
