@@ -10,3 +10,4 @@ firmware/build/
 *.swp
 *~
 .DS_Store
+firmware/__pycache__
