@@ -11,21 +11,26 @@ The GPSU21 bootloader expects a specific binary layout:
                        0x00–0x03  CRC32 (bitwise complement, covers bytes 4–end)
                        0x04–0x07  Magic: 0xb25a4758 (ZXT)
                        0x08–0x0B  Payload size (LE uint32, counts bytes 0x0100–end)
+                       0x20        Version major (integer byte, e.g. 9)
+                       0x21        Version minor (integer byte, e.g. 9)
+                       0x22        Version patch (integer byte, e.g. 56)
+                       0x23        Version suffix char (ASCII, e.g. 't' = 0x74)
+                       0x24–0x27  Build count (LE uint32, e.g. 1243)
                        0x28–0x5A  Version string (null-terminated, must start with "J#")
-    0x0100     64 B   U-Boot uImage header (MIPS standalone, big-endian fields)
+    0x0100     64 B   U-Boot uImage header (ZOT-specific fields, big-endian)
                        0x00–0x03  Magic: 0x27051956
                        0x04–0x07  Header CRC32 (covers header with this field zeroed)
                        0x08–0x0B  Timestamp (Unix epoch, big-endian)
                        0x0C–0x0F  Data size (big-endian) = len(padding + lzma_payload)
-                       0x10–0x13  Load address: 0x80000400 (big-endian)
-                       0x14–0x17  Entry point: 0x80000400 (big-endian)
+                       0x10–0x13  Load address: 0x80500000 (big-endian)
+                       0x14–0x17  Entry point: 0x80500000 (big-endian)
                        0x18–0x1B  Data CRC32 (big-endian)
-                       0x1C        OS type: 0x00 (invalid / standalone)
-                       0x1D        Architecture: 0x08 (MIPS)
-                       0x1E        Image type: 0x05 (standalone)
-                       0x1F        Compression: 0x03 (LZMA)
+                       0x1C        OS type: 0x05 (matches OEM firmware)
+                       0x1D        Architecture: 0x05 (matches OEM firmware)
+                       0x1E        Image type: 0x01 (matches OEM firmware)
+                       0x1F        Compression: 0x00 (matches OEM firmware)
                        0x20–0x3F  Image name: "zot716u2" (null-padded)
-    0x0140   19072 B  Padding (0xFF bytes) — gap between uImage header and LZMA
+    0x0140   18816 B  Padding (0xFF bytes) — gap between uImage header and LZMA
     0x4AC0    var     LZMA-compressed FreeRTOS binary
 
 Usage:
@@ -55,14 +60,19 @@ import time
 
 UIMAGE_OFFSET  = 0x0100   # offset of the 64-byte uImage header in the .bin
 LZMA_OFFSET    = 0x4AC0   # offset of the LZMA payload in the .bin
-PADDING_SIZE   = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 19072 B
+PADDING_SIZE   = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 18816 B
 
-MIPS_LOAD_ADDR = 0x80000400
+# Load/entry address: the ZOT/U-Boot bootloader decompresses the LZMA payload
+# to this KSEG0 DRAM address and jumps there.  This MUST match the address the
+# firmware binary was linked for (linker.ld ORIGIN) and must match the value
+# in the OEM firmware's uImage header; the upgrade validator checks this field.
+MIPS_LOAD_ADDR = 0x80500000
 UIMAGE_MAGIC   = 0x27051956
 
 ZOT_MAGIC      = 0xb25a4758   # ZOT Technology magic (verified from OEM firmware)
 ZOT_HEADER_SIZE = 256          # bytes
 VERSION_OFFSET  = 0x28         # within ZOT header
+VERSION_PKT_OFFSET = 0x20      # packed version record within ZOT header
 
 DEFAULT_VERSION = "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
 
@@ -90,6 +100,11 @@ def _build_uimage_header(data_crc, data_size, timestamp):
     data_crc   — CRC32 of (padding || lzma_payload)
     data_size  — byte length of (padding || lzma_payload)
     timestamp  — Unix timestamp to embed
+
+    The OS/arch/image-type/compression fields are set to match the OEM firmware
+    values exactly (0x05/0x05/0x01/0x00).  These values do not follow standard
+    U-Boot semantics; the ZOT bootloader uses them as-is.  Changing them causes
+    the upgrade validator to reject the image with "Wrong firmware".
     """
     hdr = bytearray(64)
 
@@ -101,10 +116,10 @@ def _build_uimage_header(data_crc, data_size, timestamp):
     struct.pack_into(">I", hdr, 20, MIPS_LOAD_ADDR)  # entry point
     struct.pack_into(">I", hdr, 24, data_crc)         # data CRC
 
-    hdr[28] = 0x00   # OS type: invalid/standalone
-    hdr[29] = 0x08   # Architecture: MIPS
-    hdr[30] = 0x05   # Image type: standalone
-    hdr[31] = 0x03   # Compression: LZMA
+    hdr[28] = 0x05   # OS type:    matches OEM firmware
+    hdr[29] = 0x05   # Arch:       matches OEM firmware
+    hdr[30] = 0x01   # Image type: matches OEM firmware
+    hdr[31] = 0x00   # Compression: matches OEM firmware (bootloader handles LZMA)
 
     # Image name: "zot716u2" (null-padded to 32 bytes)
     name = b"zot716u2"
@@ -115,6 +130,42 @@ def _build_uimage_header(data_crc, data_size, timestamp):
     struct.pack_into(">I", hdr, 4, hcrc)
 
     return bytes(hdr)
+
+
+def _parse_version_fields(version_str):
+    """
+    Parse the packed version fields from the version string for ZOT header
+    offsets 0x20–0x27.
+
+    The OEM firmware encodes a packed version record in the ZOT header at these
+    offsets.  Reverse-engineering of the OEM binary confirms the layout:
+      0x20  — version major  (integer byte, e.g. 9)
+      0x21  — version minor  (integer byte, e.g. 9 from "09")
+      0x22  — version patch  (integer byte, e.g. 56)
+      0x23  — build suffix   (ASCII char,   e.g. ord('t') = 0x74)
+      0x24–0x27 — build count (LE uint32,  e.g. 1243)
+
+    The upgrade validator in the running firmware checks these bytes; if they
+    are zero the firmware is rejected as "Wrong firmware".
+
+    Expected version_str format: "J#MT7688-{maj}.{min}.{patch}.{ignored}.{count}{suffix}-..."
+    Example: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
+    Returns (major, minor, patch, suffix_char, build_count) or None on parse failure.
+    """
+    import re
+    # Strip optional leading "J#" and platform prefix "MT7688-"
+    # int() handles leading zeros in version components (e.g. "09" → 9)
+    m = re.match(
+        r"(?:J#)?MT7688-(\d+)\.(\d+)\.(\d+)\.\d+\.(\d+)([a-zA-Z]?)",
+        version_str)
+    if not m:
+        return None
+    major      = int(m.group(1))
+    minor      = int(m.group(2))
+    patch      = int(m.group(3))
+    build      = int(m.group(4))
+    suffix     = ord(m.group(5)) if m.group(5) else 0
+    return (major, minor, patch, suffix, build)
 
 
 def _build_zot_header_stub(payload_size, version_str):
@@ -128,6 +179,9 @@ def _build_zot_header_stub(payload_size, version_str):
     fw[4:] — i.e. it covers the entire firmware image after the first 4 bytes.
     It must be computed AFTER the complete image is assembled; call
     _patch_zot_crc() on the assembled bytearray to fill it in.
+
+    Bytes 0x20–0x27 hold a packed version record that the upgrade validator
+    cross-checks; they are populated from the version string.
     """
     hdr = bytearray(ZOT_HEADER_SIZE)
 
@@ -136,6 +190,16 @@ def _build_zot_header_stub(payload_size, version_str):
 
     # Payload size at offset 0x08 (LE uint32, counts bytes from 0x100 to end)
     struct.pack_into("<I", hdr, 8, payload_size)
+
+    # Packed version record at offsets 0x20–0x27 (must match OEM firmware layout)
+    fields = _parse_version_fields(version_str)
+    if fields:
+        major, minor, patch, suffix_byte, build_count = fields
+        hdr[VERSION_PKT_OFFSET]     = major  & 0xFF
+        hdr[VERSION_PKT_OFFSET + 1] = minor  & 0xFF
+        hdr[VERSION_PKT_OFFSET + 2] = patch  & 0xFF
+        hdr[VERSION_PKT_OFFSET + 3] = suffix_byte & 0xFF
+        struct.pack_into("<I", hdr, VERSION_PKT_OFFSET + 4, build_count)
 
     # Version string at offset 0x28 (null-terminated)
     ver_bytes = version_str.encode("latin-1")[:50]
@@ -164,7 +228,7 @@ def package(input_path, output_path, version_str=DEFAULT_VERSION):
         raw = f.read()
     print(f"  Input size:       {len(raw):,} bytes")
 
-    # Compress the eCos binary with LZMA
+    # Compress the firmware binary with LZMA
     print("Compressing with LZMA …")
     lzma_payload = lzma.compress(raw, format=lzma.FORMAT_ALONE,
                                   filters=LZMA_FILTERS)
