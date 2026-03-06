@@ -25,6 +25,7 @@
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
+#include <lwip/def.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>

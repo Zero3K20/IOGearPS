@@ -23,6 +23,7 @@
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
+#include <lwip/def.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
