@@ -9,9 +9,9 @@ The GPSU21 bootloader expects a specific binary layout:
     ──────────────────────────────────────────────────────────
     0x0000    256 B   ZOT Technology firmware header
                        0x00–0x03  CRC32 (bitwise complement, covers bytes 4–end)
-                       0x04–0x07  Magic: 0x68617964 ("hayd")
+                       0x04–0x07  Magic: 0xb25a4758 (ZXT)
                        0x08–0x0B  Payload size (LE uint32, counts bytes 0x0100–end)
-                       0x28–0x5A  Version string (null-terminated)
+                       0x28–0x5A  Version string (null-terminated, must start with "J#")
     0x0100     64 B   U-Boot uImage header (MIPS standalone, big-endian fields)
                        0x00–0x03  Magic: 0x27051956
                        0x04–0x07  Header CRC32 (covers header with this field zeroed)
@@ -26,18 +26,18 @@ The GPSU21 bootloader expects a specific binary layout:
                        0x1F        Compression: 0x03 (LZMA)
                        0x20–0x3F  Image name: "zot716u2" (null-padded)
     0x0140   19072 B  Padding (0xFF bytes) — gap between uImage header and LZMA
-    0x4AC0    var     LZMA-compressed eCos binary
+    0x4AC0    var     LZMA-compressed FreeRTOS binary
 
 Usage:
     python3 firmware/package_firmware.py  <input.bin>  <output.bin>  [--version VER]
 
-    input.bin   — raw eCos binary (output of objcopy -O binary)
+    input.bin   — raw FreeRTOS binary (output of objcopy -O binary)
     output.bin  — output file for the flashable firmware image
     --version   — override the version string embedded in the ZOT header
-                  (default: "MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
+                  (default: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
 
 Example:
-    python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_ecos.bin
+    python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_freertos.bin
 """
 
 import sys
@@ -60,11 +60,11 @@ PADDING_SIZE   = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 19072 B
 MIPS_LOAD_ADDR = 0x80000400
 UIMAGE_MAGIC   = 0x27051956
 
-ZOT_MAGIC      = 0x68617964   # "hayd" LE
+ZOT_MAGIC      = 0xb25a4758   # ZOT Technology magic (verified from OEM firmware)
 ZOT_HEADER_SIZE = 256          # bytes
 VERSION_OFFSET  = 0x28         # within ZOT header
 
-DEFAULT_VERSION = "MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
+DEFAULT_VERSION = "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
 
 # LZMA filter parameters that match the original firmware
 LZMA_FILTERS = [

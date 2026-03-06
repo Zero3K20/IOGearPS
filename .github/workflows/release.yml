@@ -114,7 +114,7 @@ jobs:
 
           # ZOT header magic
           magic = struct.unpack_from("<I", fw, 4)[0]
-          assert magic == 0x68617964, f"Bad ZOT magic: {magic:#010x}"
+          assert magic == 0xb25a4758, f"Bad ZOT magic: {magic:#010x}"
 
           # U-Boot uImage magic
           uimage_magic = struct.unpack_from(">I", fw, 0x100)[0]
@@ -136,7 +136,7 @@ jobs:
 
           # Firmware version string
           ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
-          assert ver.startswith("MT7688-"), f"Unexpected version string: {ver!r}"
+          assert ver.startswith("J#MT7688-"), f"Unexpected version string: {ver!r}"
 
           # LZMA payload decompresses
           raw = lzma.decompress(fw[0x4AC0:])
