@@ -104,11 +104,24 @@ StackType_t *pxPortInitialiseStack(StackType_t  *pxTopOfStack,
     pxTopOfStack[0] = (StackType_t)(uintptr_t)pxCode;
 
     /*
-     * CP0 Status: IE=1 (interrupts enabled after eret), EXL=1 (we are in
-     * exception level; eret clears EXL).  UM=0 → kernel mode.
-     * Value: 0x00000003 (IE | EXL).
+     * CP0 Status initial value for each new task.
+     *
+     *  Bit  0  IE  = 1  — interrupts enabled once EXL is cleared by eret
+     *  Bit  1  EXL = 1  — exception level; eret clears this bit
+     *  Bit  8  IM0 = 1  — unmask IP0 / SW0 (software interrupt, used by vPortYield)
+     *  Bit 15  IM7 = 1  — unmask IP7 / HW5 (CP0 Count/Compare timer → scheduler tick)
+     *
+     * IM0 and IM7 correspond to IP0 (SW0, bit 8 of Cause) and IP7 (HW5,
+     * bit 15 of Cause) respectively — consistent with xPortStartScheduler()
+     * and vPortISR in port_asm.S which both use the same bit positions.
+     *
+     * Without IM0 and IM7 the timer and yield interrupts are both permanently
+     * masked after the first eret, so the FreeRTOS scheduler never ticks and
+     * the device appears completely unresponsive (bricked).
+     *
+     * Value: 0x00008103 (IE | EXL | IM0 | IM7).
      */
-    pxTopOfStack[1] = (StackType_t)0x00000003UL;
+    pxTopOfStack[1] = (StackType_t)0x00008103UL;
 
     /* A0 ($4) = task argument, at word 7. */
     pxTopOfStack[7] = (StackType_t)(uintptr_t)pvParameters;

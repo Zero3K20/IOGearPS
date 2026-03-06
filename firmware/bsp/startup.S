@@ -32,7 +32,7 @@
     .set    noat
 
 /* ─────────────────────────────────────────────────────────────────────────
- * _start — firmware entry point at 0x80000400
+ * _start — firmware entry point at 0x80500000
  * ───────────────────────────────────────────────────────────────────────── */
     .section .text.startup, "ax", @progbits
     .globl  _start
