@@ -93,6 +93,24 @@ cdl_option CYGSEM_KERNEL_SCHED_MLQUEUE {
     user_value 1 ;
 };
 
+# POSIX requires sorted scheduler queues, ASR support, timeslicing and global ASRs.
+# Explicitly set here to avoid "requires" constraint conflicts during ecosconfig check.
+cdl_option CYGIMP_KERNEL_SCHED_SORTED_QUEUES {
+    user_value 1 ;
+};
+
+cdl_option CYGSEM_KERNEL_SCHED_ASR_SUPPORT {
+    user_value 1 ;
+};
+
+cdl_option CYGSEM_KERNEL_SCHED_TIMESLICE_ENABLE {
+    user_value 1 ;
+};
+
+cdl_option CYGSEM_KERNEL_SCHED_ASR_GLOBAL {
+    user_value 1 ;
+};
+
 # Stack size for newly created threads (8 KB default)
 cdl_option CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE {
     user_value 8192 ;
@@ -102,6 +120,16 @@ cdl_option CYGNUM_HAL_COMMON_INTERRUPTS_STACK_SIZE {
 
 # (Heap size is determined by the platform memory layout, not a CDL option
 # in eCos 3.0.  CYGNUM_LIBC_MALLOC_HEAP_SIZE does not exist in eCos 3.0.)
+
+# No wallclock device (CYGPKG_IO_WALLCLOCK is absent); disable time() and
+# settimeofday() implementation to resolve "requires" constraint conflicts.
+cdl_option CYGSEM_LIBC_TIME_TIME_WORKING {
+    user_value 0 ;
+};
+
+cdl_option CYGSEM_LIBC_TIME_SETTIME_WORKING {
+    user_value 0 ;
+};
 
 # ── POSIX ────────────────────────────────────────────────────────────────────
 
