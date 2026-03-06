@@ -64,6 +64,9 @@ cdl_configuration eCos {
     package CYGPKG_LIBC_STDIO v3_0 ;
     package CYGPKG_LIBC_STDLIB v3_0 ;
     package CYGPKG_LIBC_TIME v3_0 ;
+    package CYGPKG_LIBC_CTYPE v3_0 ;   # implements CYGINT_ISO_CTYPE (required by STDLIB)
+    package CYGPKG_LIBC_I18N v3_0 ;    # required by STDIO
+    package CYGPKG_LIBC_STARTUP v3_0 ; # required by CYGPKG_POSIX_MAIN_THREAD
 
     # ── POSIX ────────────────────────────────────────────────────────────────
     package CYGPKG_POSIX v3_0 ;
@@ -78,6 +81,8 @@ cdl_configuration eCos {
 
     # ── Flash I/O ────────────────────────────────────────────────────────────
     package CYGPKG_IO_FLASH v3_0 ;
+    # W25Q16JVSSIQ SPI NOR flash driver — implements CYGHWR_IO_FLASH_DEVICE
+    package CYGPKG_DEVS_FLASH_WINBOND_W25Q_MT7688 current ;
 };
 
 # ---- contents --------------------------------------------------------
@@ -111,6 +116,14 @@ cdl_component CYGPKG_POSIX_SIGNALS {
 };
 
 cdl_component CYGPKG_POSIX_TIMERS {
+    user_value 1 ;
+};
+
+# ── libc startup ─────────────────────────────────────────────────────────────
+
+# CYGPKG_POSIX_MAIN_THREAD requires CYGSEM_LIBC_STARTUP_MAIN_OTHER: the POSIX
+# package creates the main() thread itself; libc must not also try to call it.
+cdl_option CYGSEM_LIBC_STARTUP_MAIN_OTHER {
     user_value 1 ;
 };
 
