@@ -407,7 +407,7 @@ void ipp_server_thread(cyg_addrword_t arg)
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = lwip_htons(IPP_PORT);
+    addr.sin_port        = htons(IPP_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (lwip_bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {

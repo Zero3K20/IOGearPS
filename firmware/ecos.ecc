@@ -183,6 +183,13 @@ cdl_option CYGNUM_LWIP_MEMP_NUM_TCP_PCB {
     user_value 36 ;
 };
 
+# Enable IGMP support so that multicast socket options (IP_ADD_MEMBERSHIP,
+# IP_MULTICAST_TTL, IP_MULTICAST_LOOP) and struct ip_mreq are available.
+# Required by mdns.c which joins the mDNS multicast group (224.0.0.251).
+cdl_component CYGPKG_LWIP_IGMP {
+    user_value 1 ;
+};
+
 # ── Flash I/O ────────────────────────────────────────────────────────────────
 
 # (MT7688 flash block size is determined by the hardware driver, not a generic

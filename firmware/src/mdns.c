@@ -270,7 +270,7 @@ void mdns_thread(cyg_addrword_t arg)
     }
 
     /* Join the mDNS multicast group */
-    mreq.imr_multiaddr.s_addr = lwip_inet_addr(MDNS_GROUP);
+    mreq.imr_multiaddr.s_addr = inet_addr(MDNS_GROUP);
     mreq.imr_interface.s_addr = INADDR_ANY;
     lwip_setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
     lwip_setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL,  &ttl,  sizeof(ttl));
@@ -278,8 +278,8 @@ void mdns_thread(cyg_addrword_t arg)
 
     memset(&mcast_addr, 0, sizeof(mcast_addr));
     mcast_addr.sin_family      = AF_INET;
-    mcast_addr.sin_port        = lwip_htons(MDNS_PORT);
-    mcast_addr.sin_addr.s_addr = lwip_inet_addr(MDNS_GROUP);
+    mcast_addr.sin_port        = htons(MDNS_PORT);
+    mcast_addr.sin_addr.s_addr = inet_addr(MDNS_GROUP);
 
     diag_printf("mdns: started, advertising '%s' as %s\n",
                 MDNS_SERVICE_NAME, MDNS_SERVICE_TYPE);
