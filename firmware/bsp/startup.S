@@ -2,8 +2,8 @@
  * startup.S — MIPS32r2 firmware entry point for the IOGear GPSU21.
  *
  * The ZOT/U-Boot bootloader LZMA-decompresses the firmware image into KSEG0
- * RAM at physical address 0x00000400 (KSEG0 virtual: 0x80000400) and branches
- * here.  The bootloader has already configured:
+ * RAM at 0x80500000 (taken from the uImage load_addr field, matching the OEM
+ * eCos firmware) and branches here.  The bootloader has already configured:
  *   - SDRAM controller (64 MB at 0x80000000)
  *   - UART0 at 57600-8N1  (base KSEG1 0xB0000C00)
  *   - CPU clock (580 MHz), bus clock (193 MHz)
@@ -22,9 +22,10 @@
  * Exception-vector strategy
  * ─────────────────────────
  * MIPS32 BEV=0 vectors are at EBase (default 0x80000000).  Our image starts
- * at 0x80000400, but the preceding 1 KiB is writable DRAM.  We write small
- * trampolines there at run time (step 4 above) so we don't need to change the
- * bootloader load address.
+ * at 0x80500000; the preceding 5 MB (0x80000000–0x804FFFFF) is writable DRAM.
+ * We write small trampolines there at run time (step 4 above) so the CPU can
+ * reach our handlers via j instructions (both ends share the same 256 MB
+ * KSEG0 region, so j-encoding is valid).
  */
 
     .set    noreorder

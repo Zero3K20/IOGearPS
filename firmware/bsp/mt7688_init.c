@@ -2,8 +2,8 @@
  * mt7688_init.c — MT7688 board initialisation for FreeRTOS.
  *
  * Called from startup.S before main().  Responsibilities:
- *   1. Install exception-vector jump-stubs in the 1 KiB DRAM region at
- *      0x80000000 (below our load address 0x80000400).
+ *   1. Install exception-vector jump-stubs in the DRAM region at 0x80000000
+ *      (below our load address 0x80500000).
  *   2. Set CP0 Cause.IV=1 so hardware interrupts use EBase+0x200 rather
  *      than the general-exception vector at EBase+0x180.
  *   3. Clear BEV in CP0 Status so the vectors we just installed are live.

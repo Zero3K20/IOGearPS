@@ -134,6 +134,11 @@ jobs:
           assert stored_hcrc == computed_hcrc, \
               f"uImage header CRC mismatch: {stored_hcrc:#010x} vs {computed_hcrc:#010x}"
 
+          # uImage load address must match OEM firmware (upgrade validator checks this)
+          load_addr = struct.unpack_from(">I", fw, 0x110)[0]
+          assert load_addr == 0x80500000, \
+              f"uImage load_addr wrong: {load_addr:#010x} (expected 0x80500000)"
+
           # Firmware version string
           ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
           assert ver.startswith("J#MT7688-"), f"Unexpected version string: {ver!r}"

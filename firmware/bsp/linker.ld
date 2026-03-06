@@ -6,12 +6,13 @@
  *   Physical SDRAM:  0x00000000 – 0x03FFFFFF  (64 MB)
  *   KSEG0 alias:     0x80000000 – 0x83FFFFFF  (cached, unmapped)
  *
- *   Exception vector page (runtime-written):  0x80000000 – 0x800003FF
- *   Firmware image (loaded by bootloader):    0x80000400 – ...
+ *   Exception vector page (runtime-written):  0x80000000 – 0x804FFFFF
+ *   Firmware image (loaded by bootloader):    0x80500000 – ...
  *
- * The firmware binary is LZMA-compressed by package_firmware.py and
- * decompressed by the bootloader to 0x80000400; the entry point _start
- * lives in the .text.startup section which the linker places first.
+ * The firmware binary is LZMA-compressed by package_firmware.py.  The ZOT
+ * bootloader decompresses it to 0x80500000 (taken from the uImage load_addr
+ * field) and branches to the entry point _start at that address.
+ * This matches the OEM eCos firmware load address exactly.
  */
 
 OUTPUT_FORMAT("elf32-tradlittlemips")
@@ -22,11 +23,14 @@ MEMORY
 {
     /*
      * Main application region.
-     * Starts at 0x80000400 (first 1 KiB reserved for MIPS exception vectors,
-     * which we write at runtime to the DRAM below our load address).
-     * Length: 56 MB — leaves 8 MB for FreeRTOS heap (configTOTAL_HEAP_SIZE).
+     * Starts at 0x80500000 — the ZOT bootloader decompresses the firmware
+     * LZMA payload to this address (matching the OEM firmware's uImage
+     * load_addr field).  The preceding 5 MB (0x80000000–0x804FFFFF) is
+     * used for MIPS exception vectors written at runtime and the FreeRTOS
+     * heap extension.
+     * Length: 59 MB — leaves 5 MB below for exception vectors / heap.
      */
-    ram : ORIGIN = 0x80000400, LENGTH = 56M
+    ram : ORIGIN = 0x80500000, LENGTH = 59M
 }
 
 /* Initial stack for startup / IRQ (before FreeRTOS per-task stacks). */
@@ -36,18 +40,17 @@ SECTIONS
 {
     /*
      * .text.startup must be the very first section so that _start lands at
-     * 0x80000400 (the bootloader's entry point).
+     * 0x80500000 (the bootloader's entry point, matching OEM firmware).
      */
-    .startup 0x80000400 :
+    .startup 0x80500000 :
     {
         KEEP(*(.text.startup))
     } > ram
 
     /*
      * The firmware version string is placed in a fixed-offset section so
-     * that tools/unpack_gpsu21.py can locate it at offset 0x28 in the ZOT
-     * header.  package_firmware.py embeds it there separately, so this
-     * section just needs to be in the binary without clashing.
+     * that package_firmware.py can embed it in the ZOT header at offset 0x28.
+     * This section just needs to be in the binary without clashing.
      */
     .version :
     {
