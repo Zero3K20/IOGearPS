@@ -21,10 +21,7 @@
 #include <cyg/kernel/kapi.h>
 #include <cyg/infra/diag.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <lwip/sockets.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

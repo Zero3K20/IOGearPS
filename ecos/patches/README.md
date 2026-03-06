@@ -55,3 +55,4 @@ done
 | File | Packages affected | Description |
 |------|-------------------|-------------|
 | `0001-io-eth-lwip-compat.sh` | `CYGPKG_IO_ETH_DRIVERS` | Guards `struct arpcom` in `eth_drv.h` and wraps `stand_alone/eth_drv.c` so both the standalone and lwIP Ethernet paths can coexist without a `redefinition of struct arpcom` error. |
+| `0002-libc-stdio-gcc14-compat.sh` | `CYGPKG_LIBC_STDIO` | Removes trailing `__attribute__((nothrow))` from `extern __inline__` function definitions in `stdio.inl`. GCC 14+ rejects attributes placed after the declarator in function definitions. Removing the attribute is safe in eCos (bare-metal, exceptions disabled). |

@@ -151,7 +151,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: firmware/ecos_build
-          key: ecos-kernel-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc', 'firmware/hal/**') }}
+          key: ecos-kernel-${{ runner.os }}-${{ hashFiles('firmware/ecos.ecc', 'firmware/hal/**', 'ecos/patches/**') }}
 
       - name: Configure and build eCos kernel library
         if: steps.ecos-kernel-cache.outputs.cache-hit != 'true'
