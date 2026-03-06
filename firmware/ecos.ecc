@@ -209,3 +209,163 @@ cdl_option CYGNUM_HAL_VIRTUAL_VECTOR_CONSOLE_CHANNEL_BAUD {
     user_value 57600 ;
 };
 
+# ── ISOINFRA header mappings ──────────────────────────────────────────────────
+#
+# ecosconfig check reports 38 "requires" constraint conflicts for these
+# CYGBLD_ISO_* options because the CDL constraints are evaluated before the
+# packages have a chance to infer the values.  Setting them explicitly as
+# inferred_value here pre-populates the values and eliminates the conflicts.
+# The values match exactly what ecosconfig tree infers from the loaded packages.
+
+cdl_option CYGBLD_ISO_CTYPE_HEADER {
+    inferred_value "<cyg/libc/i18n/ctype.inl>" ;
+};
+
+cdl_option CYGBLD_ISO_ERRNO_CODES_HEADER {
+    inferred_value "<cyg/error/codes.h>" ;
+};
+
+cdl_option CYGBLD_ISO_ERRNO_HEADER {
+    inferred_value "<cyg/error/errno.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRERROR_HEADER {
+    inferred_value "<cyg/error/strerror.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRING_LOCALE_FUNCS_HEADER {
+    inferred_value "<cyg/libc/string/string.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRING_MEMFUNCS_HEADER {
+    inferred_value "<cyg/libc/string/string.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRING_STRFUNCS_HEADER {
+    inferred_value "<cyg/libc/string/string.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRTOK_R_HEADER {
+    inferred_value "<cyg/libc/string/string.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRING_BSD_FUNCS_HEADER {
+    inferred_value "<cyg/libc/string/bsdstring.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_FILETYPES_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_FILEACCESS_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_FILEPOS_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_FILEOPS_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_FORMATTED_IO_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_CHAR_IO_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_DIRECT_IO_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_ERROR_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDIO_STREAMS_HEADER {
+    inferred_value "<cyg/libc/stdio/stdio.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STDLIB_STRCONV_HEADER {
+    inferred_value "<cyg/libc/stdlib/atox.inl>" ;
+};
+
+cdl_option CYGBLD_ISO_STDLIB_ABS_HEADER {
+    inferred_value "<cyg/libc/stdlib/abs.inl>" ;
+};
+
+cdl_option CYGBLD_ISO_STDLIB_DIV_HEADER {
+    inferred_value "<cyg/libc/stdlib/div.inl>" ;
+};
+
+cdl_option CYGBLD_ISO_C_TIME_TYPES_HEADER {
+    inferred_value "<cyg/libc/time/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_C_CLOCK_FUNCS_HEADER {
+    inferred_value "<cyg/libc/time/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_POSIX_LIMITS_HEADER {
+    inferred_value "<cyg/posix/limits.h>" ;
+};
+
+cdl_option CYGBLD_ISO_PMUTEXTYPES_HEADER {
+    inferred_value "<cyg/posix/muttypes.h>" ;
+};
+
+cdl_option CYGBLD_ISO_PTHREAD_MUTEX_HEADER {
+    inferred_value "<cyg/posix/mutex.h>" ;
+};
+
+cdl_option CYGBLD_ISO_POSIX_CLOCK_TYPES_HEADER {
+    inferred_value "<cyg/posix/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_POSIX_CLOCKS_HEADER {
+    inferred_value "<cyg/posix/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_POSIX_TIMER_TYPES_HEADER {
+    inferred_value "<cyg/posix/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_POSIX_TIMERS_HEADER {
+    inferred_value "<cyg/posix/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_STRUCTTIMEVAL_HEADER {
+    inferred_value "<cyg/posix/sys/time.h>" ;
+};
+
+cdl_option CYGBLD_ISO_SEMAPHORES_HEADER {
+    inferred_value "<cyg/posix/semaphore.h>" ;
+};
+
+cdl_option CYGBLD_ISO_SIGSETJMP_HEADER {
+    inferred_value "<cyg/posix/sigsetjmp.h>" ;
+};
+
+cdl_option CYGBLD_ISO_SIGNAL_NUMBERS_HEADER {
+    inferred_value "<cyg/posix/signal.h>" ;
+};
+
+cdl_option CYGBLD_ISO_SIGNAL_IMPL_HEADER {
+    inferred_value "<cyg/posix/signal.h>" ;
+};
+
+cdl_option CYGBLD_ISO_PTHREADTYPES_HEADER {
+    inferred_value "<cyg/posix/types.h>" ;
+};
+
+cdl_option CYGBLD_ISO_PTHREAD_IMPL_HEADER {
+    inferred_value "<cyg/posix/pthread.h>" ;
+};
+
+cdl_option CYGBLD_ISO_UTSNAME_HEADER {
+    inferred_value "<cyg/posix/utsname.h>" ;
+};
+
