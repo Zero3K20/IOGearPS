@@ -29,6 +29,7 @@
 
 #include "httpd.h"
 #include "web_resources.h"
+#include "config.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Configuration
@@ -150,6 +151,73 @@ static void send_200_file(int fd, const char *filename,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+ * URL-decode a percent-encoded string in-place (+ → space, %XX → byte).
+ * ───────────────────────────────────────────────────────────────────────────*/
+static void url_decode(char *dst, const char *src, size_t dst_size)
+{
+    size_t i = 0;
+    while (*src && i < dst_size - 1) {
+        if (*src == '+') {
+            dst[i++] = ' ';
+            src++;
+        } else if (*src == '%' && src[1] && src[2]) {
+            unsigned int hex = 0;
+            const char *h = src + 1;
+            /* Parse two hex digits manually (avoids sscanf overhead). */
+            if (*h >= '0' && *h <= '9')      hex  = (unsigned)(*h - '0') << 4;
+            else if (*h >= 'A' && *h <= 'F') hex  = (unsigned)(*h - 'A' + 10) << 4;
+            else if (*h >= 'a' && *h <= 'f') hex  = (unsigned)(*h - 'a' + 10) << 4;
+            h++;
+            if (*h >= '0' && *h <= '9')      hex |= (unsigned)(*h - '0');
+            else if (*h >= 'A' && *h <= 'F') hex |= (unsigned)(*h - 'A' + 10);
+            else if (*h >= 'a' && *h <= 'f') hex |= (unsigned)(*h - 'a' + 10);
+            dst[i++] = (char)hex;
+            src += 3;
+        } else {
+            dst[i++] = *src++;
+        }
+    }
+    dst[i] = '\0';
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Parse a URL query string and apply known settings.
+ *
+ * Recognised parameters (all others are silently ignored):
+ *   PSName          — device / AirPrint service instance name
+ *   AirPrintEnabled — "0" disables AirPrint advertising, "1" enables it
+ * ───────────────────────────────────────────────────────────────────────────*/
+static void parse_and_apply_settings(const char *query)
+{
+    char qs[512];
+    char *token;
+    char decoded[CONFIG_DEVICE_NAME_MAX];
+
+    strncpy(qs, query, sizeof(qs) - 1);
+    qs[sizeof(qs) - 1] = '\0';
+
+    token = strtok(qs, "&");
+    while (token) {
+        char *eq  = strchr(token, '=');
+        char *key;
+        char *value;
+        if (eq) {
+            *eq   = '\0';
+            key   = token;
+            value = eq + 1;
+
+            if (strcmp(key, "PSName") == 0) {
+                url_decode(decoded, value, sizeof(decoded));
+                config_set_device_name(decoded);
+            } else if (strcmp(key, "AirPrintEnabled") == 0) {
+                config_set_airprint_enabled(atoi(value));
+            }
+        }
+        token = strtok(NULL, "&");
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
  * Request handler — called from each child thread
  * ───────────────────────────────────────────────────────────────────────────*/
 static void handle_request(int fd)
@@ -170,6 +238,16 @@ static void handle_request(int fd)
     if (sscanf(buf, "%7s %127s %15s", method, path, proto) < 2) {
         send_404(fd);
         return;
+    }
+
+    /* If the path contains a query string (e.g. /restart.htm?PSName=Foo&...),
+     * extract and apply the settings, then serve only the bare filename. */
+    {
+        char *qs = strchr(path, '?');
+        if (qs) {
+            *qs = '\0';                      /* isolate the filename */
+            parse_and_apply_settings(qs + 1);
+        }
     }
 
     /* Normalise path: "/" → "/index.htm" */
