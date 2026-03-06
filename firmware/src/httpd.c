@@ -37,7 +37,19 @@
 #define HTTP_MAX_CONNECTIONS    8
 #define HTTP_RECV_BUF_SIZE      2048
 #define HTTP_SEND_BUF_SIZE      4096
-#define HTTP_THREAD_STACK_SIZE  4096
+/*
+ * HTTP_THREAD_STACK_SIZE — stack for each per-connection child thread, in bytes.
+ *
+ * handle_request() places char buf[HTTP_RECV_BUF_SIZE] (2048 B) and
+ * char lower[128] on the stack, plus call-frame overhead and lwIP internal
+ * usage (lwip_recv → lwip_send).  Measured worst-case depth is ~3 200 B;
+ * 8 192 B gives a comfortable safety margin.
+ *
+ * Halving this to 4 096 B was the previous value and leaves only ~900 B of
+ * headroom after locals, which is insufficient when lwIP adds its own frames.
+ * A stack overflow there silently corrupts memory and can brick the device.
+ */
+#define HTTP_THREAD_STACK_SIZE  8192
 #define HTTP_THREAD_PRIORITY    12
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -47,8 +59,18 @@ typedef struct {
     int             fd;
     cyg_bool_t      in_use;
     cyg_handle_t    thread;
-    cyg_thread      thread_obj;
-    char            stack[HTTP_THREAD_STACK_SIZE];
+    /*
+     * NOTE: thread stack and TCB are allocated dynamically by xTaskCreate so
+     * that FreeRTOS frees them via the idle task after vTaskDelete(NULL).
+     *
+     * The previous implementation used xTaskCreateStatic with a StaticTask_t
+     * and stack[] array embedded here.  That caused a race condition: after a
+     * child called vTaskDelete(NULL), FreeRTOS placed the StaticTask_t on the
+     * internal xTasksWaitingTermination list; if a new connection reused the
+     * same slot before the idle task processed that list, xTaskCreateStatic
+     * would overwrite the StaticTask_t's xStateListItem, corrupting the
+     * FreeRTOS scheduler's task lists and crashing the device.
+     */
 } http_conn_t;
 
 static http_conn_t http_pool[HTTP_MAX_CONNECTIONS];
@@ -273,16 +295,23 @@ void httpd_thread(cyg_addrword_t arg)
             continue;
         }
 
-        cyg_thread_create(
-            HTTP_THREAD_PRIORITY,
-            http_child_thread,
-            (cyg_addrword_t)slot,
-            "http_child",
-            slot->stack,
-            HTTP_THREAD_STACK_SIZE,
-            &slot->thread,
-            &slot->thread_obj
-        );
-        cyg_thread_resume(slot->thread);
+        {
+            BaseType_t ret;
+            ret = xTaskCreate(
+                (TaskFunction_t)http_child_thread,
+                "http_child",
+                (configSTACK_DEPTH_TYPE)(HTTP_THREAD_STACK_SIZE / sizeof(StackType_t)),
+                (void *)slot,
+                CYG_TO_FRT_PRIO(HTTP_THREAD_PRIORITY),
+                &slot->thread);
+            if (ret != pdPASS) {
+                diag_printf("httpd: xTaskCreate failed (out of heap?)\n");
+                lwip_close(client_fd);
+                cyg_mutex_lock(&http_pool_lock);
+                slot->in_use = false;
+                cyg_mutex_unlock(&http_pool_lock);
+                continue;
+            }
+        }
     }
 }

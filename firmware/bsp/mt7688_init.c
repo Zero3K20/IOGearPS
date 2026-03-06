@@ -63,6 +63,21 @@ void board_init(void)
     uint32_t reg;
 
     /*
+     * Disable the MT7688 hardware watchdog FIRST, before anything else.
+     *
+     * The ZOT U-Boot bootloader arms the SoC watchdog with a ~30-second
+     * timeout as part of its own startup sequence.  If our firmware does not
+     * kick or disable the WDT within that window, the SoC resets, the
+     * bootloader re-arms the WDT, and the cycle repeats — the device appears
+     * permanently bricked even though only the WDT is at fault.
+     *
+     * Writing 0 to MT7688_WDT_TIMER disables the watchdog immediately.
+     * The watchdog_thread in main.c periodically calls mt7688_wdt_keepalive()
+     * to ensure the WDT stays disabled for the lifetime of the firmware.
+     */
+    mt7688_wdt_disable();
+
+    /*
      * Install exception-vector stubs at their MIPS32 BEV=0 offsets.
      * EBase defaults to 0x80000000; offset layout:
      *   +0x000  TLB Refill        → panic (KSEG0/1 fixed-map, no TLB needed)

@@ -279,7 +279,7 @@ def package(input_path, output_path, version_str=DEFAULT_VERSION):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("input",   help="raw eCos binary (.bin)")
+    parser.add_argument("input",   help="raw FreeRTOS binary (.bin)")
     parser.add_argument("output",  help="output firmware image (.bin)")
     parser.add_argument("--version", default=DEFAULT_VERSION,
                         help="firmware version string (default: %(default)s)")

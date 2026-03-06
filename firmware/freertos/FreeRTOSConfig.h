@@ -77,7 +77,17 @@
 #define configUSE_TIMERS                        1
 #define configTIMER_TASK_PRIORITY               (configMAX_PRIORITIES - 1)
 #define configTIMER_QUEUE_LENGTH                8
-#define configTIMER_TASK_STACK_DEPTH            configMINIMAL_STACK_SIZE
+/*
+ * configTIMER_TASK_STACK_DEPTH — stack for the FreeRTOS timer task, in words.
+ *
+ * lwIP registers software timers for DHCP lease renewal, ARP cache expiry,
+ * TCP keepalives, and mDNS announcements.  These callbacks build and process
+ * network packets, requiring considerably more stack than a bare timer task.
+ * The previous value (configMINIMAL_STACK_SIZE = 256 words = 1 KB) was too
+ * small for lwIP callbacks; a stack overflow could corrupt adjacent memory
+ * and crash the device.  512 words (2 KB) provides adequate headroom.
+ */
+#define configTIMER_TASK_STACK_DEPTH            512
 
 /* ── Idle task static allocation ────────────────────────────────────────── *
  *
