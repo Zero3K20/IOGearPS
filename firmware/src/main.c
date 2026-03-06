@@ -40,6 +40,7 @@
 #include "lwip/netif.h"
 #include "lwip/dhcp.h"
 #include "../freertos/netif/mt7688_eth.h"
+#include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive() */
 
 /* Service headers */
 #include "httpd.h"
@@ -192,8 +193,23 @@ static void status_thread(cyg_addrword_t arg)
 static void watchdog_thread(cyg_addrword_t arg)
 {
     (void)arg;
-    diag_printf("GPSU21: network watchdog started\n");
-    for (;;) cyg_thread_delay(100);
+    diag_printf("GPSU21: watchdog thread started — MT7688 WDT kept disabled\n");
+
+    /*
+     * Keep the MT7688 hardware watchdog disabled by writing 0 to its timer
+     * register every second.  The WDT was already disabled in board_init()
+     * via mt7688_wdt_disable(); this loop ensures it cannot be accidentally
+     * re-armed by any other code path for the lifetime of the firmware.
+     *
+     * NOTE: A production firmware should instead arm the WDT with a suitable
+     * timeout (e.g. 5 s) and kick it here so the hardware can recover from
+     * a genuine firmware hang.  The current implementation prioritises
+     * correctness and non-bricking over hardware-watchdog protection.
+     */
+    for (;;) {
+        mt7688_wdt_keepalive();
+        cyg_thread_delay(pdMS_TO_TICKS(500));  /* every 500 ms */
+    }
 }
 
 static void idle_thread(cyg_addrword_t arg)
