@@ -18,8 +18,7 @@
  *   - POST /save_settings and POST /upgrade are handled separately.
  */
 
-#include <cyg/kernel/kapi.h>
-#include <cyg/infra/diag.h>
+#include "rtos.h"
 
 #include <lwip/sockets.h>
 #include <lwip/inet.h>

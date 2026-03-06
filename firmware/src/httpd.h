@@ -4,7 +4,7 @@
 #ifndef HTTPD_H
 #define HTTPD_H
 
-#include <cyg/kernel/kapi.h>
+#include "rtos.h"
 
 /* HTTP server thread entry — pass to cyg_thread_create(). */
 void httpd_thread(cyg_addrword_t arg);

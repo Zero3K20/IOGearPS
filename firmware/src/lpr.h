@@ -4,7 +4,7 @@
 #ifndef LPR_H
 #define LPR_H
 
-#include <cyg/kernel/kapi.h>
+#include "rtos.h"
 
 void lpr_thread(cyg_addrword_t arg);
 

@@ -4,7 +4,7 @@
 #ifndef MDNS_H
 #define MDNS_H
 
-#include <cyg/kernel/kapi.h>
+#include "rtos.h"
 
 void mdns_thread(cyg_addrword_t arg);
 

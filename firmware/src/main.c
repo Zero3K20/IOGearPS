@@ -6,7 +6,7 @@
  * original ZOT firmware binary (19 concurrent service threads) while
  * incorporating the stability fixes from tools/patch_gpsu21.py.
  *
- * eCos entry point: cyg_user_start()
+ * Entry point: main() → cyg_user_start() → vTaskStartScheduler()
  *
  * Thread layout (same as stock firmware):
  *   Thread 0  — main print-server loop / USB management
@@ -30,13 +30,16 @@
  *   Thread 18 — Idle / diagnostic
  */
 
-#include <cyg/kernel/kapi.h>
-#include <cyg/hal/hal_arch.h>
-#include <cyg/infra/cyg_type.h>
-#include <cyg/infra/diag.h>
+#include "rtos.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#include "lwip/tcpip.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
+#include "lwip/dhcp.h"
+#include "../freertos/netif/mt7688_eth.h"
 
 /* Service headers */
 #include "httpd.h"
@@ -234,10 +237,36 @@ static const thread_desc_t thread_descs[NUM_THREADS] = {
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * cyg_user_start() — eCos application entry point.
+ * Network interface (lwIP)
+ * ───────────────────────────────────────────────────────────────────────────*/
+static struct netif gpsu21_netif;
+
+static void netif_setup(void *arg)
+{
+    ip4_addr_t ipaddr, netmask, gw;
+    (void)arg;
+
+    IP4_ADDR(&ipaddr,  MT7688_IP_ADDR0, MT7688_IP_ADDR1,
+                       MT7688_IP_ADDR2, MT7688_IP_ADDR3);
+    IP4_ADDR(&netmask, MT7688_NETMASK0, MT7688_NETMASK1,
+                       MT7688_NETMASK2, MT7688_NETMASK3);
+    IP4_ADDR(&gw,      MT7688_GW_ADDR0, MT7688_GW_ADDR1,
+                       MT7688_GW_ADDR2, MT7688_GW_ADDR3);
+
+    netif_add(&gpsu21_netif, &ipaddr, &netmask, &gw,
+              NULL, mt7688_eth_init, tcpip_input);
+    netif_set_default(&gpsu21_netif);
+    netif_set_up(&gpsu21_netif);
+
+    /* Request an address via DHCP (falls back to static if no server). */
+    dhcp_start(&gpsu21_netif);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * cyg_user_start() — application entry point.
  *
- * Called by the eCos kernel once hardware initialisation is complete.
- * Creates all service threads and returns; the scheduler takes over.
+ * Initialises lwIP, creates all service threads, and returns.
+ * The FreeRTOS scheduler (started in main()) takes over from here.
  * ───────────────────────────────────────────────────────────────────────────*/
 void cyg_user_start(void)
 {
@@ -246,8 +275,11 @@ void cyg_user_start(void)
     diag_printf("\n");
     diag_printf("========================================\n");
     diag_printf(" IOGear GPSU21 Print Server\n");
-    diag_printf(" eCos firmware — %s\n", gpsu21_version);
+    diag_printf(" FreeRTOS firmware — %s\n", gpsu21_version);
     diag_printf("========================================\n");
+
+    /* Initialise the lwIP TCP/IP stack (starts the tcpip_thread). */
+    tcpip_init(netif_setup, NULL);
 
     for (i = 0; i < NUM_THREADS; i++) {
         cyg_thread_create(
@@ -264,4 +296,20 @@ void cyg_user_start(void)
     }
 
     diag_printf("GPSU21: %u service threads created\n", NUM_THREADS);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * main() — FreeRTOS entry point.
+ *
+ * Called from startup.S after BSS clear and board_init().
+ * Creates the application tasks via cyg_user_start(), then hands control to
+ * the FreeRTOS scheduler (never returns).
+ * ───────────────────────────────────────────────────────────────────────────*/
+int main(void)
+{
+    cyg_user_start();
+    vTaskStartScheduler();
+    /* Should never reach here — scheduler runs forever. */
+    for (;;) { /* never reached */ }
+    return 0;
 }

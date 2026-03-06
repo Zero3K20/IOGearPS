@@ -4,7 +4,7 @@
 #ifndef IPP_SERVER_H
 #define IPP_SERVER_H
 
-#include <cyg/kernel/kapi.h>
+#include "rtos.h"
 
 void ipp_server_thread(cyg_addrword_t arg);
 
