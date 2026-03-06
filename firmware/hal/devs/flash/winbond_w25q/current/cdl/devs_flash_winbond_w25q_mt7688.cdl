@@ -25,17 +25,21 @@ cdl_package CYGPKG_DEVS_FLASH_WINBOND_W25Q_MT7688 {
         NOR Flash fitted on the IOGear GPSU21 / ZOT Technology pu211 print
         server.
 
-        The driver uses the MT7688 SPI controller (mt7621-compatible SPIMST
-        at 0xB0000B00) in MoreBuf mode to issue standard W25Q SPI commands:
-        Write Enable (0x06), Sector Erase 4 KB (0x20), Page Program (0x02),
-        Read Status Register-1 (0x05), and Read JEDEC ID (0x9F).  Flash reads
-        use the transparent memory-mapped SPI NOR window at 0xBC000000 (KSEG1)
-        that the U-Boot / ZOT bootloader enables before handing off control.
+        The driver is structured as two layers:
+          w25_flash.h / w25_flash.c — W25Q protocol hardware layer.
+            API and opcodes based on DexterHaslem/winbond-w25-flash-drv (MIT).
+            The MT7688 implementation uses the SoC MoreBuf SPI controller
+            (KSEG1 0xB0000B00) directly for batched transactions rather than
+            byte-by-byte SPI_EXCHANGE macros.
+          w25q_mt7688_flash.c — thin eCos cyg_flash glue layer.
+            Calls the w25_flash API for erase and program; flash reads use
+            the transparent memory-mapped SPI NOR window at 0xBC000000 (KSEG1)
+            that the U-Boot / ZOT bootloader enables.
 
         Device identification at init time: JEDEC ID 0xEF / 0x40 / 0x15
         (Winbond, SPI NOR, 16 Mbit)."
 
-    compile     w25q_mt7688_flash.c
+    compile     w25_flash.c w25q_mt7688_flash.c
 
     define_header devs_flash_winbond_w25q_mt7688.h
 
