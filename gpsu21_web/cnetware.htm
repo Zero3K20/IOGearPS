@@ -264,6 +264,26 @@ document.forms[0].HTTP_MODE[iHTTPD].selected=true;
 </SCRIPT>
 <td class="Na"></td>
 </tr>
+<!-- AirPrint (service instance name taken from the device name in System settings) -->
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<SCRIPT LANGUAGE=JavaScript>
+var iAirPrint = "<!--# echo var="AirPrintEnabled"-->";
+document.write('<td class="Wh2">');
+document.write("<SELECT NAME=AirPrintEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.write("</TD>");
+document.forms[0].AirPrintEnabled[iAirPrint].selected=true;
+</SCRIPT>
+<td class="Wh"></td>
+</tr>
 </table>
 </td>
 </tr>

@@ -51,8 +51,9 @@ Section3a('setup');
 <a href="csnmp.htm" target="_parent">
 <Script Language="JavaScript">showtab(tabindex++);</script></a></td>
 <td width="2" class="Separator"><div align="center">|</div></td>
-<td width="18%" align="center" class="chooseThis" id="smb">
-<Script Language="JavaScript">showtab(tabindex++);</script></td>
+<td width="18%" align="center" class="noChoose" id="smb">
+<a href="csmb.htm" target="_parent">
+<Script Language="JavaScript">showtab(tabindex++);</script></a></td>
 <td width="22%">&nbsp;</td>
 </tr>
 </table>
@@ -69,46 +70,100 @@ Section4();
 <!-- Assunto, Dica ou Ajuda -->
 <!-- Section 5: function Section5() -->
 <SCRIPT language="JavaScript">
-Section5('csmb');
+Section5('cservices');
 </script>
-<FORM METHOD=GET NAME=SETUP ACTION=csmb.htm>
-<!-- Tabelas SMB -->
+<FORM METHOD=GET NAME=CSERVICES ACTION=restart.htm>
+<!-- Tabelas Printing Method -->
 <tr>
 <td width="1024" align="center" bgcolor="#CBCDCC">
 <!-- Tabela 1 -->
 <table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
 <tr>
 <td height="29" colspan="4" class="s1">
-<Script Language="JavaScript">showtext9(textindex++);</script>
+<Script Language="JavaScript">showtext10(textindex++);</script>
 </td>
 </tr>
 <tr>
 <td height="3" colspan="4"></td>
 </tr>
+<!-- LPR/LPD -->
 <tr>
 <td class="Wh" height="28"></td>
-<td class="Wh1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
 <td class="Wh2" width="300">
-<!-- Use SMB -->
 <SCRIPT LANGUAGE=JavaScript>
-var iSMBMode = "<!--# echo var="SMB_MODE"-->";
-document.write("<SELECT NAME=SMB_MODE SIZE=1>");
+var iLPR = "<!--# echo var="LPREnabled"-->";
+document.write("<SELECT NAME=LPREnabled SIZE=1>");
 document.write("<OPTION VALUE=0>");
-showtext9(textindex++);
+showtext10(textindex++);
 document.write("</OPTION>");
 document.write("<OPTION VALUE=1>");
-showtext9(textindex++);
+showtext10(textindex++);
 document.write("</OPTION>");
 document.write("</SELECT>");
-document.forms[0].SMB_MODE[iSMBMode].selected=true;
+document.forms[0].LPREnabled[iLPR].selected=true;
 </SCRIPT>
 </td>
 <td class="Wh"></td>
 </tr>
+<!-- AppleTalk -->
 <tr>
 <td class="Na" height="28"></td>
-<td class="Na1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
-<td class="Na2"><INPUT TYPE=TEXT NAME="SMBWorkGroup" SIZE=18 MAXLENGTH=15 VALUE=<!--# echo var="SMBWorkGroup"-->></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Na2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iATalk = "<!--# echo var="AtalkSettings"-->";
+document.write("<SELECT NAME=AtalkSettings SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].AtalkSettings[iATalk].selected=true;
+</SCRIPT>
+</td>
+<td class="Na"></td>
+</tr>
+<!-- IPP -->
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Wh2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iIPP = "<!--# echo var="IPPEnabled"-->";
+document.write("<SELECT NAME=IPPEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].IPPEnabled[iIPP].selected=true;
+</SCRIPT>
+</td>
+<td class="Wh"></td>
+</tr>
+<!-- SMB -->
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Na2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iSMB = "<!--# echo var="SMBEnabled"-->";
+document.write("<SELECT NAME=SMBEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].SMBEnabled[iSMB].selected=true;
+</SCRIPT>
+</td>
 <td class="Na"></td>
 </tr>
 </table>
@@ -118,25 +173,137 @@ document.forms[0].SMB_MODE[iSMBMode].selected=true;
 <tr>
 <td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
 </tr>
-<!-- Tabelas Shared Printers -->
+<!-- Tabelas Services -->
 <tr>
 <td width="1024" align="center" bgcolor="#CBCDCC">
-<!-- Tabela 1 -->
 <table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
 <tr>
 <td height="29" colspan="4" class="s1">
-<Script Language="JavaScript">showtext9(textindex++);</script>
+<Script Language="JavaScript">showtext10(textindex++);</script>
 </td>
 </tr>
 <tr>
 <td height="3" colspan="4"></td>
 </tr>
+<!-- Telnet -->
 <tr>
 <td class="Wh" height="28"></td>
-<td class="Wh1" width="300"><Script Language="JavaScript">showtext9(textindex++);</script></td>
-<td class="Wh2" width="300"><INPUT TYPE=TEXT NAME="SMBPrint1" SIZE=15 MAXLENGTH=12 VALUE=<!--# echo var="SMBPrint1"-->></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Wh2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iTelnet = "<!--# echo var="TelnetEnabled"-->";
+document.write("<SELECT NAME=TelnetEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].TelnetEnabled[iTelnet].selected=true;
+</SCRIPT>
+</td>
 <td class="Wh"></td>
 </tr>
+<!-- SNMP -->
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Na2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iSNMP = "<!--# echo var="SNMPEnabled"-->";
+document.write("<SELECT NAME=SNMPEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].SNMPEnabled[iSNMP].selected=true;
+</SCRIPT>
+</td>
+<td class="Na"></td>
+</tr>
+<!-- Email Alert -->
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Wh2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iEmail = "<!--# echo var="EmailEnabled"-->";
+document.write("<SELECT NAME=EmailEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].EmailEnabled[iEmail].selected=true;
+</SCRIPT>
+</td>
+<td class="Wh"></td>
+</tr>
+<!-- HTTP -->
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Na2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iHTTP = "<!--# echo var="HTTPEnabled"-->";
+document.write("<SELECT NAME=HTTPEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].HTTPEnabled[iHTTP].selected=true;
+</SCRIPT>
+</td>
+<td class="Na"></td>
+</tr>
+<!-- AirPrint (uses device name from System settings as service name) -->
+<tr>
+<td class="Wh" height="28"></td>
+<td class="Wh1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Wh2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iAirPrint = "<!--# echo var="AirPrintEnabled"-->";
+document.write("<SELECT NAME=AirPrintEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].AirPrintEnabled[iAirPrint].selected=true;
+</SCRIPT>
+</td>
+<td class="Wh"></td>
+</tr>
+</table>
+</td>
+</tr>
+<!-- Nada (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
+</tr>
+<!-- Warning notes -->
+<tr>
+<td width="1024" align="center" bgcolor="#CBCDCC">
+<table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
+<tr align="center">
+<td class="Na1" width="300">
+<font color="#FF0000"><Script Language="JavaScript">showtext10(textindex++);</script></font>
+</td></tr>
+<tr align="center">
+<td class="Na1" width="300">
+<font color="#FF0000"><Script Language="JavaScript">showtext10(textindex++);</script></font>
+</td></tr>
 </table>
 </td>
 </tr>
@@ -148,9 +315,9 @@ document.forms[0].SMB_MODE[iSMBMode].selected=true;
 <tr>
 <td width="1024" height="50" bgcolor="#CBCDCC" align="center">
 <Script Language="JavaScript">
-showtext9(textindex++);
-showtext9(textindex++);
-showtext9(textindex++);
+showtext10(textindex++);
+showtext10(textindex++);
+showtext10(textindex++);
 </script>
 </td>
 </tr>
@@ -160,6 +327,10 @@ showtext9(textindex++);
 <td width="1024" height="70" bgcolor="#CBCDCC">&nbsp;</td>
 </tr>
 </table>
+<!-- White (Nothing) -->
+<tr>
+<td width="1024" height="30" bgcolor="#FFFFFF">&nbsp;</td>
+</tr>
 </table>
 </body>
 </html>

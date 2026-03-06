@@ -219,8 +219,11 @@ textArray10[iIndex++]="Enabled";
 textArray10[iIndex++]="HTTP :";
 textArray10[iIndex++]="Disabled";
 textArray10[iIndex++]="Enabled";
+textArray10[iIndex++]="AirPrint :";
+textArray10[iIndex++]="Disabled";
+textArray10[iIndex++]="Enabled";
 textArray10[iIndex++]="ATTENTION: You can ONLY enable HTTP with the reset button after you disable it.";
-textArray10[iIndex++]="And, stopping HTTP will also stop the IPP printing automatically.";
+textArray10[iIndex++]="AirPrint uses the device name (set in System settings) as the service name visible in iOS/macOS.";
 textArray10[iIndex++]='<input type="button" value="Save & Restart" onClick="return SaveServices(';
 // Begin don't translate
 textArray10[iIndex++]="'restart.htm');";

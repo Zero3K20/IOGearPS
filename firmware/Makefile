@@ -148,7 +148,8 @@ APP_SRCS := \
 	httpd.c \
 	ipp_server.c \
 	mdns.c \
-	lpr.c
+	lpr.c \
+	config.c
 
 GENERATED_SRCS := $(BUILD_DIR)/web_resources.c
 

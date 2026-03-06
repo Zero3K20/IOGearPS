@@ -219,8 +219,11 @@ textArray10[iIndex++]="啟用";
 textArray10[iIndex++]="HTTP :";
 textArray10[iIndex++]="停用";
 textArray10[iIndex++]="啟用";
+textArray10[iIndex++]="AirPrint :";
+textArray10[iIndex++]="停用";
+textArray10[iIndex++]="啟用";
 textArray10[iIndex++]="請注意: 在您停用 HTTP 後, 只能用 Reset 鍵啟用它.";
-textArray10[iIndex++]="而且, 停用 HTTP 也會一併停用 IPP 列印.";
+textArray10[iIndex++]="AirPrint 使用系統設定中的裝置名稱作為 iOS/macOS 顯示的服務名稱.";
 textArray10[iIndex++]='<input type="button" value="儲存並重新啟動" onClick="return SaveServices(';
 // Begin don't translate
 textArray10[iIndex++]="'restart.htm');";

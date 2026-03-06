@@ -47,6 +47,7 @@
 #include "ipp_server.h"
 #include "mdns.h"
 #include "lpr.h"
+#include "config.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Build-time firmware version string — embedded at a fixed offset so that
@@ -287,6 +288,9 @@ static void netif_setup(void *arg)
 void cyg_user_start(void)
 {
     cyg_uint32 i;
+
+    /* Initialise runtime configuration (device name, AirPrint flag). */
+    config_init();
 
     diag_printf("\n");
     diag_printf("========================================\n");
