@@ -156,6 +156,15 @@ cdl_option CYGSEM_LIBC_STARTUP_MAIN_OTHER {
 
 # ── TCP/IP stack (lwIP) ──────────────────────────────────────────────────────
 
+# Disable the "standalone" Ethernet driver mode.  With CYGPKG_NET_LWIP active
+# the standalone mode is not needed, and having both enabled causes a build
+# error: eth_drv.h defines 'struct arpcom' twice (once for STAND_ALONE and
+# once for LWIP), and stand_alone/eth_drv.c references the .esa member that
+# does not exist in the LWIP version of struct arpcom.
+cdl_component CYGPKG_IO_ETH_DRIVERS_STAND_ALONE {
+    user_value 0 ;
+};
+
 # Connection pool: 36 simultaneous TCP connections
 # (HTTP, LPD, IPP, SMB, Raw TCP all share this pool — see README Finding 1)
 cdl_option CYGNUM_LWIP_MEMP_NUM_NETCONN {
