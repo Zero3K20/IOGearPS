@@ -131,49 +131,20 @@ jobs:
           echo "ECOS_REPOSITORY=$GITHUB_WORKSPACE/ecos-3.0/packages" \
             >> "$GITHUB_ENV"
 
-      # ── Patch eCos source for lwIP compatibility ───────────────────────────
-      # The eCos 3.0 io/eth package compiles stand_alone/eth_drv.c even when
-      # a full network stack (CYGPKG_NET_LWIP) is configured.  The file's
-      # eth_drv.h defines 'struct arpcom' twice when BOTH
-      # CYGPKG_IO_ETH_DRIVERS_STAND_ALONE and CYGPKG_NET_LWIP are set:
-      # once for standalone use (with .esa) and once for lwIP (without .esa).
-      # This causes a "redefinition of struct arpcom" build error.
-      #
-      # Fix 1: Guard the STAND_ALONE definition in eth_drv.h so it is skipped
-      #         when lwIP is present.
-      # Fix 2: Guard stand_alone/eth_drv.c so the file is a no-op when lwIP is
-      #         configured (it uses .esa which doesn't exist in the lwIP struct).
-      #
-      # Both patches are idempotent — on subsequent runs with a cached eCos
-      # source tree the patterns no longer match and sed makes no change.
-      - name: Patch eCos io/eth for lwIP + standalone driver coexistence
+      # ── Patch eCos source ─────────────────────────────────────────────────
+      # All eCos source patches live in ecos/patches/ in this repository.
+      # Each *.sh script accepts the eCos source root as its first argument
+      # and is idempotent (safe to re-run against a cached source tree).
+      # To add a new fix: create a new numbered script in ecos/patches/ and
+      # commit it — the CI picks it up automatically on the next run.
+      # See ecos/patches/README.md for full documentation.
+      - name: Apply eCos patches from repository
         run: |
-          ETH_HDR="ecos-3.0/packages/io/eth/v3_0/include/eth_drv.h"
-          ETH_SA="ecos-3.0/packages/io/eth/v3_0/src/stand_alone/eth_drv.c"
-
-          # Fix 1: make the STAND_ALONE struct arpcom conditional on !LWIP.
-          # The \&\& in the sed replacement string is an escaped && (the & would
-          # otherwise refer to the matched text in sed replacement syntax).
-          sed -i \
-            's/^#ifdef CYGPKG_IO_ETH_DRIVERS_STAND_ALONE$/#if defined(CYGPKG_IO_ETH_DRIVERS_STAND_ALONE) \&\& !defined(CYGPKG_NET_LWIP)/' \
-            "$ETH_HDR"
-
-          # Fix 2: wrap stand_alone/eth_drv.c in a !CYGPKG_NET_LWIP guard so
-          # it compiles to an empty translation unit when lwIP is configured.
-          if ! grep -q 'CYGPKG_NET_LWIP' "$ETH_SA"; then
-            FIRST_PP=$(grep -n '^#' "$ETH_SA" | head -1 | cut -d: -f1)
-            if [ -z "$FIRST_PP" ]; then
-              echo "ERROR: no preprocessor directive found in $ETH_SA" >&2
-              exit 1
-            fi
-            awk -v pp="$FIRST_PP" \
-              'NR==pp{print "#include <pkgconf/system.h>"; print "#ifndef CYGPKG_NET_LWIP"}1' \
-              "$ETH_SA" > /tmp/eth_sa.tmp && mv /tmp/eth_sa.tmp "$ETH_SA"
-            printf '\n#endif /* !CYGPKG_NET_LWIP */\n' >> "$ETH_SA"
-            echo "Patched $ETH_SA"
-          else
-            echo "$ETH_SA already patched, skipping."
-          fi
+          shopt -s nullglob
+          for patch in ecos/patches/*.sh; do
+            echo "Applying $patch …"
+            bash "$patch" ecos-3.0
+          done
 
       - name: Cache eCos kernel build
         id: ecos-kernel-cache
