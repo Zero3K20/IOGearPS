@@ -192,11 +192,13 @@ cdl_option CYGDBG_USE_TRACING {
 
 # ── Toolchain ────────────────────────────────────────────────────────────────
 
-# Override the default mipsisa32-elf- prefix: CI uses the mipsel-linux-gnu-
+# Override the default mipsisa32-elf prefix: CI uses the mipsel-linux-gnu-
 # cross-toolchain (gcc-mipsel-linux-gnu on Ubuntu).  eCos uses -nostdlib /
 # its own startup code so the Linux-targeting compiler is safe for bare-metal.
+# NOTE: eCos rules.mak appends "-" before tool names (e.g. "-gcc"), so this
+# prefix must NOT include a trailing dash.
 cdl_option CYGBLD_GLOBAL_COMMAND_PREFIX {
-    user_value "mipsel-linux-gnu-" ;
+    user_value "mipsel-linux-gnu" ;
 };
 
 # ── HAL / CPU clock ──────────────────────────────────────────────────────────
