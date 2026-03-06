@@ -60,7 +60,7 @@ static int read_line(int fd, char *buf, size_t max)
     char   c;
 
     while (i < max - 1) {
-        int n = recv(fd, &c, 1, 0);
+        int n = lwip_recv(fd, &c, 1, 0);
         if (n <= 0) break;
         buf[i++] = c;
         if (c == '\n') break;
@@ -75,13 +75,13 @@ static int read_line(int fd, char *buf, size_t max)
 static void lpr_ack(int fd)
 {
     uint8_t ack = 0;
-    send(fd, &ack, 1, 0);
+    lwip_send(fd, &ack, 1, 0);
 }
 
 static void lpr_nack(int fd)
 {
     uint8_t nack = 1;
-    send(fd, &nack, 1, 0);
+    lwip_send(fd, &nack, 1, 0);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ static void handle_lpr_connection(int fd)
     int     n;
 
     /* Read the daemon command byte */
-    n = recv(fd, &cmd, 1, 0);
+    n = lwip_recv(fd, &cmd, 1, 0);
     if (n <= 0) return;
 
     /* Read the rest of the command line */
@@ -113,7 +113,7 @@ static void handle_lpr_connection(int fd)
         uint8_t sub;
         lpr_ack(fd);
 
-        while (recv(fd, &sub, 1, 0) == 1) {
+        while (lwip_recv(fd, &sub, 1, 0) == 1) {
             char  subline[256];
             read_line(fd, subline, sizeof(subline));
 
@@ -146,7 +146,7 @@ static void handle_lpr_connection(int fd)
                     while (remaining > 0) {
                         uint32_t want = remaining < LPR_BUF_SIZE
                                         ? remaining : LPR_BUF_SIZE;
-                        int got = recv(fd, recv_buf, (size_t)want, 0);
+                        int got = lwip_recv(fd, recv_buf, (size_t)want, 0);
                         if (got <= 0) break;
 
                         if (sub == LPR_SUB_DATA_FILE) {
@@ -161,7 +161,7 @@ static void handle_lpr_connection(int fd)
                 /* Receive the trailing null byte */
                 {
                     uint8_t trail;
-                    recv(fd, &trail, 1, 0);
+                    lwip_recv(fd, &trail, 1, 0);
                 }
                 lpr_ack(fd);
 
@@ -184,7 +184,7 @@ static void handle_lpr_connection(int fd)
         static const char status[] =
             LPR_QUEUE_NAME " is ready and printing\n"
             "no entries\n";
-        send(fd, status, sizeof(status) - 1, 0);
+        lwip_send(fd, status, sizeof(status) - 1, 0);
         break;
     }
 
@@ -219,7 +219,7 @@ static void lpr_child_thread(cyg_addrword_t arg)
     lpr_conn_t *conn = (lpr_conn_t *)arg;
 
     handle_lpr_connection(conn->fd);
-    close(conn->fd);
+    lwip_close(conn->fd);
 
     cyg_mutex_lock(&lpr_pool_lock);
     conn->in_use = false;
@@ -244,26 +244,26 @@ void lpr_thread(cyg_addrword_t arg)
     cyg_mutex_init(&lpr_pool_lock);
     memset(lpr_pool, 0, sizeof(lpr_pool));
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    server_fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         diag_printf("lpr: socket() failed\n");
         return;
     }
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    lwip_setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(LPR_PORT);
+    addr.sin_port        = lwip_htons(LPR_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (lwip_bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         diag_printf("lpr: bind() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
-    if (listen(server_fd, LPR_MAX_CONNECTIONS) < 0) {
+    if (lwip_listen(server_fd, LPR_MAX_CONNECTIONS) < 0) {
         diag_printf("lpr: listen() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
 
@@ -273,7 +273,7 @@ void lpr_thread(cyg_addrword_t arg)
     for (;;) {
         lpr_conn_t *slot = NULL;
 
-        client_fd = accept(server_fd, NULL, NULL);
+        client_fd = lwip_accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             cyg_thread_delay(10);
             continue;
@@ -292,7 +292,7 @@ void lpr_thread(cyg_addrword_t arg)
 
         if (!slot) {
             diag_printf("lpr: No free connection slot\n");
-            close(client_fd);
+            lwip_close(client_fd);
             continue;
         }
 

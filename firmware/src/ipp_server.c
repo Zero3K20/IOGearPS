@@ -279,7 +279,7 @@ static void handle_ipp_request(int fd)
     int       hdr_len;
 
     /* Read the 8-byte IPP request header */
-    if (recv(fd, req, 8, MSG_WAITALL) < 8) {
+    if (lwip_recv(fd, req, 8, MSG_WAITALL) < 8) {
         return;
     }
 
@@ -325,8 +325,8 @@ static void handle_ipp_request(int fd)
         "\r\n",
         resp.len);
 
-    send(fd, http_hdr, (size_t)hdr_len, 0);
-    send(fd, resp.data, resp.len, 0);
+    lwip_send(fd, http_hdr, (size_t)hdr_len, 0);
+    lwip_send(fd, resp.data, resp.len, 0);
 
     ipp_buf_free(&resp);
 }
@@ -350,7 +350,7 @@ static void ipp_child_thread(cyg_addrword_t arg)
     ipp_conn_t *conn = (ipp_conn_t *)arg;
 
     handle_ipp_request(conn->fd);
-    close(conn->fd);
+    lwip_close(conn->fd);
 
     cyg_mutex_lock(&ipp_pool_lock);
     conn->in_use = false;
@@ -375,26 +375,26 @@ void ipp_server_thread(cyg_addrword_t arg)
     cyg_mutex_init(&ipp_pool_lock);
     memset(ipp_pool, 0, sizeof(ipp_pool));
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    server_fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         diag_printf("ipp: socket() failed\n");
         return;
     }
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    lwip_setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(IPP_PORT);
+    addr.sin_port        = lwip_htons(IPP_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (lwip_bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         diag_printf("ipp: bind() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
-    if (listen(server_fd, IPP_MAX_CONNECTIONS) < 0) {
+    if (lwip_listen(server_fd, IPP_MAX_CONNECTIONS) < 0) {
         diag_printf("ipp: listen() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
 
@@ -403,7 +403,7 @@ void ipp_server_thread(cyg_addrword_t arg)
     for (;;) {
         ipp_conn_t *slot = NULL;
 
-        client_fd = accept(server_fd, NULL, NULL);
+        client_fd = lwip_accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             cyg_thread_delay(10);
             continue;
@@ -422,7 +422,7 @@ void ipp_server_thread(cyg_addrword_t arg)
 
         if (!slot) {
             diag_printf("ipp: No free connection slot\n");
-            close(client_fd);
+            lwip_close(client_fd);
             continue;
         }
 

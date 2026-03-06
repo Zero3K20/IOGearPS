@@ -107,9 +107,9 @@ static void send_response(int fd, int status, const char *status_msg,
         "\r\n",
         status, status_msg, mime, body_len);
 
-    send(fd, hdr, (size_t)hdr_len, 0);
+    lwip_send(fd, hdr, (size_t)hdr_len, 0);
     if (body && body_len > 0) {
-        send(fd, body, body_len, 0);
+        lwip_send(fd, body, body_len, 0);
     }
 }
 
@@ -138,7 +138,7 @@ static void handle_request(int fd)
     const char *filename;
 
     /* Read the request line */
-    n = recv(fd, buf, sizeof(buf) - 1, 0);
+    n = lwip_recv(fd, buf, sizeof(buf) - 1, 0);
     if (n <= 0) {
         return;
     }
@@ -191,7 +191,7 @@ static void http_child_thread(cyg_addrword_t arg)
     http_conn_t *conn = (http_conn_t *)arg;
 
     handle_request(conn->fd);
-    close(conn->fd);
+    lwip_close(conn->fd);
 
     cyg_mutex_lock(&http_pool_lock);
     conn->in_use = false;
@@ -216,26 +216,26 @@ void httpd_thread(cyg_addrword_t arg)
     cyg_mutex_init(&http_pool_lock);
     memset(http_pool, 0, sizeof(http_pool));
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    server_fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         diag_printf("httpd: socket() failed\n");
         return;
     }
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    lwip_setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(HTTP_PORT);
+    addr.sin_port        = lwip_htons(HTTP_PORT);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (lwip_bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         diag_printf("httpd: bind() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
-    if (listen(server_fd, HTTP_MAX_CONNECTIONS) < 0) {
+    if (lwip_listen(server_fd, HTTP_MAX_CONNECTIONS) < 0) {
         diag_printf("httpd: listen() failed\n");
-        close(server_fd);
+        lwip_close(server_fd);
         return;
     }
 
@@ -244,7 +244,7 @@ void httpd_thread(cyg_addrword_t arg)
     for (;;) {
         http_conn_t *slot = NULL;
 
-        client_fd = accept(server_fd, NULL, NULL);
+        client_fd = lwip_accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             diag_printf("httpd: accept() failed\n");
             cyg_thread_delay(10);
@@ -268,7 +268,7 @@ void httpd_thread(cyg_addrword_t arg)
              * "http:1216, No free socket!" at this point.  We do the same
              * but do not leave the socket open (which was the original bug). */
             diag_printf("httpd: No free socket!\n");
-            close(client_fd);
+            lwip_close(client_fd);
             continue;
         }
 
