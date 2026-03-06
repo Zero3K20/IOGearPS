@@ -8,6 +8,7 @@
 #define WEB_RESOURCES_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
     const char    *name;   /* filename, e.g. "index.htm" or "images/foo.jpg" */

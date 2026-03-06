@@ -261,23 +261,23 @@ void mdns_thread(cyg_addrword_t arg)
     /* Wait for the network interface to come up */
     cyg_thread_delay(200);
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = lwip_socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         diag_printf("mdns: socket() failed\n");
         return;
     }
 
     /* Join the mDNS multicast group */
-    mreq.imr_multiaddr.s_addr = inet_addr(MDNS_GROUP);
+    mreq.imr_multiaddr.s_addr = lwip_inet_addr(MDNS_GROUP);
     mreq.imr_interface.s_addr = INADDR_ANY;
-    setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-    setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL,  &ttl,  sizeof(ttl));
-    setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+    lwip_setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+    lwip_setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL,  &ttl,  sizeof(ttl));
+    lwip_setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 
     memset(&mcast_addr, 0, sizeof(mcast_addr));
     mcast_addr.sin_family      = AF_INET;
-    mcast_addr.sin_port        = htons(MDNS_PORT);
-    mcast_addr.sin_addr.s_addr = inet_addr(MDNS_GROUP);
+    mcast_addr.sin_port        = lwip_htons(MDNS_PORT);
+    mcast_addr.sin_addr.s_addr = lwip_inet_addr(MDNS_GROUP);
 
     diag_printf("mdns: started, advertising '%s' as %s\n",
                 MDNS_SERVICE_NAME, MDNS_SERVICE_TYPE);
@@ -285,7 +285,7 @@ void mdns_thread(cyg_addrword_t arg)
     for (;;) {
         int len = build_announcement(&msg, my_ip);
         if (len > 0) {
-            sendto(sock, msg.buf, (size_t)len, 0,
+            lwip_sendto(sock, msg.buf, (size_t)len, 0,
                    (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
         }
         /* Delay between announcements — avoids mDNS flood that triggers the
