@@ -146,34 +146,14 @@ static int w25q_flash_read(struct cyg_flash_dev *dev,
     return CYG_FLASH_ERR_OK;
 }
 
-static int w25q_flash_hwr_map_error(struct cyg_flash_dev *dev, int err)
-{
-    return err;
-}
-
-static int w25q_flash_block_lock(struct cyg_flash_dev *dev,
-                                  const cyg_flashaddr_t block_base)
-{
-    return CYG_FLASH_ERR_OK;    /* block protection not used */
-}
-
-static int w25q_flash_block_unlock(struct cyg_flash_dev *dev,
-                                    const cyg_flashaddr_t block_base)
-{
-    return CYG_FLASH_ERR_OK;    /* block protection not used */
-}
-
 /* ── Flash device function table ─────────────────────────────────────────── */
 
 static const struct cyg_flash_dev_funs w25q_funs = {
-    .flash_init          = w25q_flash_init,
-    .flash_query         = w25q_flash_query,
-    .flash_erase_block   = w25q_flash_erase_block,
-    .flash_program       = w25q_flash_program,
-    .flash_read          = w25q_flash_read,
-    .flash_hwr_map_error = w25q_flash_hwr_map_error,
-    .flash_block_lock    = w25q_flash_block_lock,
-    .flash_block_unlock  = w25q_flash_block_unlock,
+    .flash_init        = w25q_flash_init,
+    .flash_query       = w25q_flash_query,
+    .flash_erase_block = w25q_flash_erase_block,
+    .flash_program     = w25q_flash_program,
+    .flash_read        = w25q_flash_read,
 };
 
 /* 512 sectors × 4 KB = 2 MB */
