@@ -34,9 +34,16 @@ cdl_package CYGPKG_HAL_MIPS_RALINK_MT7688 {
     # Generated configuration header
     define_header hal_mips_ralink_mt7688.h
 
-    # Pull in the parent HAL config headers so that platform code can use
-    # the full eCos HAL API without additional includes.
+    # Define the HAL target and platform header macros that pkgconf/hal.h and
+    # pkgconf/kernel.h reference via "#include CYGBLD_HAL_TARGET_H" and
+    # "#include CYGBLD_HAL_PLATFORM_H".  These must be written to system.h
+    # (via $::cdl_system_header) so they are visible before any pkgconf header
+    # is included.  CYGBLD_HAL_TARGET_H points to the mainline MIPS arch header
+    # (already installed by CYGPKG_HAL_MIPS); CYGBLD_HAL_PLATFORM_H points to
+    # the MT7688 platform I/O header supplied by this package.
     define_proc {
+        puts $::cdl_system_header "#define CYGBLD_HAL_TARGET_H   <cyg/hal/hal_arch.h>"
+        puts $::cdl_system_header "#define CYGBLD_HAL_PLATFORM_H <cyg/hal/plf_io.h>"
         puts $::cdl_header "#include <pkgconf/hal_mips.h>"
         puts $::cdl_header "#include <pkgconf/hal_mips_mips32.h>"
     }
