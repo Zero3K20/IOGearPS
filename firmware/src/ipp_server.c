@@ -24,9 +24,11 @@
 #include <cyg/infra/diag.h>
 
 #include <lwip/sockets.h>
+#include <lwip/inet.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "ipp_server.h"
 
@@ -267,6 +269,25 @@ static void build_get_printer_response(ipp_buf_t *b, uint32_t request_id)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+ * Reliable receive — reads exactly len bytes from a TCP socket.
+ * Returns len on success, -1 on connection close or error.
+ * ───────────────────────────────────────────────────────────────────────────*/
+static int recv_all(int fd, void *buf, size_t len)
+{
+    uint8_t *p   = (uint8_t *)buf;
+    size_t   got = 0;
+
+    while (got < len) {
+        int n = lwip_recv(fd, p + got, len - got, 0);
+        if (n <= 0) {
+            return -1;
+        }
+        got += (size_t)n;
+    }
+    return (int)got;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
  * Per-connection handler
  * ───────────────────────────────────────────────────────────────────────────*/
 static void handle_ipp_request(int fd)
@@ -279,7 +300,8 @@ static void handle_ipp_request(int fd)
     int       hdr_len;
 
     /* Read the 8-byte IPP request header */
-    if (lwip_recv(fd, req, 8, MSG_WAITALL) < 8) {
+    if (recv_all(fd, req, 8) < 8) {
+        diag_printf("ipp: failed to read IPP header\n");
         return;
     }
 
