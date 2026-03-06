@@ -64,7 +64,6 @@ cdl_configuration eCos {
     package CYGPKG_LIBC_STDIO v3_0 ;
     package CYGPKG_LIBC_STDLIB v3_0 ;
     package CYGPKG_LIBC_TIME v3_0 ;
-    package CYGPKG_LIBC_CTYPE v3_0 ;   # implements CYGINT_ISO_CTYPE (required by STDLIB)
     package CYGPKG_LIBC_I18N v3_0 ;    # required by STDIO
     package CYGPKG_LIBC_STARTUP v3_0 ; # required by CYGPKG_POSIX_MAIN_THREAD
 
