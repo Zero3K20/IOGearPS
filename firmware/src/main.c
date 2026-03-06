@@ -254,7 +254,7 @@ void cyg_user_start(void)
             thread_descs[i].priority,
             thread_descs[i].fn,
             (cyg_addrword_t)i,
-            thread_descs[i].name,
+            (char *)thread_descs[i].name,
             thread_stacks[i],
             THREAD_STACK_SIZE,
             &thread_handles[i],
