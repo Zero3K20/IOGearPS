@@ -25,8 +25,10 @@
 #include <cyg/infra/diag.h>
 
 #include <lwip/sockets.h>
+#include <lwip/inet.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "mdns.h"
 

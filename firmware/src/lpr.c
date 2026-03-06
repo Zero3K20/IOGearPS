@@ -16,6 +16,7 @@
 #include <cyg/infra/diag.h>
 
 #include <lwip/sockets.h>
+#include <lwip/inet.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>

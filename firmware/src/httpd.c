@@ -22,6 +22,7 @@
 #include <cyg/infra/diag.h>
 
 #include <lwip/sockets.h>
+#include <lwip/inet.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,7 +110,7 @@ static void send_response(int fd, int status, const char *status_msg,
 
     lwip_send(fd, hdr, (size_t)hdr_len, 0);
     if (body && body_len > 0) {
-        lwip_send(fd, body, body_len, 0);
+        lwip_send(fd, (void *)body, body_len, 0);
     }
 }
 
