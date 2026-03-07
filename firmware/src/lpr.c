@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include "lpr.h"
+#include "usb_printer.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Configuration
@@ -150,8 +151,16 @@ static void handle_lpr_connection(int fd)
                         if (got <= 0) break;
 
                         if (sub == LPR_SUB_DATA_FILE) {
-                            /* TODO: write recv_buf[0..got-1] to USB printer */
-                            (void)recv_buf;
+                            /* Forward print data to the USB printer.
+                             * usb_printer_write() blocks until all bytes
+                             * have been transferred to the printer's bulk-OUT
+                             * endpoint or an error occurs. */
+                            if (usb_printer_write(recv_buf, (size_t)got) < 0) {
+                                diag_printf("lpr: USB write error\n");
+                                free(recv_buf);
+                                lpr_nack(fd);
+                                return;
+                            }
                         }
                         remaining -= (uint32_t)got;
                     }
@@ -166,8 +175,9 @@ static void handle_lpr_connection(int fd)
                 lpr_ack(fd);
 
                 if (sub == LPR_SUB_DATA_FILE) {
-                    diag_printf("lpr: job received (%u bytes)\n",
+                    diag_printf("lpr: job forwarded to printer (%u bytes)\n",
                                 (unsigned)byte_count);
+                    g_printer_status.jobs_printed++;
                 }
             } else {
                 /* Unknown sub-command */
@@ -180,11 +190,25 @@ static void handle_lpr_connection(int fd)
 
     case LPR_CMD_QUEUE_SHORT:
     case LPR_CMD_QUEUE_LONG: {
-        /* Return minimal queue status */
-        static const char status[] =
-            LPR_QUEUE_NAME " is ready and printing\n"
-            "no entries\n";
-        lwip_send(fd, status, sizeof(status) - 1, 0);
+        /* Return queue status reflecting the real printer state obtained
+         * from the USB back-channel (GET_PORT_STATUS). */
+        char status_line[128];
+        const char *state_str;
+
+        if (!usb_printer_is_connected()) {
+            state_str = LPR_QUEUE_NAME " is not ready (no printer connected)\n";
+        } else if (g_printer_status.paper_empty) {
+            state_str = LPR_QUEUE_NAME " is not ready (paper empty)\n";
+        } else if (g_printer_status.error) {
+            state_str = LPR_QUEUE_NAME " is not ready (printer error)\n";
+        } else if (!g_printer_status.online) {
+            state_str = LPR_QUEUE_NAME " is not ready (printer offline)\n";
+        } else {
+            state_str = LPR_QUEUE_NAME " is ready and printing\n";
+        }
+
+        snprintf(status_line, sizeof(status_line), "%sno entries\n", state_str);
+        lwip_send(fd, status_line, strlen(status_line), 0);
         break;
     }
 

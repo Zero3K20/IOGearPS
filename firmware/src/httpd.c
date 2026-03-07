@@ -30,6 +30,7 @@
 #include "httpd.h"
 #include "web_resources.h"
 #include "config.h"
+#include "usb_printer.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Configuration
@@ -258,6 +259,37 @@ static void handle_request(int fd)
     /* Strip leading '/' */
     if (filename[0] == '/') {
         filename++;
+    }
+
+    /* ── /api/printer_status — JSON endpoint for the printer status page ── *
+     * Returns a JSON object with the live printer state derived from the USB
+     * back-channel (GET_PORT_STATUS) and other fields from g_printer_status. */
+    if (strcmp(filename, "api/printer_status") == 0) {
+        char json[512];
+        int  json_len;
+
+        json_len = snprintf(json, sizeof(json),
+            "{"
+            "\"connected\":%s,"
+            "\"online\":%s,"
+            "\"paper_empty\":%s,"
+            "\"error\":%s,"
+            "\"busy\":%s,"
+            "\"jobs_printed\":%lu,"
+            "\"bytes_sent\":%lu,"
+            "\"device_id\":\"%s\""
+            "}",
+            g_printer_status.connected    ? "true"  : "false",
+            g_printer_status.online       ? "true"  : "false",
+            g_printer_status.paper_empty  ? "true"  : "false",
+            g_printer_status.error        ? "true"  : "false",
+            g_printer_status.busy         ? "true"  : "false",
+            (unsigned long)g_printer_status.jobs_printed,
+            (unsigned long)g_printer_status.bytes_sent,
+            (const char *)g_printer_status.device_id);
+
+        send_response(fd, 200, "OK", "application/json", json, (size_t)json_len);
+        return;
     }
 
     /* Look up the file in the ROM resource table */

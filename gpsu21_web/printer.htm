@@ -8,9 +8,18 @@
 TitleModelName();
 </script>
 <LINK REL=STYLESHEET TYPE="TEXT/CSS" HREF="basic_style.css">
+<style>
+  .ps-table { border-collapse:collapse; width:600px; margin:auto; }
+  .ps-table td { padding:6px 12px; border-bottom:1px solid #ccc; font-family:Arial,sans-serif; font-size:13px; }
+  .ps-table .label { font-weight:bold; width:180px; color:#444; }
+  .ps-ok   { color:#080; font-weight:bold; }
+  .ps-warn { color:#c60; font-weight:bold; }
+  .ps-err  { color:#c00; font-weight:bold; }
+  #ps-status-box { background:#f5f5f5; border:1px solid #bbb; padding:12px; margin:10px auto; width:620px; }
+  #ps-refresh-btn { display:block; margin:8px auto; padding:4px 18px; font-size:13px; cursor:pointer; }
+</style>
 </HEAD>
 <CENTER>
-<!-- Corpo (Body) -->
 <SCRIPT language="JavaScript">
 BodyPreloadImages();
 </script>
@@ -18,58 +27,107 @@ BodyPreloadImages();
 <table width="1024" border="0" align="center" cellpadding="0" cellspacing="0" id="mainF">
 <tr>
 <td>
-<!-- Section 1: function Section1() -->
-<SCRIPT language="JavaScript">
-Section1();
-</script>
-<!-- Linha 1: Aba (Row MenuBtn) -->
-<!-- Section 2r: function Section2r() -->
-<SCRIPT language="JavaScript">
-Section2r();
-</script>
-<!-- Linha 2: Sub-Aba -->
-<!-- Section 3m2: function Section3m2() -->
-<SCRIPT language="JavaScript">
-Section3m2();
-</script>
+<SCRIPT language="JavaScript">Section1();</script>
+<SCRIPT language="JavaScript">Section2r();</script>
+<SCRIPT language="JavaScript">Section3m2();</script>
 <table width="900" border="0" align="center" cellpadding="0" cellspacing="0" class="tabela1" id="tabela1">
-<!-- Assunto, Dica ou Ajuda -->
 <tr>
-<td width="1024" height="150" bgcolor="#CBCDCC">
-<table width="960" border="0" align="center" cellpadding="0" cellspacing="15" id="info">
-<tr>
-<td height="50" align="center" class="infoT"><Script Language="JavaScript">showtext3(textindex++);</script></td>
-</tr>
-<tr>
-<td height="50" align="center" class="infoTR"><Script Language="JavaScript">showtext3(textindex++);</script></td>
-</tr>
-<tr>
-<td height="50" align="center" class="infoT"><Script Language="JavaScript">showtext3(textindex++);</script></td>
-</tr>
-</table>
+<td width="1024" bgcolor="#CBCDCC">
+
+<div id="ps-status-box">
+  <table class="ps-table" id="ps-table">
+    <tr><td class="label">Connection:</td><td id="ps-connected">&#8212;</td></tr>
+    <tr><td class="label">Printer State:</td><td id="ps-state">&#8212;</td></tr>
+    <tr><td class="label">Paper:</td><td id="ps-paper">&#8212;</td></tr>
+    <tr><td class="label">Error:</td><td id="ps-error">&#8212;</td></tr>
+    <tr><td class="label">Jobs Printed:</td><td id="ps-jobs">&#8212;</td></tr>
+    <tr><td class="label">Bytes Sent:</td><td id="ps-bytes">&#8212;</td></tr>
+    <tr><td class="label">Device ID:</td><td id="ps-devid" style="font-size:11px;word-break:break-all;">&#8212;</td></tr>
+  </table>
+  <button id="ps-refresh-btn" onclick="fetchStatus()">Refresh</button>
+  <div id="ps-note" style="font-size:11px;color:#888;text-align:center;margin-top:4px;">
+    Note: if your printer does not support bi-directional communication,
+    some information may not be correctly displayed.
+  </div>
+</div>
+
 </td>
-</tr>
-<!-- Nada (Nothing) -->
-<tr>
-<td width="1024" height="30" bgcolor="#CBCDCC">&nbsp;</td>
-</tr>
-<!-- OK -->
-<tr>
-<td width="1024" height="30" bgcolor="#CBCDCC" align="center">
-<Script Language="JavaScript">
-showtext3(textindex++);
-showtext3(textindex++);
-showtext3(textindex++);
-</script>
-</td>
-</tr>
-<!-- Nada (Nothing) -->
-<tr>
-<td width="1024" height="200" bgcolor="#CBCDCC">&nbsp;</td>
 </tr>
 </table>
 </td>
 </tr>
 </table>
 </body>
+
+<script language="JavaScript">
+function setText(id, text, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = text;
+  el.className = cls || '';
+}
+
+function fetchStatus() {
+  var xhr = (window.XMLHttpRequest)
+    ? new XMLHttpRequest()
+    : new ActiveXObject('Microsoft.XMLHTTP');
+
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status !== 200) {
+      setText('ps-connected', 'Unable to retrieve status', 'ps-err');
+      return;
+    }
+    var s;
+    try { s = JSON.parse(xhr.responseText); } catch(e) { return; }
+
+    /* Connection */
+    if (s.connected) {
+      setText('ps-connected', 'Connected', 'ps-ok');
+    } else {
+      setText('ps-connected', 'Not connected', 'ps-err');
+      setText('ps-state',  '&#8212;', '');
+      setText('ps-paper',  '&#8212;', '');
+      setText('ps-error',  '&#8212;', '');
+      setText('ps-jobs',   String(s.jobs_printed), '');
+      setText('ps-bytes',  String(s.bytes_sent), '');
+      setText('ps-devid',  '&#8212;', '');
+      return;
+    }
+
+    /* State */
+    if (s.error) {
+      setText('ps-state', 'Error', 'ps-err');
+    } else if (s.busy) {
+      setText('ps-state', 'Printing', 'ps-ok');
+    } else if (!s.online) {
+      setText('ps-state', 'Offline', 'ps-warn');
+    } else {
+      setText('ps-state', 'Ready', 'ps-ok');
+    }
+
+    /* Paper */
+    setText('ps-paper', s.paper_empty ? 'Paper Empty' : 'OK',
+            s.paper_empty ? 'ps-err' : 'ps-ok');
+
+    /* Error flag */
+    setText('ps-error', s.error ? 'Yes' : 'No',
+            s.error ? 'ps-err' : 'ps-ok');
+
+    /* Counters */
+    setText('ps-jobs',  String(s.jobs_printed), '');
+    setText('ps-bytes', String(s.bytes_sent),   '');
+
+    /* Device ID */
+    setText('ps-devid', s.device_id ? s.device_id : '(not available)', '');
+  };
+
+  xhr.open('GET', '/api/printer_status', true);
+  xhr.send(null);
+}
+
+/* Auto-refresh every 5 seconds */
+fetchStatus();
+setInterval(fetchStatus, 5000);
+</script>
 </html>

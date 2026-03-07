@@ -34,11 +34,15 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #include "lwip/tcpip.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/dhcp.h"
+#include <lwip/sockets.h>
+#include <lwip/inet.h>
 #include "../freertos/netif/mt7688_eth.h"
 #include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive() */
 
@@ -48,6 +52,7 @@
 #include "mdns.h"
 #include "lpr.h"
 #include "config.h"
+#include "usb_printer.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Build-time firmware version string — embedded at a fixed offset so that
@@ -93,25 +98,225 @@ static void print_server_main(cyg_addrword_t arg)
     (void)arg;
     diag_printf("GPSU21: print-server main thread started\n");
 
-    /* Wait for the network to come up */
-    cyg_thread_delay(100);
+    /* Wait for the network stack and all service threads to start */
+    cyg_thread_delay(pdMS_TO_TICKS(500));
 
-    diag_printf("GPSU21: USB print port ready\n");
+    /* Initialise the USB host controller and enumerate any attached printer.
+     * usb_printer_init() also performs an initial GET_PORT_STATUS and
+     * GET_DEVICE_ID so that g_printer_status is populated before the first
+     * client connection arrives. */
+    if (usb_printer_init() == 0) {
+        diag_printf("GPSU21: USB host controller ready\n");
+        if (usb_printer_is_connected()) {
+            diag_printf("GPSU21: USB printer connected and enumerated\n");
+        } else {
+            diag_printf("GPSU21: USB host ready — waiting for printer\n");
+        }
+    } else {
+        diag_printf("GPSU21: USB host init failed — printing disabled\n");
+    }
 
-    /* Main loop: forward print jobs from network queues to the USB printer */
+    /* Main thread is no longer needed once USB is initialised.
+     * Status polling and USB hotplug detection are handled by status_thread. */
     for (;;) {
-        cyg_thread_delay(10);
+        cyg_thread_delay(pdMS_TO_TICKS(5000));
     }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Minimal stubs for services that are not fully implemented
  * ───────────────────────────────────────────────────────────────────────────*/
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Raw TCP print server — port 9100 (JetDirect / AppSocket protocol)
+ *
+ * The AppSocket protocol (also called JetDirect or raw TCP printing) is the
+ * simplest possible network printing protocol:
+ *   - Client connects to port 9100
+ *   - Client sends raw print data (PostScript, PCL, PDF, etc.)
+ *   - Server forwards it byte-for-byte to the USB printer
+ *   - Server reads any back-channel data the printer sends (Bulk IN) and
+ *     forwards it back over the same TCP socket — this is the bi-directional
+ *     leg that allows the client to receive PJL status responses, @PJL INFO
+ *     replies, or raw status bytes from the printer
+ * ───────────────────────────────────────────────────────────────────────────*/
+#define RAW_TCP_PORT          9100
+#define RAW_TCP_BUF_SIZE      4096
+#define RAW_TCP_BACK_BUF_SIZE 256   /* back-channel read size per poll       */
+#define RAW_TCP_BACK_TIMEOUT  50    /* ms to wait for back-channel data      */
+
+static void raw_tcp_handle_connection(int fd)
+{
+    uint8_t *fwd_buf;
+    uint8_t *back_buf;
+    int      rcv;
+
+    fwd_buf  = (uint8_t *)malloc(RAW_TCP_BUF_SIZE);
+    back_buf = (uint8_t *)malloc(RAW_TCP_BACK_BUF_SIZE);
+
+    if (!fwd_buf || !back_buf) {
+        diag_printf("raw_tcp: out of memory\n");
+        free(fwd_buf);
+        free(back_buf);
+        return;
+    }
+
+    /* Set a short socket receive timeout (100 ms) so we can poll the
+     * back-channel while waiting for more data from the client. */
+    {
+        struct timeval tv;
+        tv.tv_sec  = 0;
+        tv.tv_usec = 100000; /* 100 ms */
+        lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    }
+
+    for (;;) {
+        /* ── Forward channel: network → USB printer ─────────────────────── */
+        rcv = lwip_recv(fd, fwd_buf, RAW_TCP_BUF_SIZE, 0);
+        if (rcv < 0) {
+            /* EAGAIN / EWOULDBLOCK — timeout, no data yet; check back-channel */
+        } else if (rcv == 0) {
+            /* Connection closed by client — flush back-channel and exit */
+            break;
+        } else {
+            /* Forward data to the USB printer */
+            if (usb_printer_write(fwd_buf, (size_t)rcv) < 0) {
+                diag_printf("raw_tcp: USB write error\n");
+                break;
+            }
+            g_printer_status.busy = true;
+        }
+
+        /* ── Back channel: USB printer → network ────────────────────────── *
+         * Poll the printer's Bulk IN endpoint.  Any data returned is sent
+         * back to the client over the same TCP connection.  This allows PJL
+         * or other back-channel protocols to work transparently. */
+        if (usb_printer_is_connected()) {
+            int back = usb_printer_read(back_buf, RAW_TCP_BACK_BUF_SIZE,
+                                        RAW_TCP_BACK_TIMEOUT);
+            if (back > 0) {
+                lwip_send(fd, back_buf, (size_t)back, 0);
+            }
+        }
+    }
+
+    /* Drain any remaining back-channel data before closing */
+    if (usb_printer_is_connected()) {
+        int back;
+        while ((back = usb_printer_read(back_buf, RAW_TCP_BACK_BUF_SIZE,
+                                        RAW_TCP_BACK_TIMEOUT)) > 0) {
+            lwip_send(fd, back_buf, (size_t)back, 0);
+        }
+    }
+
+    free(fwd_buf);
+    free(back_buf);
+}
+
+typedef struct {
+    int          fd;
+    cyg_bool_t   in_use;
+    cyg_handle_t thread;
+} raw_conn_t;
+
+#define RAW_TCP_MAX_CONNECTIONS 4
+#define RAW_TCP_THREAD_STACK    4096
+#define RAW_TCP_THREAD_PRIO     12
+
+static raw_conn_t  raw_pool[RAW_TCP_MAX_CONNECTIONS];
+static cyg_mutex_t raw_pool_lock;
+
+static void raw_tcp_child_thread(cyg_addrword_t arg)
+{
+    raw_conn_t *conn = (raw_conn_t *)arg;
+    raw_tcp_handle_connection(conn->fd);
+    lwip_close(conn->fd);
+    cyg_mutex_lock(&raw_pool_lock);
+    conn->in_use = false;
+    cyg_mutex_unlock(&raw_pool_lock);
+    cyg_thread_exit();
+}
+
 static void raw_tcp_thread(cyg_addrword_t arg)
 {
+    int                server_fd;
+    int                client_fd;
+    struct sockaddr_in addr;
+    int                opt = 1;
+    cyg_uint32         i;
+
     (void)arg;
-    diag_printf("GPSU21: raw TCP server (port 9100) started\n");
-    for (;;) cyg_thread_delay(1000);
+
+    cyg_mutex_init(&raw_pool_lock);
+    memset(raw_pool, 0, sizeof(raw_pool));
+
+    server_fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        diag_printf("raw_tcp: socket() failed\n");
+        return;
+    }
+    lwip_setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(RAW_TCP_PORT);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (lwip_bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        diag_printf("raw_tcp: bind() failed\n");
+        lwip_close(server_fd);
+        return;
+    }
+    if (lwip_listen(server_fd, RAW_TCP_MAX_CONNECTIONS) < 0) {
+        diag_printf("raw_tcp: listen() failed\n");
+        lwip_close(server_fd);
+        return;
+    }
+
+    diag_printf("raw_tcp: listening on port %d (bi-directional)\n", RAW_TCP_PORT);
+
+    for (;;) {
+        raw_conn_t *slot = NULL;
+
+        client_fd = lwip_accept(server_fd, NULL, NULL);
+        if (client_fd < 0) {
+            cyg_thread_delay(10);
+            continue;
+        }
+
+        cyg_mutex_lock(&raw_pool_lock);
+        for (i = 0; i < RAW_TCP_MAX_CONNECTIONS; i++) {
+            if (!raw_pool[i].in_use) {
+                slot = &raw_pool[i];
+                slot->in_use = true;
+                slot->fd     = client_fd;
+                break;
+            }
+        }
+        cyg_mutex_unlock(&raw_pool_lock);
+
+        if (!slot) {
+            diag_printf("raw_tcp: no free connection slot\n");
+            lwip_close(client_fd);
+            continue;
+        }
+
+        {
+            BaseType_t ret = xTaskCreate(
+                (TaskFunction_t)raw_tcp_child_thread,
+                "raw_child",
+                (configSTACK_DEPTH_TYPE)(RAW_TCP_THREAD_STACK / sizeof(StackType_t)),
+                (void *)slot,
+                CYG_TO_FRT_PRIO(RAW_TCP_THREAD_PRIO),
+                &slot->thread);
+            if (ret != pdPASS) {
+                diag_printf("raw_tcp: xTaskCreate failed\n");
+                lwip_close(client_fd);
+                cyg_mutex_lock(&raw_pool_lock);
+                slot->in_use = false;
+                cyg_mutex_unlock(&raw_pool_lock);
+            }
+        }
+    }
 }
 
 static void smb_thread(cyg_addrword_t arg)
@@ -188,7 +393,22 @@ static void status_thread(cyg_addrword_t arg)
 {
     (void)arg;
     diag_printf("GPSU21: status polling thread started\n");
-    for (;;) cyg_thread_delay(500);
+
+    /* Wait for USB to be initialised by print_server_main before polling.
+     * print_server_main has priority 10 (higher) so it runs first; still
+     * add a small delay to be safe. */
+    cyg_thread_delay(pdMS_TO_TICKS(2000));
+
+    for (;;) {
+        /* Poll USB printer state via GET_PORT_STATUS (back-channel).
+         * This updates g_printer_status.online, .paper_empty, .error and
+         * detects hotplug connect/disconnect events. */
+        usb_printer_update_status();
+
+        /* Poll every 2 seconds — frequent enough for responsive status
+         * reporting without overloading the USB host controller. */
+        cyg_thread_delay(pdMS_TO_TICKS(2000));
+    }
 }
 
 static void watchdog_thread(cyg_addrword_t arg)

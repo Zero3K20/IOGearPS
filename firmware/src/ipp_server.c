@@ -31,6 +31,7 @@
 #include <stdio.h>
 
 #include "ipp_server.h"
+#include "usb_printer.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * IPP constants
@@ -228,6 +229,26 @@ static void ipp_write_response_header(ipp_buf_t *b, uint16_t status,
 static void build_get_printer_response(ipp_buf_t *b, uint32_t request_id)
 {
     cyg_uint32 i;
+    uint32_t   ipp_state;
+    const char *state_reasons;
+
+    /* Derive IPP printer-state from the live USB status back-channel */
+    if (!g_printer_status.connected) {
+        ipp_state    = IPP_PRINTER_STOPPED;
+        state_reasons = "unavailable";   /* RFC 2911 §4.4.12 */
+    } else if (g_printer_status.paper_empty) {
+        ipp_state    = IPP_PRINTER_STOPPED;
+        state_reasons = "media-empty";   /* RFC 2911 §4.4.12 */
+    } else if (g_printer_status.error) {
+        ipp_state    = IPP_PRINTER_STOPPED;
+        state_reasons = "other";         /* RFC 2911 §4.4.12 */
+    } else if (g_printer_status.busy) {
+        ipp_state    = IPP_PRINTER_PROCESSING;
+        state_reasons = "none";          /* state already says processing */
+    } else {
+        ipp_state    = IPP_PRINTER_IDLE;
+        state_reasons = "none";
+    }
 
     ipp_write_response_header(b, IPP_STATUS_OK, request_id);
 
@@ -240,8 +261,8 @@ static void build_get_printer_response(ipp_buf_t *b, uint32_t request_id)
     ipp_write_attr_string(b, IPP_VALUE_TEXT_WITHOUT_LANG, "printer-location",           PRINTER_LOCATION);
     ipp_write_attr_string(b, IPP_VALUE_TEXT_WITHOUT_LANG, "printer-info",               PRINTER_INFO);
     ipp_write_attr_string(b, IPP_VALUE_TEXT_WITHOUT_LANG, "printer-make-and-model",     PRINTER_MAKE);
-    ipp_write_attr_int(b, IPP_VALUE_ENUM,    "printer-state",          IPP_PRINTER_IDLE);
-    ipp_write_attr_string(b, IPP_VALUE_KEYWORD, "printer-state-reasons", "none");
+    ipp_write_attr_int(b, IPP_VALUE_ENUM,    "printer-state",          ipp_state);
+    ipp_write_attr_string(b, IPP_VALUE_KEYWORD, "printer-state-reasons", state_reasons);
     ipp_write_attr_string(b, IPP_VALUE_KEYWORD, "ipp-versions-supported", "1.1");
     ipp_write_attr_int(b, IPP_VALUE_ENUM,    "operations-supported",   IPP_OP_PRINT_JOB);
     ipp_write_attr_int(b, IPP_VALUE_ENUM,    "operations-supported",   IPP_OP_VALIDATE_JOB);
@@ -262,8 +283,11 @@ static void build_get_printer_response(ipp_buf_t *b, uint32_t request_id)
     ipp_write_attr_string(b, IPP_VALUE_MIME_MEDIA_TYPE,
                           "document-format-default", "application/octet-stream");
 
-    ipp_write_attr_int(b, IPP_VALUE_BOOLEAN, "printer-is-accepting-jobs", 1);
-    ipp_write_attr_int(b, IPP_VALUE_INTEGER, "queued-job-count", 0);
+    ipp_write_attr_int(b, IPP_VALUE_BOOLEAN, "printer-is-accepting-jobs",
+                       (g_printer_status.connected && !g_printer_status.error
+                        && !g_printer_status.paper_empty) ? 1u : 0u);
+    ipp_write_attr_int(b, IPP_VALUE_INTEGER, "queued-job-count",
+                       g_printer_status.busy ? 1u : 0u);
 
     ipp_write_u8(b, IPP_TAG_END);
 }
@@ -288,7 +312,131 @@ static int recv_all(int fd, void *buf, size_t len)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+ * drain_ipp_attributes() — consume and discard all IPP attribute bytes
+ * between the fixed 8-byte header and the start of the document data.
+ *
+ * IPP attributes are encoded as TLV tuples terminated by the end-of-attributes
+ * tag (0x03).  We must discard them before the document payload begins.
+ *
+ * The parsing is deliberately minimal: we read byte-by-byte only until we
+ * see the end-of-attributes tag (0x03) and then return.  Every attribute
+ * group tag (0x01, 0x02, 0x04, 0x05) and every value tag (0x10–0x5F) is
+ * followed by a 2-byte name length, the name, a 2-byte value length, and the
+ * value.  Additional values (same attribute name, zero name-length) follow
+ * the same pattern.
+ *
+ * Returns 0 on success, -1 on socket error or malformed stream.
+ * ───────────────────────────────────────────────────────────────────────────*/
+static int drain_ipp_attributes(int fd)
+{
+    uint8_t  tag;
+    uint8_t  len_buf[2];
+    uint16_t vlen;
+
+    for (;;) {
+        /* Read one byte — either a group tag, a value tag, or 0x03 (end) */
+        if (recv_all(fd, &tag, 1) < 0)
+            return -1;
+
+        if (tag == IPP_TAG_END)
+            return 0;   /* all attributes consumed — document data follows */
+
+        /* Group tags (0x01–0x0F) do not carry name/value themselves */
+        if (tag < 0x10u)
+            continue;
+
+        /* Value tag: read name-length, name, value-length, value */
+        if (recv_all(fd, len_buf, 2) < 0) return -1;
+        vlen = (uint16_t)((len_buf[0] << 8) | len_buf[1]);
+        while (vlen > 0) {
+            uint8_t discard[64];
+            uint16_t chunk = vlen < (uint16_t)sizeof(discard)
+                             ? vlen : (uint16_t)sizeof(discard);
+            if (recv_all(fd, discard, chunk) < 0) return -1;
+            vlen -= chunk;
+        }
+
+        if (recv_all(fd, len_buf, 2) < 0) return -1;
+        vlen = (uint16_t)((len_buf[0] << 8) | len_buf[1]);
+        while (vlen > 0) {
+            uint8_t discard[64];
+            uint16_t chunk = vlen < (uint16_t)sizeof(discard)
+                             ? vlen : (uint16_t)sizeof(discard);
+            if (recv_all(fd, discard, chunk) < 0) return -1;
+            vlen -= chunk;
+        }
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * handle_print_job() — read the document data from the IPP Print-Job request
+ * and forward every chunk directly to the USB printer as it arrives.
+ *
+ * IPP Print-Job body layout (after the fixed 8-byte request header):
+ *   [IPP attributes...] [0x03 end-tag] [document data...]
+ *
+ * The HTTP Content-Length header tells us the total body length (attributes +
+ * document); we already consumed the 8-byte IPP header, so we forward
+ * (content_length - 8 - attribute_bytes) bytes to the printer.
+ * Because we cannot know the attribute length up-front we drain attrs first,
+ * then forward everything that remains on the socket until the peer closes
+ * the connection or Content-Length bytes have been read.
+ *
+ * Returns 0 on success, -1 on printer error, -2 on socket error.
+ * ───────────────────────────────────────────────────────────────────────────*/
+#define IPP_PRINT_BUF_SIZE 4096
+
+static int handle_print_job(int fd)
+{
+    uint8_t *buf;
+    int      total = 0;
+    int      rc    = 0;
+
+    if (!usb_printer_is_connected()) {
+        diag_printf("ipp: Print-Job rejected — no printer connected\n");
+        return -1;
+    }
+
+    /* Drain IPP attribute block (everything up to and including 0x03) */
+    if (drain_ipp_attributes(fd) < 0)
+        return -2;
+
+    buf = (uint8_t *)malloc(IPP_PRINT_BUF_SIZE);
+    if (!buf)
+        return -1;
+
+    g_printer_status.busy = true;
+
+    /* Stream document data to the USB printer */
+    for (;;) {
+        int got = lwip_recv(fd, buf, IPP_PRINT_BUF_SIZE, 0);
+        if (got <= 0)
+            break;  /* connection closed — end of document */
+
+        if (usb_printer_write(buf, (size_t)got) < 0) {
+            diag_printf("ipp: USB write error after %d bytes\n", total);
+            rc = -1;
+            break;
+        }
+        total += got;
+    }
+
+    free(buf);
+
+    if (rc == 0 && total > 0) {
+        g_printer_status.jobs_printed++;
+        diag_printf("ipp: Print-Job forwarded to printer (%d bytes)\n", total);
+    }
+
+    return rc;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
  * Per-connection handler
+ *
+ * IPP is tunnelled over HTTP: clients send an HTTP/1.1 POST to / with
+ * Content-Type: application/ipp.  We must consume the HTTP request headers
+ * before reading the IPP PDU.
  * ───────────────────────────────────────────────────────────────────────────*/
 static void handle_ipp_request(int fd)
 {
@@ -299,7 +447,31 @@ static void handle_ipp_request(int fd)
     char      http_hdr[256];
     int       hdr_len;
 
-    /* Read the 8-byte IPP request header */
+    /* ── Read and discard HTTP request headers ──────────────────────────── *
+     * IPP is tunnelled over HTTP/1.1: clients POST to / with
+     * Content-Type: application/ipp.  Read byte-by-byte until the
+     * \r\n\r\n end-of-headers sequence is detected. */
+    {
+        char c;
+        char last[4] = {0, 0, 0, 0};
+
+        for (;;) {
+            int n = lwip_recv(fd, &c, 1, 0);
+            if (n <= 0)
+                return;  /* connection closed before headers ended */
+
+            last[0] = last[1];
+            last[1] = last[2];
+            last[2] = last[3];
+            last[3] = c;
+
+            if (last[0] == '\r' && last[1] == '\n' &&
+                last[2] == '\r' && last[3] == '\n')
+                break;
+        }
+    }
+
+    /* ── Read the 8-byte IPP request header ─────────────────────────────── */
     if (recv_all(fd, req, 8) < 8) {
         diag_printf("ipp: failed to read IPP header\n");
         return;
@@ -319,8 +491,42 @@ static void handle_ipp_request(int fd)
         build_get_printer_response(&resp, request_id);
         break;
 
-    case IPP_OP_PRINT_JOB:
+    case IPP_OP_PRINT_JOB: {
+        /* Forward the document to the USB printer, then respond. */
+        uint16_t status_code;
+
+        if (!usb_printer_is_connected()) {
+            status_code = IPP_STATUS_SERVER_ERROR_INTERNAL;
+        } else if (g_printer_status.paper_empty || g_printer_status.error) {
+            status_code = IPP_STATUS_SERVER_ERROR_INTERNAL;
+        } else {
+            int prc = handle_print_job(fd);
+            status_code = (prc < 0) ? IPP_STATUS_SERVER_ERROR_INTERNAL
+                                    : IPP_STATUS_OK;
+        }
+
+        ipp_write_response_header(&resp, status_code, request_id);
+        if (status_code == IPP_STATUS_OK) {
+            ipp_write_u8(&resp, IPP_TAG_JOB);
+            ipp_write_attr_int(&resp, IPP_VALUE_INTEGER, "job-id",    1);
+            ipp_write_attr_int(&resp, IPP_VALUE_ENUM,    "job-state", 5); /* completed */
+        }
+        ipp_write_u8(&resp, IPP_TAG_END);
+        break;
+    }
+
     case IPP_OP_VALIDATE_JOB:
+        /* Report whether the printer is ready to accept a job */
+        if (!usb_printer_is_connected() || g_printer_status.error
+            || g_printer_status.paper_empty) {
+            ipp_write_response_header(&resp,
+                IPP_STATUS_SERVER_ERROR_INTERNAL, request_id);
+        } else {
+            ipp_write_response_header(&resp, IPP_STATUS_OK, request_id);
+        }
+        ipp_write_u8(&resp, IPP_TAG_END);
+        break;
+
     case IPP_OP_CANCEL_JOB:
     case IPP_OP_GET_JOB_ATTRS:
     case IPP_OP_GET_JOBS:
