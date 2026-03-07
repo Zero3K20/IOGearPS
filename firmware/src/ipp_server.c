@@ -360,8 +360,18 @@ typedef struct {
     int          fd;
     cyg_bool_t   in_use;
     cyg_handle_t thread;
-    cyg_thread   thread_obj;
-    char         stack[IPP_THREAD_STACK_SIZE];
+    /*
+     * NOTE: thread stack and TCB are allocated dynamically by xTaskCreate so
+     * that FreeRTOS frees them via the idle task after vTaskDelete(NULL).
+     *
+     * Using xTaskCreateStatic with a statically-allocated StaticTask_t and
+     * stack[] embedded here causes a race condition: after a child calls
+     * vTaskDelete(NULL), FreeRTOS places the StaticTask_t on the internal
+     * xTasksWaitingTermination list; if a new connection reuses the same slot
+     * before the idle task processes that list, xTaskCreateStatic overwrites
+     * the StaticTask_t's xStateListItem, corrupting the FreeRTOS scheduler's
+     * task lists and crashing the device.
+     */
 } ipp_conn_t;
 
 static ipp_conn_t  ipp_pool[IPP_MAX_CONNECTIONS];
@@ -448,16 +458,23 @@ void ipp_server_thread(cyg_addrword_t arg)
             continue;
         }
 
-        cyg_thread_create(
-            IPP_THREAD_PRIORITY,
-            ipp_child_thread,
-            (cyg_addrword_t)slot,
-            "ipp_child",
-            slot->stack,
-            IPP_THREAD_STACK_SIZE,
-            &slot->thread,
-            &slot->thread_obj
-        );
-        cyg_thread_resume(slot->thread);
+        {
+            BaseType_t ret;
+            ret = xTaskCreate(
+                (TaskFunction_t)ipp_child_thread,
+                "ipp_child",
+                (configSTACK_DEPTH_TYPE)(IPP_THREAD_STACK_SIZE / sizeof(StackType_t)),
+                (void *)slot,
+                CYG_TO_FRT_PRIO(IPP_THREAD_PRIORITY),
+                &slot->thread);
+            if (ret != pdPASS) {
+                diag_printf("ipp: xTaskCreate failed (out of heap?)\n");
+                lwip_close(client_fd);
+                cyg_mutex_lock(&ipp_pool_lock);
+                slot->in_use = false;
+                cyg_mutex_unlock(&ipp_pool_lock);
+                continue;
+            }
+        }
     }
 }
