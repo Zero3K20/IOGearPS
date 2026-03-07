@@ -247,6 +247,15 @@ physically disconnected.
 
 #### How to make the HP LaserJet 1020 work with this print server
 
+> **TL;DR — If you downloaded a pre-built release binary from the
+> [Releases](../../releases) page, the firmware is already included.
+> Just flash and plug in the printer — no further steps needed.**
+
+The CI/CD build automatically downloads the HP LJ 1020 EZ-USB firmware
+blob from its long-standing public GitHub mirror and bakes it into every
+release binary (Option E below).  If you build from source yourself, see
+Options D and E.
+
 **Option D — Store firmware on the print server (recommended; no PC needed
 after initial setup)**
 
@@ -296,6 +305,9 @@ after initial setup)**
 
 **Option E — Bake the firmware into the print server's firmware image
 (works out-of-the-box after flashing; no runtime upload needed)**
+
+> **This is exactly what the CI build does for every release.**
+> If you downloaded a pre-built release binary you can skip this section.
 
 This option permanently embeds the HP LJ 1020 firmware into the GPSU21
 firmware binary at build time.  After flashing, the print server
