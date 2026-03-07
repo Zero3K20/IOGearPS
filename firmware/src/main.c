@@ -80,25 +80,25 @@ static char         thread_stacks[NUM_THREADS][THREAD_STACK_SIZE];
 /* ─────────────────────────────────────────────────────────────────────────────
  * Forward declarations for threads not defined in separate .c files
  * ───────────────────────────────────────────────────────────────────────────*/
-static void raw_tcp_thread(cyg_addrword_t arg);
-static void smb_thread(cyg_addrword_t arg);
-static void netbios_thread(cyg_addrword_t arg);
-static void snmp_thread(cyg_addrword_t arg);
-static void telnet_thread(cyg_addrword_t arg);
-static void tftp_thread(cyg_addrword_t arg);
-static void email_alert_thread(cyg_addrword_t arg);
-static void appletalk_thread(cyg_addrword_t arg);
-static void netware_sap_thread(cyg_addrword_t arg);
-static void netware_nds_thread(cyg_addrword_t arg);
-static void netware_bindery_thread(cyg_addrword_t arg);
-static void status_thread(cyg_addrword_t arg);
-static void watchdog_thread(cyg_addrword_t arg);
-static void idle_thread(cyg_addrword_t arg);
+static void raw_tcp_thread(void *arg);
+static void smb_thread(void *arg);
+static void netbios_thread(void *arg);
+static void snmp_thread(void *arg);
+static void telnet_thread(void *arg);
+static void tftp_thread(void *arg);
+static void email_alert_thread(void *arg);
+static void appletalk_thread(void *arg);
+static void netware_sap_thread(void *arg);
+static void netware_nds_thread(void *arg);
+static void netware_bindery_thread(void *arg);
+static void status_thread(void *arg);
+static void watchdog_thread(void *arg);
+static void idle_thread(void *arg);
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Main print-server loop
  * ───────────────────────────────────────────────────────────────────────────*/
-static void print_server_main(cyg_addrword_t arg)
+static void print_server_main(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: print-server main thread started\n");
@@ -230,7 +230,7 @@ typedef struct {
 static raw_conn_t  raw_pool[RAW_TCP_MAX_CONNECTIONS];
 static cyg_mutex_t raw_pool_lock;
 
-static void raw_tcp_child_thread(cyg_addrword_t arg)
+static void raw_tcp_child_thread(void *arg)
 {
     raw_conn_t *conn = (raw_conn_t *)arg;
     raw_tcp_handle_connection(conn->fd);
@@ -241,7 +241,7 @@ static void raw_tcp_child_thread(cyg_addrword_t arg)
     cyg_thread_exit();
 }
 
-static void raw_tcp_thread(cyg_addrword_t arg)
+static void raw_tcp_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -307,7 +307,7 @@ static void raw_tcp_thread(cyg_addrword_t arg)
 
         {
             BaseType_t ret = xTaskCreate(
-                (TaskFunction_t)raw_tcp_child_thread,
+                raw_tcp_child_thread,
                 "raw_child",
                 (configSTACK_DEPTH_TYPE)(RAW_TCP_THREAD_STACK / sizeof(StackType_t)),
                 (void *)slot,
@@ -324,77 +324,77 @@ static void raw_tcp_thread(cyg_addrword_t arg)
     }
 }
 
-static void smb_thread(cyg_addrword_t arg)
+static void smb_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: SMB server started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void netbios_thread(cyg_addrword_t arg)
+static void netbios_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: NetBIOS name service started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void snmp_thread(cyg_addrword_t arg)
+static void snmp_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: SNMP agent started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void telnet_thread(cyg_addrword_t arg)
+static void telnet_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: Telnet CLI started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void tftp_thread(cyg_addrword_t arg)
+static void tftp_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: TFTP server started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void email_alert_thread(cyg_addrword_t arg)
+static void email_alert_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: email alert thread started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void appletalk_thread(cyg_addrword_t arg)
+static void appletalk_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: AppleTalk/PAP server started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void netware_sap_thread(cyg_addrword_t arg)
+static void netware_sap_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: NetWare SAP broadcast thread started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void netware_nds_thread(cyg_addrword_t arg)
+static void netware_nds_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: NetWare NDS client started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void netware_bindery_thread(cyg_addrword_t arg)
+static void netware_bindery_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: NetWare Bindery client started\n");
     for (;;) cyg_thread_delay(1000);
 }
 
-static void status_thread(cyg_addrword_t arg)
+static void status_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: status polling thread started\n");
@@ -416,7 +416,7 @@ static void status_thread(cyg_addrword_t arg)
     }
 }
 
-static void watchdog_thread(cyg_addrword_t arg)
+static void watchdog_thread(void *arg)
 {
     (void)arg;
     diag_printf("GPSU21: watchdog thread started — MT7688 WDT kept disabled\n");
@@ -438,7 +438,7 @@ static void watchdog_thread(cyg_addrword_t arg)
     }
 }
 
-static void idle_thread(cyg_addrword_t arg)
+static void idle_thread(void *arg)
 {
     (void)arg;
     for (;;) cyg_thread_delay(10000);
@@ -451,7 +451,7 @@ static void idle_thread(cyg_addrword_t arg)
  * thread debug output.
  * ───────────────────────────────────────────────────────────────────────────*/
 typedef struct {
-    cyg_thread_entry_t *fn;
+    cyg_thread_entry_t  fn;
     const char         *name;
     cyg_ucount32        priority;
 } thread_desc_t;
@@ -533,7 +533,7 @@ void cyg_user_start(void)
         cyg_thread_create(
             thread_descs[i].priority,
             thread_descs[i].fn,
-            (cyg_addrword_t)i,
+            (void *)(uintptr_t)i,
             (char *)thread_descs[i].name,
             thread_stacks[i],
             THREAD_STACK_SIZE,

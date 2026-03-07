@@ -29,7 +29,9 @@ typedef QueueHandle_t      sys_mbox_t;
 typedef TaskHandle_t       sys_thread_t;
 
 /* ── Timeout value (returned by sys_arch_mbox_fetch on timeout) ─────────── */
+#ifndef SYS_ARCH_TIMEOUT
 #define SYS_ARCH_TIMEOUT   0xFFFFFFFFUL
+#endif
 
 /* ── Critical-section protection ────────────────────────────────────────── */
 #define SYS_ARCH_DECL_PROTECT(lev)    UBaseType_t lev

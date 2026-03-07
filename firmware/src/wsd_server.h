@@ -22,9 +22,9 @@
 #include "rtos.h"
 
 /* WS-Discovery responder — UDP multicast 239.255.255.250:3702 */
-void wsd_discovery_thread(cyg_addrword_t arg);
+void wsd_discovery_thread(void *arg);
 
 /* WSD-Scan HTTP server — TCP port 5357 */
-void wsd_http_thread(cyg_addrword_t arg);
+void wsd_http_thread(void *arg);
 
 #endif /* WSD_SERVER_H */

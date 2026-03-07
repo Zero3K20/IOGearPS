@@ -181,7 +181,7 @@ static const char WSD_RESOLVEMATCH_TMPL[] =
     "</s:Body>"
     "</s:Envelope>";
 
- * snprintf args: msgid, relatesTo, ip_str (for ScannerService endpoint) */
+/* snprintf args: msgid, relatesTo, ip_str (for ScannerService endpoint) */
 static const char WSD_METADATA_TMPL[] =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
     "<s:Envelope " WSD_NS ">"
@@ -487,7 +487,7 @@ static void wsd_extract_msgid(const char *buf, int len,
  * Joins the WSD multicast group, sends a Hello on startup, then loops
  * responding to Probe messages that request scan:ScannerServiceType.
  * ───────────────────────────────────────────────────────────────────────────*/
-void wsd_discovery_thread(cyg_addrword_t arg)
+void wsd_discovery_thread(void *arg)
 {
     int                sock;
     struct sockaddr_in bind_addr;
@@ -793,7 +793,7 @@ typedef struct {
 static wsd_conn_t  wsd_pool[WSD_HTTP_MAX_CONN];
 static cyg_mutex_t wsd_pool_lock;
 
-static void wsd_http_child_thread(cyg_addrword_t arg)
+static void wsd_http_child_thread(void *arg)
 {
     wsd_conn_t *conn = (wsd_conn_t *)arg;
 
@@ -810,7 +810,7 @@ static void wsd_http_child_thread(cyg_addrword_t arg)
 /* ─────────────────────────────────────────────────────────────────────────────
  * WSD-Scan HTTP server main thread — listens on port 5357
  * ───────────────────────────────────────────────────────────────────────────*/
-void wsd_http_thread(cyg_addrword_t arg)
+void wsd_http_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -885,7 +885,7 @@ void wsd_http_thread(cyg_addrword_t arg)
         {
             BaseType_t ret;
             ret = xTaskCreate(
-                (TaskFunction_t)wsd_http_child_thread,
+                wsd_http_child_thread,
                 "wsd_child",
                 (configSTACK_DEPTH_TYPE)(WSD_HTTP_STACK_SIZE / sizeof(StackType_t)),
                 (void *)slot,

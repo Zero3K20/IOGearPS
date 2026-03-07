@@ -6,6 +6,6 @@
 
 #include "rtos.h"
 
-void lpr_thread(cyg_addrword_t arg);
+void lpr_thread(void *arg);
 
 #endif /* LPR_H */
