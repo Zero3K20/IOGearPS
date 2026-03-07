@@ -71,7 +71,7 @@ const char __attribute__((used, section(".version")))
  * Thread stacks and control structures
  * ───────────────────────────────────────────────────────────────────────────*/
 #define THREAD_STACK_SIZE   8192
-#define NUM_THREADS         22
+#define NUM_THREADS         23
 
 static cyg_handle_t thread_handles[NUM_THREADS];
 static cyg_thread   thread_objs[NUM_THREADS];
@@ -94,6 +94,7 @@ static void netware_bindery_thread(void *arg);
 static void status_thread(void *arg);
 static void watchdog_thread(void *arg);
 static void idle_thread(void *arg);
+static void eth_rx_thread(void *arg);
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Main print-server loop
@@ -444,6 +445,26 @@ static void idle_thread(void *arg)
     for (;;) cyg_thread_delay(10000);
 }
 
+static void eth_rx_thread(void *arg)
+{
+    (void)arg;
+
+    /*
+     * Delay startup slightly so that the lwIP tcpip_thread (higher priority)
+     * has time to run netif_setup() → mt7688_eth_init() before we start
+     * polling the hardware.  Without the Ethernet hardware being initialised
+     * first, mt7688_eth_rx_poll() returns immediately on every call.
+     */
+    cyg_thread_delay(pdMS_TO_TICKS(500));
+    diag_printf("GPSU21: Ethernet RX polling thread started\n");
+
+    for (;;) {
+        mt7688_eth_rx_poll();
+        /* Poll every 2 ms — fast enough for ~750 frames/sec at 100 Mbit/s. */
+        cyg_thread_delay(pdMS_TO_TICKS(2));
+    }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * Thread descriptors (index, function, name, priority)
  * Priority: 10 = highest used; 30 = idle.  eCos default scheduler range is
@@ -479,6 +500,7 @@ static const thread_desc_t thread_descs[NUM_THREADS] = {
     { escl_server_thread,   "escl",           12 },
     { wsd_discovery_thread, "wsd_disc",       12 },
     { wsd_http_thread,      "wsd_http",       12 },
+    { eth_rx_thread,        "eth_rx",         11 },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -544,6 +566,41 @@ void cyg_user_start(void)
     }
 
     diag_printf("GPSU21: %u service threads created\n", NUM_THREADS);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * FreeRTOS application hooks
+ * ───────────────────────────────────────────────────────────────────────────*/
+
+/*
+ * vApplicationStackOverflowHook — called by FreeRTOS when a task stack
+ * overflow is detected (configCHECK_FOR_STACK_OVERFLOW = 2).
+ *
+ * A stack overflow means adjacent memory has been corrupted.  We log the
+ * offending task name to UART and halt so that a debugger or the WDT can
+ * take over.  Attempting to continue would risk further corruption.
+ */
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    (void)xTask;
+    uart_puts("\r\n*** STACK OVERFLOW in task: ");
+    uart_puts(pcTaskName ? pcTaskName : "(unknown)");
+    uart_puts(" ***\r\n");
+    /* Halt — the hardware watchdog (if armed) will reset the device. */
+    for (;;) { }
+}
+
+/*
+ * vApplicationMallocFailedHook — called by heap_4.c when pvPortMalloc()
+ * cannot satisfy an allocation (configUSE_MALLOC_FAILED_HOOK = 1).
+ *
+ * Heap exhaustion is logged but we do not halt: the calling task should
+ * handle the NULL return value and gracefully degrade (e.g. drop a print
+ * connection) rather than crash the whole device.
+ */
+void vApplicationMallocFailedHook(void)
+{
+    uart_puts("\r\n*** pvPortMalloc() failed — heap exhausted ***\r\n");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
