@@ -294,7 +294,106 @@ static void handle_request(int fd)
         return;
     }
 
-    /* Look up the file in the ROM resource table */
+    /* ── GET /api/printer_fw_status — firmware blob storage status ──────── */
+    if (strcmp(filename, "api/printer_fw_status") == 0) {
+        char json[64];
+        int  json_len = snprintf(json, sizeof(json),
+            "{\"has_blob\":%s,\"size\":%u}",
+            usb_fw_has_blob() ? "true" : "false",
+            (unsigned)usb_fw_blob_size());
+        send_response(fd, 200, "OK", "application/json",
+                      json, (size_t)json_len);
+        return;
+    }
+
+    /* ── POST /api/upload_printer_fw — store firmware blob for EZ-USB upload
+     *
+     * Accepts the HP LaserJet 1020 (or 1015/1022) printer firmware as a raw
+     * POST body.  Two file formats are supported:
+     *   Intel HEX  — HPLIP's hp_laserjet_1020.fw (first byte is ':')
+     *   Raw binary — foo2zjs's sihp1020.img (any other first byte)
+     *
+     * The firmware binary is HP-proprietary; obtain it from:
+     *   - HPLIP: /usr/share/hplip/data/firmware/hp_laserjet_1020.fw
+     *   - foo2zjs: firmware/sihp1020.img
+     *
+     * Example:
+     *   curl -X POST http://<ip>/api/upload_printer_fw \
+     *        --data-binary @hp_laserjet_1020.fw
+     *
+     * On success returns: {"ok":true,"bytes":<n>}
+     * ─────────────────────────────────────────────────────────────────── */
+    if (strcmp(method, "POST") == 0 &&
+        strcmp(filename, "api/upload_printer_fw") == 0) {
+
+        /* Parse Content-Length from the already-received request headers */
+        const char *cl_hdr = strstr(buf, "Content-Length:");
+        if (!cl_hdr) cl_hdr = strstr(buf, "content-length:");
+        if (!cl_hdr) {
+            static const char err[] = "{\"error\":\"Content-Length required\"}";
+            send_response(fd, 411, "Length Required", "application/json",
+                          err, sizeof(err) - 1);
+            return;
+        }
+        int content_length = atoi(cl_hdr + 15);
+        if (content_length <= 0 || (size_t)content_length > USB_FW_MAX_SIZE) {
+            static const char err[] =
+                "{\"error\":\"invalid Content-Length (must be 1–65536)\"}";
+            send_response(fd, 413, "Content Too Large", "application/json",
+                          err, sizeof(err) - 1);
+            return;
+        }
+
+        /* Locate start of body in the already-received buffer.
+         * The HTTP request line + headers end at the first \r\n\r\n. */
+        const char *body_start = strstr(buf, "\r\n\r\n");
+        int body_in_buf = 0;
+        if (body_start) {
+            body_start += 4;
+            body_in_buf = n - (int)(body_start - buf);
+            if (body_in_buf < 0) body_in_buf = 0;
+        }
+
+        /* Receive firmware data directly into the fw blob buffer to avoid
+         * a second copy.  usb_fw_get_write_buf() returns a pointer to the
+         * static 64 KB buffer; no large stack allocation is needed here. */
+        size_t   max_fw;
+        uint8_t *fw_buf = usb_fw_get_write_buf(&max_fw);
+
+        /* Copy the body bytes already in buf into the fw buffer */
+        size_t total = 0;
+        if (body_in_buf > 0 && body_start) {
+            memcpy(fw_buf, body_start, (size_t)body_in_buf);
+            total = (size_t)body_in_buf;
+        }
+
+        /* Stream the remainder of the body directly into fw_buf */
+        while ((int)total < content_length) {
+            int to_read = content_length - (int)total;
+            if (to_read > HTTP_RECV_BUF_SIZE) to_read = HTTP_RECV_BUF_SIZE;
+            int rcv = lwip_recv(fd, fw_buf + total, (size_t)to_read, 0);
+            if (rcv <= 0) break;
+            total += (size_t)rcv;
+        }
+
+        if ((int)total < content_length) {
+            static const char err[] = "{\"error\":\"incomplete upload\"}";
+            send_response(fd, 400, "Bad Request", "application/json",
+                          err, sizeof(err) - 1);
+            return;
+        }
+
+        /* Commit the blob — from now on the status thread will use it */
+        usb_fw_commit(total);
+
+        char resp[64];
+        int  resp_len = snprintf(resp, sizeof(resp),
+                                 "{\"ok\":true,\"bytes\":%u}",
+                                 (unsigned)total);
+        send_response(fd, 200, "OK", "application/json",
+                      resp, (size_t)resp_len);
+        return;
+    }
     res = web_resource_find(filename);
     if (res) {
         send_200_file(fd, res->name, res->data, res->size);

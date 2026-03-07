@@ -172,37 +172,127 @@ printer will operate.  Without the firmware, the printer enumerates as a
 vendor-specific USB device (not a Printer Class device) and cannot accept print
 data.
 
+#### The upload protocol — clean-room reverse engineering
+
+The **upload protocol** used to transfer firmware to these printers is the
+**Cypress EZ-USB ANCHOR_LOAD_INTERNAL** vendor request.  This has been
+**fully reverse-engineered** by the open-source community and is now
+documented and implemented in multiple independent open-source projects:
+
+| Project | File(s) |
+|---------|---------|
+| Linux kernel | `drivers/usb/misc/ezusb.c` — `ezusb_ihex_firmware_download()` |
+| foo2zjs | `usb/foo2usb-wrapper`, `firmware/Makefile` |
+| HPLIP | `base/firmware.py` — `__load_firmware()` |
+
+The protocol is a standard USB vendor control request:
+
+```
+bmRequestType = 0x40  (OUT | VENDOR | DEVICE)
+bRequest      = 0xA0  (ANCHOR_LOAD_INTERNAL)
+wValue        = target address in EZ-USB internal 8051 RAM
+wIndex        = 0
+Data          = firmware bytes to write at wValue
+```
+
+Sequence:
+1. Write `{0x01}` to address `0xE600` (CPUCS) — hold 8051 CPU in reset
+2. Write firmware bytes in chunks to their respective load addresses
+3. Write `{0x00}` to address `0xE600` — release CPU; firmware boots and
+   the device re-enumerates on the USB bus with its operational PID
+
+**This firmware now implements this protocol natively** (see `usb_fw_upload.c`
+in the source).  The firmware upload can be performed autonomously by the
+print server — no PC required at print time — as long as the firmware binary
+has been uploaded once via the web interface (see Option D below).
+
+#### What is NOT reverse-engineered
+
+The **firmware binary itself** (the code that runs on the HP LaserJet 1020's
+8051 CPU) is HP-proprietary and cannot be redistributed.  The upload protocol
+code in this repository implements the *transport mechanism* only; the binary
+payload must be obtained from HP or from the HPLIP package.
+
+A fully open-source, clean-room replacement for the HP LaserJet 1020's
+internal firmware (rendering engine, ZjStream PCL-XL interpreter, etc.) does
+not currently exist and would be an entirely separate, much larger project.
+
 #### USB device identifiers
 
 | State | USB Vendor:Product | Notes |
 |-------|--------------------|-------|
-| Power-on (no firmware) | `03f0:2911` (HP LJ 1015) | Firmware not loaded — printer not functional |
-| Power-on (no firmware) | `03f0:2b17` (HP LJ 1020) | Firmware not loaded — printer not functional |
-| Power-on (no firmware) | `03f0:2c17` (HP LJ 1022) | Firmware not loaded — printer not functional |
-| Ready (firmware loaded) | `03f0:3315` (HP LJ 1015) | Fully functional USB Printer Class device |
-| Ready (firmware loaded) | `03f0:3417` (HP LJ 1020) | Fully functional USB Printer Class device |
-| Ready (firmware loaded) | `03f0:3517` (HP LJ 1022) | Fully functional USB Printer Class device |
+| Power-on (no firmware) | `03f0:2911` (HP LJ 1015) | Stub — firmware not loaded |
+| Power-on (no firmware) | `03f0:2b17` (HP LJ 1020) | Stub — firmware not loaded |
+| Power-on (no firmware) | `03f0:2c17` (HP LJ 1022) | Stub — firmware not loaded |
+| Ready (firmware loaded) | `03f0:3315` (HP LJ 1015) | USB Printer Class device |
+| Ready (firmware loaded) | `03f0:3417` (HP LJ 1020) | USB Printer Class device |
+| Ready (firmware loaded) | `03f0:3517` (HP LJ 1022) | USB Printer Class device |
 
 #### What the firmware does when a pre-firmware device is detected
 
-When the GPSU21 detects a pre-firmware HP LaserJet (stub PID), it:
+When the GPSU21 detects a stub-PID HP LaserJet, it first checks whether a
+firmware blob has been stored:
 
-1. Sets the `needs_firmware` flag in the printer status.
-2. Logs a message to the serial console explaining the situation.
-3. Rejects incoming print jobs (IPP returns `printer-stopped`; LPD/Raw TCP
-   returns an error).
-4. Exposes `"needs_firmware": true` in the `/api/printer_status` JSON endpoint
-   so the web interface can display a helpful warning.
+- **Blob stored** (Option D below): the print server automatically performs
+  the ANCHOR_LOAD_INTERNAL upload sequence, waits for the device to
+  re-enumerate, and then proceeds to enumerate it as a standard USB Printer
+  Class device.  **No PC or manual intervention is needed.**
 
-The `needs_firmware` flag is **cleared automatically** when the USB device is
+- **No blob stored**: the `needs_firmware` flag is set, print jobs are
+  rejected, a message is logged to the serial console, and the
+  `/api/printer_status` JSON endpoint reports `"needs_firmware": true`.
+
+The `needs_firmware` flag is cleared automatically when the USB device is
 physically disconnected.
 
 #### How to make the HP LaserJet 1020 work with this print server
 
-The printer retains the firmware in RAM **as long as it remains powered on**.
-The recommended workflow is:
+**Option D — Store firmware on the print server (recommended; no PC needed
+after initial setup)**
 
-**Option A — Load firmware from a Windows PC (easiest)**
+1. Obtain the HP LaserJet 1020 firmware file from one of these sources:
+
+   | Source | File | Format |
+   |--------|------|--------|
+   | HPLIP (Linux/macOS) | `/usr/share/hplip/data/firmware/hp_laserjet_1020.fw` | Intel HEX |
+   | foo2zjs (Linux) | extracted `sihp1020.img` (see below) | Raw binary |
+   | HP Windows driver | extracted from `.inf` / `.hex` | Intel HEX or raw |
+
+   **Easiest: extract from HPLIP** (the file is freely downloadable from HP
+   via the HPLIP package but is not redistributable):
+   ```bash
+   sudo apt install hplip          # Debian/Ubuntu
+   # or: sudo dnf install hplip   # Fedora/RHEL
+   ls /usr/share/hplip/data/firmware/hp_laserjet_1020.fw
+   ```
+
+2. Upload the firmware file to the print server:
+   ```bash
+   curl -X POST http://<print-server-IP>/api/upload_printer_fw \
+        --data-binary @/usr/share/hplip/data/firmware/hp_laserjet_1020.fw
+   ```
+   Expected response: `{"ok":true,"bytes":49152}` (size varies by firmware
+   version).
+
+3. Power on the HP LaserJet 1020 with its USB cable connected to the GPSU21.
+   The print server detects the stub PID, automatically performs the firmware
+   upload over USB, and waits for the printer to re-enumerate.  The printer
+   is then fully functional.
+
+4. **The blob is stored in RAM only** — it is lost on print server reboot.
+   Repeat step 2 after each power cycle of the print server, or connect the
+   printer to HPLIP/Windows first then reconnect (Options A/B below).
+
+> 💡 **Tip:** Upload the firmware blob as part of a startup script on your
+> router or NAS so it is automatically restored whenever the print server
+> reboots:
+> ```bash
+> # On router (OpenWrt example):
+> curl -s -X POST http://192.168.1.X/api/upload_printer_fw \
+>      --data-binary @/etc/hplip/hp_laserjet_1020.fw
+> ```
+
+**Option A — Pre-load on a Windows PC (easiest, no blob needed)**
 
 1. Install the official HP LaserJet 1020 driver on a Windows PC.
 2. Connect the printer to the Windows PC via USB and power it on.
@@ -215,7 +305,7 @@ The recommended workflow is:
 > ⚠️ Do **not** power-cycle the printer after moving it — it will lose the
 > firmware.
 
-**Option B — Load firmware from a Linux/macOS host**
+**Option B — Pre-load from a Linux/macOS host**
 
 1. Install `hplip`:
    - Debian/Ubuntu: `sudo apt install hplip`
@@ -225,7 +315,8 @@ The recommended workflow is:
 2. Connect the printer to the Linux/macOS host and power it on.
 3. HPLIP uploads the firmware automatically via `hp-firmware` or the udev
    rules installed with HPLIP.
-4. Confirm the printer is recognised (`lsusb` on Linux or `system_profiler SPUSBDataType` on macOS shows the printer at `03f0:3417`).
+4. Confirm the printer is recognised (`lsusb` on Linux or
+   `system_profiler SPUSBDataType` on macOS shows the printer at `03f0:3417`).
 5. Disconnect from the Linux/macOS host and connect to the GPSU21.
 
 **Option C — Use `foo2zjs` on Linux**
@@ -272,9 +363,9 @@ enter `<print-server-IP>`, port `9100`.
 |---------|--------|-------|
 | HP LaserJet PCL (1990s–present) | ✅ | Works out-of-the-box |
 | HP LaserJet Pro / Enterprise | ✅ | Works out-of-the-box |
-| HP LaserJet 1015 | ✅ | Needs firmware pre-loaded — see above |
-| HP LaserJet 1020 | ✅ | Needs firmware pre-loaded — see above |
-| HP LaserJet 1022 | ✅ | Needs firmware pre-loaded — see above |
+| HP LaserJet 1015 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
+| HP LaserJet 1020 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
+| HP LaserJet 1022 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
 | HP DeskJet / OfficeJet / Envy (USB) | ✅ | Works with correct PCL driver on client |
 | Brother HL / DCP / MFC | ✅ | Works out-of-the-box |
 | Epson inkjet (ESC/P) | ✅ | Works with correct driver on client |

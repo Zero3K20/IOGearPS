@@ -21,11 +21,23 @@
  *   - lpr.c         — queue-state response reflects paper/offline state
  *   - httpd.c       — /api/printer_status endpoint for the web UI
  *
+ * Printer firmware upload (Cypress EZ-USB):
+ *   Some printers (HP LaserJet 1015/1020/1022) require a firmware blob to be
+ *   uploaded via the Cypress EZ-USB ANCHOR_LOAD_INTERNAL protocol before they
+ *   become functional USB Printer Class devices.  This module implements that
+ *   upload protocol.  The upload protocol itself is clean-room
+ *   reverse-engineered and documented in open-source projects (foo2zjs, HPLIP,
+ *   Linux kernel usb/misc/ezusb.c).  The firmware binary must be obtained
+ *   separately from HPLIP or the HP Windows driver and stored here via
+ *   usb_fw_store() (typically via the web interface POST /api/upload_printer_fw).
+ *
  * References:
  *   - Universal Serial Bus Specification, Revision 2.0
  *   - USB Printer Class Definition for Printing Devices, Release 1.1
  *   - Enhanced Host Controller Interface (EHCI) Specification, Release 1.0
  *   - MT7628AN/MT7688 Datasheet, MediaTek Inc.
+ *   - Cypress Semiconductor EZ-USB Technical Reference Manual
+ *   - Linux kernel: drivers/usb/misc/ezusb.c (ANCHOR_LOAD_INTERNAL)
  */
 
 #ifndef USB_PRINTER_H
@@ -175,5 +187,96 @@ void usb_printer_update_status(void);
  * has been successfully enumerated.
  */
 cyg_bool_t usb_printer_is_connected(void);
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Printer firmware blob storage — Cypress EZ-USB ANCHOR_LOAD_INTERNAL
+ *
+ * The HP LaserJet 1015, 1020, and 1022 (and similar Cypress EZ-USB–based
+ * printers) store their operating firmware in RAM.  At every power-on the
+ * printer enumerates as a vendor-specific stub device (no Printer Class
+ * interface) and a host must upload the firmware before the printer becomes
+ * functional.
+ *
+ * The upload protocol is the Cypress EZ-USB ANCHOR_LOAD_INTERNAL vendor
+ * request (bRequest=0xA0, bmRequestType=0x40).  This protocol has been
+ * clean-room reverse-engineered by the open-source community and is
+ * documented in:
+ *   - Linux kernel: drivers/usb/misc/ezusb.c
+ *   - foo2zjs: usb/foo2usb-wrapper, firmware/Makefile
+ *   - HPLIP: base/firmware.py
+ *
+ * The firmware binary itself (hp_laserjet_1020.fw from HPLIP, or
+ * sihp1020.img from foo2zjs) is HP-proprietary and cannot be redistributed.
+ * Users must obtain it from the HPLIP package or the HP Windows driver and
+ * upload it to this print server via POST /api/upload_printer_fw.
+ *
+ * Supported firmware formats:
+ *   Intel HEX  — detected by ':' at offset 0 (HPLIP .fw files)
+ *   Raw binary — any other content (foo2zjs .img files); loaded at 0x0000
+ *
+ * When a stub-PID printer is detected and a firmware blob is stored here,
+ * usb_printer_update_status() automatically performs the upload sequence:
+ *   1. Hold EZ-USB CPU in reset  (ANCHOR_LOAD to 0xE600, data={0x01})
+ *   2. Upload firmware chunks    (ANCHOR_LOAD to each target address)
+ *   3. Release EZ-USB CPU        (ANCHOR_LOAD to 0xE600, data={0x00})
+ *   4. Wait for re-enumeration   (device reconnects with printer PID)
+ * ───────────────────────────────────────────────────────────────────────────*/
+
+/* Maximum firmware blob size in bytes (HP LJ 1020 fw is ~50 KB). */
+#define USB_FW_MAX_SIZE  (64u * 1024u)
+
+/* Return codes from the internal firmware upload sequence. */
+#define USB_FW_OK            0
+#define USB_FW_ERR_NO_BLOB  (-1)  /* no firmware blob stored               */
+#define USB_FW_ERR_USB      (-2)  /* USB error during ANCHOR_LOAD transfer  */
+#define USB_FW_ERR_FORMAT   (-3)  /* Intel HEX parse / checksum error       */
+#define USB_FW_ERR_TIMEOUT  (-4)  /* device did not re-enumerate in time    */
+
+/*
+ * usb_fw_store() — copy a firmware blob into the internal buffer.
+ *
+ * data must point to either:
+ *   - An Intel HEX file (detected by ':' at byte 0, e.g. HPLIP .fw), or
+ *   - A raw binary image (any other first byte, e.g. foo2zjs .img).
+ *
+ * Returns 0 on success, -1 if data is NULL, len is 0, or len exceeds
+ * USB_FW_MAX_SIZE.
+ */
+int usb_fw_store(const uint8_t *data, size_t len);
+
+/*
+ * usb_fw_get_write_buf() — return a pointer to the firmware write buffer.
+ *
+ * Used by httpd.c to receive firmware data directly into the blob buffer
+ * without an intermediate copy.  Sets *max_len to USB_FW_MAX_SIZE.
+ *
+ * This function atomically clears the stored blob size (under the mutex) so
+ * that do_fw_upload() in the status thread cannot begin reading a
+ * partially-written blob.  Call usb_fw_commit() with the actual received
+ * byte count once writing is complete.
+ *
+ * Thread safety: safe to call from any thread.  The blob bytes between this
+ * call and the corresponding usb_fw_commit() must only be written by the
+ * calling thread.
+ */
+uint8_t *usb_fw_get_write_buf(size_t *max_len);
+
+/*
+ * usb_fw_commit() — finalise the firmware blob written via
+ * usb_fw_get_write_buf().  len must be > 0 and <= USB_FW_MAX_SIZE.
+ * If len is 0 or out of range the call is a no-op.
+ */
+void usb_fw_commit(size_t len);
+
+/*
+ * usb_fw_has_blob() — returns non-zero if a firmware blob is stored.
+ */
+int usb_fw_has_blob(void);
+
+/*
+ * usb_fw_blob_size() — returns the size of the stored firmware blob (0 if
+ * none is stored).
+ */
+size_t usb_fw_blob_size(void);
 
 #endif /* USB_PRINTER_H */
