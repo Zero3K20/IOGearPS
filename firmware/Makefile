@@ -148,6 +148,7 @@ APP_SRCS := \
 	httpd.c \
 	ipp_server.c \
 	escl_server.c \
+	wsd_server.c \
 	mdns.c \
 	lpr.c \
 	config.c

@@ -149,13 +149,19 @@ on Linux or a Bonjour helper script on Windows.
 
 ## Scanner and Fax Support (Multi-Function Devices)
 
-### Scanners — AirScan (eSCL) protocol
+### Scanners
 
-The firmware includes an **AirScan (eSCL) scanner server** on TCP port 9290
-so that iOS 13+ and macOS 10.15+ clients can use the scanner on a connected
-USB multi-function printer/scanner device.
+The firmware supports two complementary scanner protocols that together cover
+iOS, macOS, and Windows clients.  Both are controlled by the single
+**Scanner (AirScan / WSD)** toggle in **Setup → Services**.
 
-When AirScan is enabled (the default), the firmware:
+---
+
+#### AirScan (eSCL) — iOS 13+ and macOS 10.15+
+
+The firmware runs an **eSCL (AirScan) scanner server** on TCP port 9290.
+
+When the scanner is enabled (the default), the firmware:
 
 1. **Advertises** the scanner via mDNS as `_uscan._tcp` so that iOS and macOS
    discover it automatically — no drivers or software needed on the client.
@@ -163,29 +169,60 @@ When AirScan is enabled (the default), the firmware:
    scan job creation (`GET /eSCL/ScannerCapabilities`,
    `GET /eSCL/ScannerStatus`, `POST /eSCL/ScanJobs`).
 
-> **Note:** Forwarding the actual scan data from the USB scanner to the network
-> client depends on a USB scanner driver, which is marked as a TODO in the
-> firmware (the same status as USB printer forwarding).  Until that driver is
-> implemented, the scanner will appear in the client's scan dialog but the
-> device will return "service unavailable" when asked to deliver a scan.
-> Developers wanting to add USB scanner support should implement the
-> `GET /eSCL/ScanJobs/{id}/NextDocument` path in `firmware/src/escl_server.c`.
+---
 
-#### Enabling / disabling AirScan in the web interface
+#### WSD-Scan — Windows 10 / 11
+
+The firmware also runs a **WS-Discovery + WSD-Scan** scanner service for
+Windows.  Two components work together:
+
+| Component | Protocol | Port |
+|-----------|----------|------|
+| WS-Discovery responder | UDP multicast 239.255.255.250 | 3702 |
+| WSD-Scan HTTP server | TCP | 5357 |
+
+When Windows opens **Windows Scan** (or the Scanners & Cameras control panel),
+it broadcasts a WS-Discovery Probe for `scan:ScannerServiceType`.  The firmware
+responds with a ProbeMatch advertising its WSD endpoint, and Windows then
+connects to the WSD-Scan server on port 5357 to fetch scanner capabilities and
+submit scan jobs.
+
+WSD-Scan operations handled by the firmware:
+
+| Operation | Result |
+|-----------|--------|
+| WS-Transfer `Get` (device metadata) | Returns device identity and scanner service endpoint |
+| `GetScannerElements` | Returns scanner capabilities (modes, resolutions, formats) |
+| `CreateScanJob` | Accepts the job (returns 200 OK) |
+| `GetJobElements` | Returns job status |
+| `RetrieveImage` | Returns SOAP fault — USB scanner driver TODO |
+
+> **Note:** Forwarding scan data from the USB scanner to the network client
+> (for both eSCL and WSD-Scan) depends on a USB scanner driver that has not
+> yet been written — the same status as USB printer forwarding.  The device
+> will appear in scan dialogs on all platforms, but image retrieval will fail
+> until the USB scanner driver is implemented.
+>
+> To add USB scanner support, implement:
+> - `GET /eSCL/ScanJobs/{id}/NextDocument` in `firmware/src/escl_server.c`
+> - `RetrieveImage` in `firmware/src/wsd_server.c`
+
+#### Enabling / disabling scanner support in the web interface
 
 1. Open `http://<device-ip>/` and navigate to **Setup → Services**.
-2. Find the **AirScan (scanner)** row and set it to *Enabled* or *Disabled*.
+2. Find the **Scanner (AirScan / WSD)** row and set it to *Enabled* or *Disabled*.
 3. Click **Save & Restart**.
 
 #### Supported scan clients
 
-| Client | AirScan support |
-|--------|----------------|
-| **iOS 13+** | ✅ Native — scanner appears automatically |
-| **macOS 10.15+ (Catalina and later)** | ✅ Native — scanner appears in Image Capture and scan dialogs |
-| iOS 12 or earlier | ❌ AirScan not supported |
-| macOS 10.14 (Mojave) or earlier | ❌ AirScan not supported |
-| Windows 10 / 11 | ⚠️ Requires third-party WSD or eSCL scanner software |
+| Client | Protocol | Support |
+|--------|----------|---------|
+| **iOS 13+** | AirScan (eSCL) | ✅ Native — scanner appears automatically |
+| **macOS 10.15+ (Catalina+)** | AirScan (eSCL) | ✅ Native — appears in Image Capture and scan dialogs |
+| **Windows 10 / 11** | WSD-Scan | ✅ Native — scanner appears in Windows Scan / Devices and Printers |
+| iOS 12 or earlier | — | ❌ AirScan not supported |
+| macOS 10.14 (Mojave) or earlier | — | ❌ AirScan not supported |
+| Windows 7 / 8 | WSD-Scan | ⚠️ May require additional WSD scanner driver |
 
 ---
 
