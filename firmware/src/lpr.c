@@ -207,8 +207,18 @@ typedef struct {
     int          fd;
     cyg_bool_t   in_use;
     cyg_handle_t thread;
-    cyg_thread   thread_obj;
-    char         stack[LPR_THREAD_STACK_SIZE];
+    /*
+     * NOTE: thread stack and TCB are allocated dynamically by xTaskCreate so
+     * that FreeRTOS frees them via the idle task after vTaskDelete(NULL).
+     *
+     * Using xTaskCreateStatic with a statically-allocated StaticTask_t and
+     * stack[] embedded here causes a race condition: after a child calls
+     * vTaskDelete(NULL), FreeRTOS places the StaticTask_t on the internal
+     * xTasksWaitingTermination list; if a new connection reuses the same slot
+     * before the idle task processes that list, xTaskCreateStatic overwrites
+     * the StaticTask_t's xStateListItem, corrupting the FreeRTOS scheduler's
+     * task lists and crashing the device.
+     */
 } lpr_conn_t;
 
 static lpr_conn_t  lpr_pool[LPR_MAX_CONNECTIONS];
@@ -296,16 +306,23 @@ void lpr_thread(cyg_addrword_t arg)
             continue;
         }
 
-        cyg_thread_create(
-            LPR_THREAD_PRIORITY,
-            lpr_child_thread,
-            (cyg_addrword_t)slot,
-            "lpr_child",
-            slot->stack,
-            LPR_THREAD_STACK_SIZE,
-            &slot->thread,
-            &slot->thread_obj
-        );
-        cyg_thread_resume(slot->thread);
+        {
+            BaseType_t ret;
+            ret = xTaskCreate(
+                (TaskFunction_t)lpr_child_thread,
+                "lpr_child",
+                (configSTACK_DEPTH_TYPE)(LPR_THREAD_STACK_SIZE / sizeof(StackType_t)),
+                (void *)slot,
+                CYG_TO_FRT_PRIO(LPR_THREAD_PRIORITY),
+                &slot->thread);
+            if (ret != pdPASS) {
+                diag_printf("lpr: xTaskCreate failed (out of heap?)\n");
+                lwip_close(client_fd);
+                cyg_mutex_lock(&lpr_pool_lock);
+                slot->in_use = false;
+                cyg_mutex_unlock(&lpr_pool_lock);
+                continue;
+            }
+        }
     }
 }
