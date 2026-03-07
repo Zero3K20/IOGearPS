@@ -186,6 +186,7 @@ static void url_decode(char *dst, const char *src, size_t dst_size)
  * Recognised parameters (all others are silently ignored):
  *   PSName          — device / AirPrint service instance name
  *   AirPrintEnabled — "0" disables AirPrint advertising, "1" enables it
+ *   ScannerEnabled  — "0" disables AirScan (eSCL) advertising, "1" enables it
  * ───────────────────────────────────────────────────────────────────────────*/
 static void parse_and_apply_settings(const char *query)
 {
@@ -211,6 +212,8 @@ static void parse_and_apply_settings(const char *query)
                 config_set_device_name(decoded);
             } else if (strcmp(key, "AirPrintEnabled") == 0) {
                 config_set_airprint_enabled(atoi(value));
+            } else if (strcmp(key, "ScannerEnabled") == 0) {
+                config_set_scanner_enabled(atoi(value));
             }
         }
         token = strtok(NULL, "&");

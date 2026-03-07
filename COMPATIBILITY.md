@@ -144,3 +144,57 @@ advertise the `_universal._sub._ipp._tcp` sub-type using an Avahi service file
 on Linux or a Bonjour helper script on Windows.
 
 > **Installing software on your PC is NOT required for iOS 14+ / macOS 11+.**
+
+---
+
+## Scanner and Fax Support (Multi-Function Devices)
+
+### Scanners — AirScan (eSCL) protocol
+
+The firmware includes an **AirScan (eSCL) scanner server** on TCP port 9290
+so that iOS 13+ and macOS 10.15+ clients can use the scanner on a connected
+USB multi-function printer/scanner device.
+
+When AirScan is enabled (the default), the firmware:
+
+1. **Advertises** the scanner via mDNS as `_uscan._tcp` so that iOS and macOS
+   discover it automatically — no drivers or software needed on the client.
+2. **Answers eSCL HTTP requests** for scanner capabilities, scanner status, and
+   scan job creation (`GET /eSCL/ScannerCapabilities`,
+   `GET /eSCL/ScannerStatus`, `POST /eSCL/ScanJobs`).
+
+> **Note:** Forwarding the actual scan data from the USB scanner to the network
+> client depends on a USB scanner driver, which is marked as a TODO in the
+> firmware (the same status as USB printer forwarding).  Until that driver is
+> implemented, the scanner will appear in the client's scan dialog but the
+> device will return "service unavailable" when asked to deliver a scan.
+> Developers wanting to add USB scanner support should implement the
+> `GET /eSCL/ScanJobs/{id}/NextDocument` path in `firmware/src/escl_server.c`.
+
+#### Enabling / disabling AirScan in the web interface
+
+1. Open `http://<device-ip>/` and navigate to **Setup → Services**.
+2. Find the **AirScan (scanner)** row and set it to *Enabled* or *Disabled*.
+3. Click **Save & Restart**.
+
+#### Supported scan clients
+
+| Client | AirScan support |
+|--------|----------------|
+| **iOS 13+** | ✅ Native — scanner appears automatically |
+| **macOS 10.15+ (Catalina and later)** | ✅ Native — scanner appears in Image Capture and scan dialogs |
+| iOS 12 or earlier | ❌ AirScan not supported |
+| macOS 10.14 (Mojave) or earlier | ❌ AirScan not supported |
+| Windows 10 / 11 | ⚠️ Requires third-party WSD or eSCL scanner software |
+
+---
+
+### Fax machines
+
+Standalone fax machines communicate over the **PSTN telephone network** rather
+than USB, so they cannot be connected to the GPSU21 directly.
+
+Some multi-function printers include a **USB-connected fax modem** (T.38 or
+Class 1/2 fax).  The GPSU21 firmware does not currently implement any fax
+forwarding protocol.  If you need network fax support, use a dedicated fax
+gateway device or a software fax server on a PC.

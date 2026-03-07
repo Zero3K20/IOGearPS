@@ -147,6 +147,7 @@ APP_SRCS := \
 	main.c \
 	httpd.c \
 	ipp_server.c \
+	escl_server.c \
 	mdns.c \
 	lpr.c \
 	config.c
