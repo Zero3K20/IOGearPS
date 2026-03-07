@@ -252,45 +252,75 @@ after initial setup)**
 
 1. Obtain the HP LaserJet 1020 firmware file from one of these sources:
 
-   | Source | File | Format |
-   |--------|------|--------|
-   | HPLIP (Linux/macOS) | `/usr/share/hplip/data/firmware/hp_laserjet_1020.fw` | Intel HEX |
-   | foo2zjs (Linux) | extracted `sihp1020.img` (see below) | Raw binary |
-   | HP Windows driver | extracted from `.inf` / `.hex` | Intel HEX or raw |
+   | Source | File | Format | How to get |
+   |--------|------|--------|------------|
+   | GitHub (foo2zjs mirror) | `sihp1020.dl` | Raw binary | See script below |
+   | HPLIP (Linux/macOS) | `hp_laserjet_1020.fw` | Intel HEX | `sudo apt install hplip` |
+   | foo2zjs (Linux) | `sihp1020.img` | Raw binary | `sudo apt install foo2zjs` |
+   | HP Windows driver | `.hex` / `.fw` | Intel HEX | Extracted from driver package |
 
-   **Easiest: extract from HPLIP** (the file is freely downloadable from HP
-   via the HPLIP package but is not redistributable):
+   **Easiest — use the included download script (works on any Linux/macOS host
+   with `curl` installed):**
    ```bash
-   sudo apt install hplip          # Debian/Ubuntu
-   # or: sudo dnf install hplip   # Fedora/RHEL
-   ls /usr/share/hplip/data/firmware/hp_laserjet_1020.fw
+   # Download the blob and upload it directly to the print server in one step:
+   ./scripts/get_hp1020_firmware.sh --upload <print-server-IP>
    ```
-
-2. Upload the firmware file to the print server:
+   Or download it first and upload later:
    ```bash
+   ./scripts/get_hp1020_firmware.sh --save /tmp/sihp1020.dl
    curl -X POST http://<print-server-IP>/api/upload_printer_fw \
-        --data-binary @/usr/share/hplip/data/firmware/hp_laserjet_1020.fw
+        --data-binary @/tmp/sihp1020.dl
    ```
-   Expected response: `{"ok":true,"bytes":49152}` (size varies by firmware
-   version).
 
-3. Power on the HP LaserJet 1020 with its USB cable connected to the GPSU21.
+   The script downloads `sihp1020.dl` from:
+   > `https://github.com/inveneo/hub-linux-ubuntu` (foo2zjs firmware mirror)
+
+2. Power on the HP LaserJet 1020 with its USB cable connected to the GPSU21.
    The print server detects the stub PID, automatically performs the firmware
    upload over USB, and waits for the printer to re-enumerate.  The printer
    is then fully functional.
 
-4. **The blob is stored in RAM only** — it is lost on print server reboot.
-   Repeat step 2 after each power cycle of the print server, or connect the
-   printer to HPLIP/Windows first then reconnect (Options A/B below).
+3. **The blob is stored in RAM only** — it is lost on print server reboot.
+   Repeat step 1 after each power cycle of the print server, or use Option E
+   to bake the blob permanently into the firmware image (see below).
 
 > 💡 **Tip:** Upload the firmware blob as part of a startup script on your
 > router or NAS so it is automatically restored whenever the print server
 > reboots:
 > ```bash
 > # On router (OpenWrt example):
+> ./scripts/get_hp1020_firmware.sh --save /etc/sihp1020.dl
 > curl -s -X POST http://192.168.1.X/api/upload_printer_fw \
->      --data-binary @/etc/hplip/hp_laserjet_1020.fw
+>      --data-binary @/etc/sihp1020.dl
 > ```
+
+**Option E — Bake the firmware into the print server's firmware image
+(works out-of-the-box after flashing; no runtime upload needed)**
+
+This option permanently embeds the HP LJ 1020 firmware into the GPSU21
+firmware binary at build time.  After flashing, the print server
+automatically uploads firmware to any HP LJ 1015/1020/1022 at power-on
+with zero user interaction — even after a print server reboot.
+
+```bash
+# Step 1: download the firmware blob (requires curl)
+./scripts/get_hp1020_firmware.sh --save /tmp/sihp1020.dl
+
+# Step 2: build the firmware with the blob baked in
+make -C firmware \
+  HP1020_FW=/tmp/sihp1020.dl \
+  CROSS_COMPILE=mipsel-linux-gnu- \
+  FREERTOS_DIR=../freertos-kernel \
+  LWIP_DIR=../lwip
+
+# The resulting firmware/build/gpsu21_freertos.bin contains the blob.
+# Flash it to the GPSU21 as normal.
+```
+
+The `HP1020_FW` build variable can point to any of the supported firmware
+formats: `.dl`, `.img` (raw binary), or `.fw` / `.hex` (Intel HEX).  The
+`firmware/scripts/gen_fw_blob.py` script converts it to a C header which
+is compiled into `usb_printer.c`.
 
 **Option A — Pre-load on a Windows PC (easiest, no blob needed)**
 
@@ -363,9 +393,9 @@ enter `<print-server-IP>`, port `9100`.
 |---------|--------|-------|
 | HP LaserJet PCL (1990s–present) | ✅ | Works out-of-the-box |
 | HP LaserJet Pro / Enterprise | ✅ | Works out-of-the-box |
-| HP LaserJet 1015 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
-| HP LaserJet 1020 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
-| HP LaserJet 1022 | ✅ | Needs firmware — auto-upload via Option D or manual via A/B/C |
+| HP LaserJet 1015 | ✅ | Needs firmware — auto via Option D/E or manual via A/B/C |
+| HP LaserJet 1020 | ✅ | Needs firmware — auto via Option D/E or manual via A/B/C |
+| HP LaserJet 1022 | ✅ | Needs firmware — auto via Option D/E or manual via A/B/C |
 | HP DeskJet / OfficeJet / Envy (USB) | ✅ | Works with correct PCL driver on client |
 | Brother HL / DCP / MFC | ✅ | Works out-of-the-box |
 | Epson inkjet (ESC/P) | ✅ | Works with correct driver on client |

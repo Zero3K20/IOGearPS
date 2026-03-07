@@ -37,6 +37,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
+/* Optional built-in firmware blob (generated at build time from HP1020_FW).
+ * Included only when compiled with -DHAVE_HP1020_FW_BUILTIN.             */
+#ifdef HAVE_HP1020_FW_BUILTIN
+#  include "hp1020_fw_blob.h"
+#endif
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * Global printer status (shared with ipp_server, lpr, httpd)
  * ───────────────────────────────────────────────────────────────────────────*/
@@ -1453,6 +1459,19 @@ int usb_printer_init(void)
 
     /* Initialise the firmware-blob mutex (before any possible upload) */
     cyg_mutex_init(&s_fw_mutex);
+
+    /* If the firmware was baked in at build time, pre-populate the blob
+     * buffer so stub-PID printers (HP LJ 1015/1020/1022) are handled
+     * automatically without any web-UI upload step. */
+#ifdef HAVE_HP1020_FW_BUILTIN
+    if (HP1020_FW_BLOB_SIZE > 0u &&
+        HP1020_FW_BLOB_SIZE <= USB_FW_MAX_SIZE) {
+        memcpy(s_fw_blob, hp1020_fw_blob, HP1020_FW_BLOB_SIZE);
+        s_fw_blob_size = HP1020_FW_BLOB_SIZE;
+        diag_printf("usb_fw: built-in blob loaded (%u bytes)\n",
+                    (unsigned)HP1020_FW_BLOB_SIZE);
+    }
+#endif
 
     diag_printf("usb: initialising MT7688 USB host controller\n");
 
