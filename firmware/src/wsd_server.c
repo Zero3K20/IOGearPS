@@ -25,6 +25,17 @@
  * clients using Microsoft's SOAP-based WSD-Scan protocol.  Both protocols
  * are controlled by the g_scanner_enabled configuration flag.
  *
+ * Windows 7 additionally requires a WS-Discovery Resolve / ResolveMatch
+ * exchange.  After receiving a ProbeMatch, Windows 7 sends a Resolve message
+ * (addressed to the device's urn:uuid: endpoint) to confirm the XAddrs are
+ * still valid before opening a TCP connection to port 5357.  The device must
+ * respond with a ResolveMatch; without it Windows 7 silently discards the
+ * discovered device.
+ *
+ * Windows 7 also issues Probes with Types containing `wsdp:Device` (the device
+ * profile base type) rather than the scanner-specific `scan:ScannerServiceType`,
+ * so the Probe filter accepts both.
+ *
  * References:
  *   WS-Discovery: http://schemas.xmlsoap.org/ws/2005/04/discovery
  *   WSD Device Profile: http://schemas.xmlsoap.org/ws/2006/02/devprof
@@ -141,7 +152,35 @@ static const char WSD_PROBEMATCH_TMPL[] =
     "</s:Body>"
     "</s:Envelope>";
 
-/* ── WSD HTTP: WS-Transfer GetResponse (device metadata) ───────────────────
+/* ── WS-Discovery: ResolveMatch ─────────────────────────────────────────────
+ * Windows 7 sends a Resolve message after receiving a ProbeMatch to verify
+ * the device endpoint is reachable.  The device must respond with a
+ * ResolveMatch; without it Windows 7 silently discards the device.
+ * snprintf args: msgid, relatesTo, ip_str */
+static const char WSD_RESOLVEMATCH_TMPL[] =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    "<s:Envelope " WSD_NS ">"
+    "<s:Header>"
+    "<a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>"
+    "<a:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ResolveMatches</a:Action>"
+    "<a:MessageID>urn:uuid:%s</a:MessageID>"
+    "<a:RelatesTo>%s</a:RelatesTo>"
+    "</s:Header>"
+    "<s:Body>"
+    "<d:ResolveMatches>"
+    "<d:ResolveMatch>"
+    "<a:EndpointReference>"
+    "<a:Address>urn:uuid:" WSD_DEVICE_UUID "</a:Address>"
+    "</a:EndpointReference>"
+    "<d:Types>p:Device scan:ScannerServiceType</d:Types>"
+    "<d:Scopes>ldap:///</d:Scopes>"
+    "<d:XAddrs>http://%s:5357/</d:XAddrs>"
+    "<d:MetadataVersion>1</d:MetadataVersion>"
+    "</d:ResolveMatch>"
+    "</d:ResolveMatches>"
+    "</s:Body>"
+    "</s:Envelope>";
+
  * snprintf args: msgid, relatesTo, ip_str (for ScannerService endpoint) */
 static const char WSD_METADATA_TMPL[] =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -550,18 +589,49 @@ void wsd_discovery_thread(cyg_addrword_t arg)
         }
         rcvbuf[n] = '\0';
 
-        /* Check if the message is a WSD Probe (QR=not set for queries).
-         * We respond to any Probe that mentions ScannerServiceType or
-         * that has no explicit types restriction (empty Types = match-all). */
+        /* ── WS-Discovery Resolve ───────────────────────────────────────────
+         * Windows 7 sends a Resolve message (addressed to the device's
+         * urn:uuid: endpoint) after receiving a ProbeMatch to confirm the
+         * XAddrs are still valid.  Respond with a ResolveMatch so Windows 7
+         * can proceed to open a TCP connection to port 5357.
+         * A Resolve body contains <d:Resolve> but NOT <d:Probe>. */
+        if (wsd_contains(rcvbuf, n, "Resolve") &&
+            !wsd_contains(rcvbuf, n, "ResolveMatch") &&
+            !wsd_contains(rcvbuf, n, "Probe") &&
+            wsd_contains(rcvbuf, n, WSD_DEVICE_UUID)) {
+
+            wsd_extract_msgid(rcvbuf, n, relatesTo, sizeof(relatesTo));
+            cyg_thread_delay(pdMS_TO_TICKS(50));
+
+            wsd_get_ip_str(ip_str, sizeof(ip_str));
+            wsd_format_msgid(msgid, sizeof(msgid));
+
+            snprintf(sndbuf, 2048, WSD_RESOLVEMATCH_TMPL,
+                     msgid, relatesTo, ip_str);
+            lwip_sendto(sock, sndbuf, strlen(sndbuf), 0,
+                        (struct sockaddr *)&from, fromlen);
+
+            diag_printf("wsd_disc: ResolveMatch sent to %s\n",
+                        inet_ntoa(from.sin_addr));
+            continue;
+        }
+
+        /* ── WS-Discovery Probe ─────────────────────────────────────────────
+         * Check if the message is a WSD Probe.
+         * We respond to any Probe that mentions ScannerServiceType,
+         * p:Device / wsdp:Device (Windows 7 uses this generic device type),
+         * or that has no explicit types restriction (empty Types = match-all). */
         if (!wsd_contains(rcvbuf, n, "Probe") ||
              wsd_contains(rcvbuf, n, "ProbeMatches")) {
             continue; /* not a Probe, or it is a ProbeMatches response */
         }
 
-        /* Only respond to probes requesting scanner types or untyped probes. */
+        /* Only respond to probes requesting scanner / device types, or
+         * untyped probes (empty <d:Types/> matches all devices). */
         if (wsd_contains(rcvbuf, n, "Types") &&
             !wsd_contains(rcvbuf, n, "ScannerServiceType") &&
-            !wsd_contains(rcvbuf, n, "wsdp:Device")) {
+            !wsd_contains(rcvbuf, n, "wsdp:Device") &&
+            !wsd_contains(rcvbuf, n, "p:Device")) {
             continue;
         }
 

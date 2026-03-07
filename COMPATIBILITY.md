@@ -171,10 +171,10 @@ When the scanner is enabled (the default), the firmware:
 
 ---
 
-#### WSD-Scan — Windows 10 / 11
+#### WSD-Scan — Windows 7, 8, 10, 11
 
-The firmware also runs a **WS-Discovery + WSD-Scan** scanner service for
-Windows.  Two components work together:
+The firmware runs a **WS-Discovery + WSD-Scan** scanner service for Windows.
+Two components work together:
 
 | Component | Protocol | Port |
 |-----------|----------|------|
@@ -182,10 +182,16 @@ Windows.  Two components work together:
 | WSD-Scan HTTP server | TCP | 5357 |
 
 When Windows opens **Windows Scan** (or the Scanners & Cameras control panel),
-it broadcasts a WS-Discovery Probe for `scan:ScannerServiceType`.  The firmware
-responds with a ProbeMatch advertising its WSD endpoint, and Windows then
-connects to the WSD-Scan server on port 5357 to fetch scanner capabilities and
-submit scan jobs.
+it broadcasts a WS-Discovery Probe for `scan:ScannerServiceType` (Windows 8+)
+or `wsdp:Device` (Windows 7).  The firmware responds with a ProbeMatch
+advertising its WSD endpoint.
+
+**Windows 7 additionally** sends a WS-Discovery **Resolve** message (addressed
+to the device's `urn:uuid:` endpoint) to verify the XAddrs are still valid
+before opening a TCP connection.  The firmware responds with a **ResolveMatch**
+so that Windows 7 can proceed to connect to the WSD-Scan HTTP server on
+port 5357.  Without this ResolveMatch, Windows 7 silently drops the device
+from the scanner list.
 
 WSD-Scan operations handled by the firmware:
 
@@ -219,10 +225,11 @@ WSD-Scan operations handled by the firmware:
 |--------|----------|---------|
 | **iOS 13+** | AirScan (eSCL) | ✅ Native — scanner appears automatically |
 | **macOS 10.15+ (Catalina+)** | AirScan (eSCL) | ✅ Native — appears in Image Capture and scan dialogs |
+| **Windows 7** | WSD-Scan | ✅ Native — Probe + Resolve/ResolveMatch supported; scanner appears in Devices and Printers |
+| **Windows 8 / 8.1** | WSD-Scan | ✅ Native — scanner appears in Devices and Printers |
 | **Windows 10 / 11** | WSD-Scan | ✅ Native — scanner appears in Windows Scan / Devices and Printers |
 | iOS 12 or earlier | — | ❌ AirScan not supported |
 | macOS 10.14 (Mojave) or earlier | — | ❌ AirScan not supported |
-| Windows 7 / 8 | WSD-Scan | ⚠️ May require additional WSD scanner driver |
 
 ---
 
