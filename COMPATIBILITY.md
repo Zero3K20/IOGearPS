@@ -108,7 +108,181 @@ https://www.zot.com.tw/zot-file/pu211/MPS56_90956F_9034_20191119.zip
 
 ---
 
-## AirPrint on the GPSU21
+## Printer Compatibility
+
+### Overview
+
+The GPSU21 print server supports **any USB printer that implements the USB
+Printer Class** (USB Class 7, Subclass 1) with either:
+
+- **Protocol 1** — Unidirectional (data flows host → printer only)
+- **Protocol 2** — Bi-directional (data flows both ways; enables live status
+  back-channel)
+
+When a printer is connected, the firmware reads its **IEEE 1284 Device ID**
+string and uses it to populate the web interface status page.
+
+### Standard printers — known to work
+
+Any printer that:
+
+1. Uses a standard page description language such as **PCL**, **PostScript**,
+   or **PDF**, **and**
+2. Implements USB Printer Class (Class 7, Protocol 1 or Protocol 2)
+
+…will work with this print server.  The server forwards raw print data from the
+network client to the printer without modification.
+
+Examples of known-compatible categories:
+
+| Category | Examples |
+|----------|---------|
+| HP LaserJet (PCL) | LaserJet 4, 4050, 4100, 4200, P2015, P3010 series |
+| HP DeskJet/OfficeJet (PCL) | Most post-2005 models |
+| HP Color LaserJet (PCL+PS) | CP series, Enterprise series |
+| Brother Laser (PCL/PS) | HL, DCP, MFC series |
+| Canon laser (UFR II / PCL) | LBP, MF series |
+| Epson (ESC/P, ESC/Page) | Most post-2000 models |
+| Xerox/Fujifilm (PS/PCL) | Phaser, WorkCentre series |
+| Kyocera (PCL/PS/KPDL) | FS, ECOSYS series |
+| OKI (PCL/PS) | B, C series |
+
+### Host-based (GDI / WinPrint) printers — require special setup
+
+Host-based printers do **not** contain their own rendering engine.  Instead,
+the host computer generates a proprietary raster stream using a vendor driver,
+and the printer just prints the pixel data.  They typically work with a print
+server **provided the correct driver is installed on the client PC** and the
+driver is configured to produce the appropriate raster format.
+
+| Printer family | Protocol | Works with this print server? |
+|----------------|----------|-------------------------------|
+| HP LaserJet 1000 series (non-firmware) | ZjStream | ✅ Yes — see below |
+| HP LaserJet P1xxx (e.g. P1005, P1006) | CAPT / ZjStream | ✅ Yes — see below |
+| Samsung ML-1xxx/SCX-3xxx | SPL | ✅ Yes — driver must be installed on client |
+| Lexmark Z-series / E series | PCL-XL | ✅ Yes — standard PCL driver |
+| Canon PIXMA (home inkjet) | BJNP | ⚠️ Mostly yes — requires Canon IJ driver |
+
+### HP LaserJet 1020 (and 1015, 1022) — firmware-free printers
+
+The **HP LaserJet 1015**, **1020**, and **1022** are a special case.  These
+printers store their operating firmware in RAM: every time the printer is
+powered on, the host computer must upload the firmware over USB before the
+printer will operate.  Without the firmware, the printer enumerates as a
+vendor-specific USB device (not a Printer Class device) and cannot accept print
+data.
+
+#### USB device identifiers
+
+| State | USB Vendor:Product | Notes |
+|-------|--------------------|-------|
+| Power-on (no firmware) | `03f0:2911` (HP LJ 1015) | Firmware not loaded — printer not functional |
+| Power-on (no firmware) | `03f0:2b17` (HP LJ 1020) | Firmware not loaded — printer not functional |
+| Power-on (no firmware) | `03f0:2c17` (HP LJ 1022) | Firmware not loaded — printer not functional |
+| Ready (firmware loaded) | `03f0:3315` (HP LJ 1015) | Fully functional USB Printer Class device |
+| Ready (firmware loaded) | `03f0:3417` (HP LJ 1020) | Fully functional USB Printer Class device |
+| Ready (firmware loaded) | `03f0:3517` (HP LJ 1022) | Fully functional USB Printer Class device |
+
+#### What the firmware does when a pre-firmware device is detected
+
+When the GPSU21 detects a pre-firmware HP LaserJet (stub PID), it:
+
+1. Sets the `needs_firmware` flag in the printer status.
+2. Logs a message to the serial console explaining the situation.
+3. Rejects incoming print jobs (IPP returns `printer-stopped`; LPD/Raw TCP
+   returns an error).
+4. Exposes `"needs_firmware": true` in the `/api/printer_status` JSON endpoint
+   so the web interface can display a helpful warning.
+
+The `needs_firmware` flag is **cleared automatically** when the USB device is
+physically disconnected.
+
+#### How to make the HP LaserJet 1020 work with this print server
+
+The printer retains the firmware in RAM **as long as it remains powered on**.
+The recommended workflow is:
+
+**Option A — Load firmware from a Windows PC (easiest)**
+
+1. Install the official HP LaserJet 1020 driver on a Windows PC.
+2. Connect the printer to the Windows PC via USB and power it on.
+3. Wait ~10 seconds for Windows to upload the firmware automatically.
+4. Disconnect the USB cable from the PC.
+5. Connect the USB cable to the GPSU21 print server USB port.
+6. The printer now appears as `03f0:3417` (Printer Class) and is fully
+   functional.
+
+> ⚠️ Do **not** power-cycle the printer after moving it — it will lose the
+> firmware.
+
+**Option B — Load firmware from a Linux/macOS host**
+
+1. Install `hplip`:
+   - Debian/Ubuntu: `sudo apt install hplip`
+   - Fedora/RHEL: `sudo dnf install hplip`
+   - Arch Linux: `sudo pacman -S hplip`
+   - macOS (Homebrew): `brew install hplip`
+2. Connect the printer to the Linux/macOS host and power it on.
+3. HPLIP uploads the firmware automatically via `hp-firmware` or the udev
+   rules installed with HPLIP.
+4. Confirm the printer is recognised (`lsusb` on Linux or `system_profiler SPUSBDataType` on macOS shows the printer at `03f0:3417`).
+5. Disconnect from the Linux/macOS host and connect to the GPSU21.
+
+**Option C — Use `foo2zjs` on Linux**
+
+```bash
+# Install foo2zjs (may need to compile from source on modern distros)
+sudo apt install foo2zjs
+
+# After connecting printer:
+sudo /usr/share/foo2zjs/usb/foo2usb-wrapper
+
+# Confirm firmware loaded:
+lsusb | grep "03f0:3417"
+```
+
+#### Client driver configuration for printing via the print server
+
+After the printer has firmware, install the HP LaserJet 1020 driver on each
+client PC and configure the printer to print to the GPSU21 using one of the
+supported protocols:
+
+| Protocol | Port / address |
+|----------|---------------|
+| Raw TCP (JetDirect) | `<print-server-IP>:9100` |
+| LPR/LPD | `lpr://<print-server-IP>/lp1` |
+| IPP | `ipp://<print-server-IP>:631/printers/lp1` |
+
+On **Linux/macOS with CUPS**:
+
+```bash
+# Add the printer via CUPS, specifying the correct driver and raw TCP socket:
+lpadmin -p HPLaserJet1020 \
+        -E \
+        -v socket://<print-server-IP>:9100 \
+        -m drv:///hp/hpcups.drv/hp-laserjet_1020.ppd
+```
+
+On **Windows**: use the HP LaserJet 1020 driver, select "Standard TCP/IP Port",
+enter `<print-server-IP>`, port `9100`.
+
+### Summary table
+
+| Printer | Works? | Notes |
+|---------|--------|-------|
+| HP LaserJet PCL (1990s–present) | ✅ | Works out-of-the-box |
+| HP LaserJet Pro / Enterprise | ✅ | Works out-of-the-box |
+| HP LaserJet 1015 | ✅ | Needs firmware pre-loaded — see above |
+| HP LaserJet 1020 | ✅ | Needs firmware pre-loaded — see above |
+| HP LaserJet 1022 | ✅ | Needs firmware pre-loaded — see above |
+| HP DeskJet / OfficeJet / Envy (USB) | ✅ | Works with correct PCL driver on client |
+| Brother HL / DCP / MFC | ✅ | Works out-of-the-box |
+| Epson inkjet (ESC/P) | ✅ | Works with correct driver on client |
+| Canon PIXMA / MAXIFY | ✅ | Works; Canon IJ driver or Gutenprint recommended |
+| Samsung/Xerox monochrome laser | ✅ | Works with PCL driver or vendor driver on client |
+| PostScript printers | ✅ | Works out-of-the-box |
+
+
 
 The GPSU21 firmware ships with a **built-in Bonjour (mDNS) stack** and an
 **IPP server on port 631**.  It automatically advertises itself as `_ipp._tcp`

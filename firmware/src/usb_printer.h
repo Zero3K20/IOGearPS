@@ -59,17 +59,35 @@
  * after enumeration and is never re-written while readers may access it.
  * For the print-path (lpr, ipp, raw_tcp) readers only check the boolean
  * fields; they do not read multi-word fields under contention.
+ *
+ * needs_firmware: set when a USB device is present but requires the host to
+ * upload firmware before it can function as a printer.  Classic examples are
+ * the HP LaserJet 1015/1020/1022 which enumerate with a Cypress EZ-USB stub
+ * PID at power-on and only become functional printer-class devices after a
+ * host uploads the printer firmware (done automatically by HPLIP or foo2zjs
+ * on a connected PC).  When this flag is set, connected=false and print jobs
+ * are rejected.  The flag is cleared when the USB device is physically
+ * disconnected.
+ *
+ * State invariant: connected=true implies needs_firmware=false.
+ * When needs_firmware=true the USB device is physically present (PORTSC_CCS=1)
+ * but has not been successfully enumerated as a Printer Class device.
  * ───────────────────────────────────────────────────────────────────────────*/
 typedef struct {
-    cyg_bool_t  connected;      /* USB printer device is present          */
-    cyg_bool_t  online;         /* printer is selected/online (bit 4)     */
-    cyg_bool_t  paper_empty;    /* paper-out condition (bit 5)            */
-    cyg_bool_t  error;          /* error condition (bit 3 inverted)       */
-    cyg_bool_t  busy;           /* a print job is currently in progress   */
-    uint8_t     raw_status;     /* raw GET_PORT_STATUS byte               */
-    uint32_t    jobs_printed;   /* running count of completed jobs        */
-    uint32_t    bytes_sent;     /* running total of bytes forwarded       */
-    char        device_id[256]; /* IEEE 1284 Device ID string (NUL-term.) */
+    cyg_bool_t  connected;       /* USB printer is present, enumerated, and
+                                  * ready to accept print data.  True only
+                                  * when needs_firmware=false and the device
+                                  * has been configured as a Printer Class
+                                  * device.                                 */
+    cyg_bool_t  online;          /* printer is selected/online (bit 4)     */
+    cyg_bool_t  paper_empty;     /* paper-out condition (bit 5)            */
+    cyg_bool_t  error;           /* error condition (bit 3 inverted)       */
+    cyg_bool_t  busy;            /* a print job is currently in progress   */
+    cyg_bool_t  needs_firmware;  /* device needs host-side firmware upload */
+    uint8_t     raw_status;      /* raw GET_PORT_STATUS byte               */
+    uint32_t    jobs_printed;    /* running count of completed jobs        */
+    uint32_t    bytes_sent;      /* running total of bytes forwarded       */
+    char        device_id[256];  /* IEEE 1284 Device ID string (NUL-term.) */
 } printer_status_t;
 
 /* ─────────────────────────────────────────────────────────────────────────────

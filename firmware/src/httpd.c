@@ -275,6 +275,7 @@ static void handle_request(int fd)
             "\"paper_empty\":%s,"
             "\"error\":%s,"
             "\"busy\":%s,"
+            "\"needs_firmware\":%s,"
             "\"jobs_printed\":%lu,"
             "\"bytes_sent\":%lu,"
             "\"device_id\":\"%s\""
@@ -284,6 +285,7 @@ static void handle_request(int fd)
             g_printer_status.paper_empty  ? "true"  : "false",
             g_printer_status.error        ? "true"  : "false",
             g_printer_status.busy         ? "true"  : "false",
+            g_printer_status.needs_firmware ? "true" : "false",
             (unsigned long)g_printer_status.jobs_printed,
             (unsigned long)g_printer_status.bytes_sent,
             (const char *)g_printer_status.device_id);

@@ -816,6 +816,7 @@ typedef struct {
 #define USB_EP_XFER_BULK       0x02u
 #define USB_CLASS_PRINTER      0x07u
 #define USB_SUBCLASS_PRINTER   0x01u
+#define USB_PROTO_UNIDIR       0x01u   /* Unidirectional (output only)     */
 #define USB_PROTO_BIDIR        0x02u   /* Bi-directional protocol          */
 
 static uint8_t s_config_buf[512] __attribute__((aligned(4)));
@@ -855,6 +856,59 @@ static int enumerate_printer(void)
                 (unsigned)dev->idVendor, (unsigned)dev->idProduct,
                 (unsigned)dev->bDeviceClass);
 
+    /* ── Step 3.5: Detect devices that need host-side firmware upload ──────
+     *
+     * Some printers do not store their firmware in non-volatile memory and
+     * must receive it from the host at every power-on.  Until the firmware is
+     * loaded they enumerate with a vendor-specific "stub" PID and do NOT
+     * present a USB Printer Class interface.  Well-known examples:
+     *
+     *   HP LaserJet 1015 — VID 03f0 PID 2911 (stub) → 03f0:3315 (ready)
+     *   HP LaserJet 1020 — VID 03f0 PID 2b17 (stub) → 03f0:3417 (ready)
+     *   HP LaserJet 1022 — VID 03f0 PID 2c17 (stub) → 03f0:3517 (ready)
+     *
+     * The firmware is shipped with HPLIP (hp-firmware) or foo2zjs on Linux
+     * and is uploaded automatically by Windows/Linux when the printer is
+     * connected directly to a PC.  This print server cannot perform the
+     * upload itself (the firmware binary is HP-proprietary and cannot be
+     * redistributed).
+     *
+     * Workaround: power on the printer while connected to a Windows PC or a
+     * Linux host that has HPLIP installed so the firmware is loaded into RAM,
+     * then move the USB cable to this print server.  The printer retains the
+     * firmware as long as it remains powered on.
+     * ────────────────────────────────────────────────────────────────────── */
+    {
+        static const struct {
+            uint16_t    vid;
+            uint16_t    pid;
+            const char *name;
+        } needs_fw_table[] = {
+            { 0x03f0u, 0x2911u, "HP LaserJet 1015" },
+            { 0x03f0u, 0x2b17u, "HP LaserJet 1020" },
+            { 0x03f0u, 0x2c17u, "HP LaserJet 1022" },
+            { 0, 0, NULL }
+        };
+        unsigned i;
+        for (i = 0; needs_fw_table[i].name != NULL; i++) {
+            if (dev->idVendor  == needs_fw_table[i].vid &&
+                dev->idProduct == needs_fw_table[i].pid) {
+                diag_printf(
+                    "usb: %s (VID=%04x PID=%04x) requires host-side firmware "
+                    "upload before it can print.\n"
+                    "usb: Power the printer while connected to a Windows PC or "
+                    "a Linux host with HPLIP,\n"
+                    "usb: wait for the firmware to load, then reconnect to this "
+                    "print server.\n",
+                    needs_fw_table[i].name,
+                    (unsigned)dev->idVendor,
+                    (unsigned)dev->idProduct);
+                g_printer_status.needs_firmware = true;
+                return -1;
+            }
+        }
+    }
+
     /* ── Step 4: Configuration descriptor (first 9 bytes to get wTotalLength) ── */
     memset(s_config_buf, 0, sizeof(s_config_buf));
     if (usb_get_descriptor(USB_DT_CONFIG, 0, 0, s_config_buf, 9) < 0) {
@@ -889,9 +943,12 @@ static int enumerate_printer(void)
             const usb_iface_desc_t *iface = (const usb_iface_desc_t *)p;
             if (iface->bInterfaceClass    == USB_CLASS_PRINTER &&
                 iface->bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
-                iface->bInterfaceProtocol == USB_PROTO_BIDIR) {
+                (iface->bInterfaceProtocol == USB_PROTO_BIDIR ||
+                 iface->bInterfaceProtocol == USB_PROTO_UNIDIR)) {
                 found_iface = 1;
-                diag_printf("usb: found bi-directional Printer interface\n");
+                diag_printf("usb: found %s Printer interface\n",
+                            iface->bInterfaceProtocol == USB_PROTO_BIDIR ?
+                            "bi-directional" : "unidirectional");
             } else {
                 found_iface = 0;
             }
@@ -1089,20 +1146,27 @@ void usb_printer_update_status(void)
     {
         uint32_t portsc = ehci_read(EHCI_OPR_PORTSC0);
         if (!(portsc & PORTSC_CCS)) {
-            /* Device disconnected */
-            if (g_printer_status.connected) {
-                diag_printf("usb: printer disconnected\n");
+            /* Device disconnected — clear all state including needs_firmware */
+            if (g_printer_status.connected || g_printer_status.needs_firmware) {
+                diag_printf("usb: USB device disconnected\n");
                 memset((void *)&g_printer_status, 0,
                        sizeof(g_printer_status));
             }
             return;
         }
         if (!g_printer_status.connected) {
-            /* New device connected — try to enumerate */
-            diag_printf("usb: printer connected — enumerating\n");
-            if (ehci_port_reset() == 0 && enumerate_printer() == 0) {
-                g_printer_status.connected = true;
-                diag_printf("usb: printer ready\n");
+            /* A USB device is physically present but not yet enumerated as a
+             * printer.  If we already know it needs host-side firmware, skip
+             * re-enumeration — the device's PID will not change until it is
+             * power-cycled after receiving firmware from a host PC.  Only
+             * attempt enumeration again after a physical disconnect/reconnect,
+             * which clears needs_firmware via the branch above. */
+            if (!g_printer_status.needs_firmware) {
+                diag_printf("usb: USB device connected — enumerating\n");
+                if (ehci_port_reset() == 0 && enumerate_printer() == 0) {
+                    g_printer_status.connected = true;
+                    diag_printf("usb: printer ready\n");
+                }
             }
             return;
         }
