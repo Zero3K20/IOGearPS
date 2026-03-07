@@ -149,7 +149,8 @@ APP_SRCS := \
 	ipp_server.c \
 	mdns.c \
 	lpr.c \
-	config.c
+	config.c \
+	usb_printer.c
 
 GENERATED_SRCS := $(BUILD_DIR)/web_resources.c
 
