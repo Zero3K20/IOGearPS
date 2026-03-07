@@ -10,6 +10,6 @@
 
 #include "rtos.h"
 
-void escl_server_thread(cyg_addrword_t arg);
+void escl_server_thread(void *arg);
 
 #endif /* ESCL_SERVER_H */

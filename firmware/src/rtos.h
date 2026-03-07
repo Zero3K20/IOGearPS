@@ -51,9 +51,10 @@ typedef int              cyg_bool_t;
 typedef TaskHandle_t     cyg_handle_t;
 typedef StaticTask_t     cyg_thread;
 
-/* Thread entry function: eCos used void(*)(cyg_addrword_t), FreeRTOS uses
- * void(*)(void*).  Both are 32-bit pointer-sized on MIPS32. */
-typedef void             (*cyg_thread_entry_t)(cyg_addrword_t);
+/* Thread entry function: match FreeRTOS TaskFunction_t exactly (void (*)(void *))
+ * so that thread functions can be passed to xTaskCreateStatic/xTaskCreate without
+ * a cast and without -Wcast-function-type warnings. */
+typedef TaskFunction_t   cyg_thread_entry_t;
 
 /*
  * Mutex: wrap StaticSemaphore_t + handle so that existing code declaring
@@ -99,7 +100,7 @@ typedef struct {
 static inline void
 cyg_thread_create(cyg_ucount32       priority,
                   cyg_thread_entry_t fn,
-                  cyg_addrword_t     arg,
+                  void              *arg,
                   const char        *name,
                   void              *stack,
                   uint32_t           stack_size,
@@ -107,10 +108,10 @@ cyg_thread_create(cyg_ucount32       priority,
                   cyg_thread        *pobj)
 {
     *phandle = xTaskCreateStatic(
-        (TaskFunction_t)fn,
+        fn,
         name,
         stack_size / sizeof(StackType_t),
-        (void *)(uintptr_t)arg,
+        arg,
         CYG_TO_FRT_PRIO(priority),
         (StackType_t *)stack,
         pobj);

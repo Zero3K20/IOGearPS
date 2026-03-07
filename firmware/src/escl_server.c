@@ -283,7 +283,7 @@ typedef struct {
 static escl_conn_t  escl_pool[ESCL_MAX_CONNECTIONS];
 static cyg_mutex_t  escl_pool_lock;
 
-static void escl_child_thread(cyg_addrword_t arg)
+static void escl_child_thread(void *arg)
 {
     escl_conn_t *conn = (escl_conn_t *)arg;
 
@@ -300,7 +300,7 @@ static void escl_child_thread(cyg_addrword_t arg)
 /* ─────────────────────────────────────────────────────────────────────────────
  * eSCL server main thread — listens on port 9290
  * ───────────────────────────────────────────────────────────────────────────*/
-void escl_server_thread(cyg_addrword_t arg)
+void escl_server_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -375,7 +375,7 @@ void escl_server_thread(cyg_addrword_t arg)
         {
             BaseType_t ret;
             ret = xTaskCreate(
-                (TaskFunction_t)escl_child_thread,
+                escl_child_thread,
                 "escl_child",
                 (configSTACK_DEPTH_TYPE)(ESCL_THREAD_STACK_SIZE / sizeof(StackType_t)),
                 (void *)slot,

@@ -6,6 +6,6 @@
 
 #include "rtos.h"
 
-void mdns_thread(cyg_addrword_t arg);
+void mdns_thread(void *arg);
 
 #endif /* MDNS_H */

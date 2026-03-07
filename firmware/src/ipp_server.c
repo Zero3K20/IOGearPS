@@ -583,7 +583,7 @@ typedef struct {
 static ipp_conn_t  ipp_pool[IPP_MAX_CONNECTIONS];
 static cyg_mutex_t ipp_pool_lock;
 
-static void ipp_child_thread(cyg_addrword_t arg)
+static void ipp_child_thread(void *arg)
 {
     ipp_conn_t *conn = (ipp_conn_t *)arg;
 
@@ -600,7 +600,7 @@ static void ipp_child_thread(cyg_addrword_t arg)
 /* ─────────────────────────────────────────────────────────────────────────────
  * IPP server main thread
  * ───────────────────────────────────────────────────────────────────────────*/
-void ipp_server_thread(cyg_addrword_t arg)
+void ipp_server_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -667,7 +667,7 @@ void ipp_server_thread(cyg_addrword_t arg)
         {
             BaseType_t ret;
             ret = xTaskCreate(
-                (TaskFunction_t)ipp_child_thread,
+                ipp_child_thread,
                 "ipp_child",
                 (configSTACK_DEPTH_TYPE)(IPP_THREAD_STACK_SIZE / sizeof(StackType_t)),
                 (void *)slot,

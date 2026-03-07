@@ -482,7 +482,7 @@ static int is_mdns_ipp_query(const uint8_t *buf, int len)
  * mDNS thread — binds to port 5353, listens for queries, and sends periodic
  * announcements so that iOS AirPrint discovers the printer reliably.
  * ───────────────────────────────────────────────────────────────────────────*/
-void mdns_thread(cyg_addrword_t arg)
+void mdns_thread(void *arg)
 {
     int                 sock;
     struct sockaddr_in  bind_addr;

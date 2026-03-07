@@ -6,6 +6,6 @@
 
 #include "rtos.h"
 
-void ipp_server_thread(cyg_addrword_t arg);
+void ipp_server_thread(void *arg);
 
 #endif /* IPP_SERVER_H */

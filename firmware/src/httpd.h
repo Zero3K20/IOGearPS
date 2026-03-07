@@ -7,6 +7,6 @@
 #include "rtos.h"
 
 /* HTTP server thread entry — pass to cyg_thread_create(). */
-void httpd_thread(cyg_addrword_t arg);
+void httpd_thread(void *arg);
 
 #endif /* HTTPD_H */

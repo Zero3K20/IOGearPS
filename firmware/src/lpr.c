@@ -248,7 +248,7 @@ typedef struct {
 static lpr_conn_t  lpr_pool[LPR_MAX_CONNECTIONS];
 static cyg_mutex_t lpr_pool_lock;
 
-static void lpr_child_thread(cyg_addrword_t arg)
+static void lpr_child_thread(void *arg)
 {
     lpr_conn_t *conn = (lpr_conn_t *)arg;
 
@@ -265,7 +265,7 @@ static void lpr_child_thread(cyg_addrword_t arg)
 /* ─────────────────────────────────────────────────────────────────────────────
  * LPR server main thread
  * ───────────────────────────────────────────────────────────────────────────*/
-void lpr_thread(cyg_addrword_t arg)
+void lpr_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -333,7 +333,7 @@ void lpr_thread(cyg_addrword_t arg)
         {
             BaseType_t ret;
             ret = xTaskCreate(
-                (TaskFunction_t)lpr_child_thread,
+                lpr_child_thread,
                 "lpr_child",
                 (configSTACK_DEPTH_TYPE)(LPR_THREAD_STACK_SIZE / sizeof(StackType_t)),
                 (void *)slot,

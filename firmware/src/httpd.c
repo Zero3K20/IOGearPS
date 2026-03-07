@@ -322,7 +322,7 @@ static void handle_request(int fd)
 /* ─────────────────────────────────────────────────────────────────────────────
  * Child-thread entry point
  * ───────────────────────────────────────────────────────────────────────────*/
-static void http_child_thread(cyg_addrword_t arg)
+static void http_child_thread(void *arg)
 {
     http_conn_t *conn = (http_conn_t *)arg;
 
@@ -339,7 +339,7 @@ static void http_child_thread(cyg_addrword_t arg)
 /* ─────────────────────────────────────────────────────────────────────────────
  * HTTP server main thread
  * ───────────────────────────────────────────────────────────────────────────*/
-void httpd_thread(cyg_addrword_t arg)
+void httpd_thread(void *arg)
 {
     int                server_fd;
     int                client_fd;
@@ -411,7 +411,7 @@ void httpd_thread(cyg_addrword_t arg)
         {
             BaseType_t ret;
             ret = xTaskCreate(
-                (TaskFunction_t)http_child_thread,
+                http_child_thread,
                 "http_child",
                 (configSTACK_DEPTH_TYPE)(HTTP_THREAD_STACK_SIZE / sizeof(StackType_t)),
                 (void *)slot,
