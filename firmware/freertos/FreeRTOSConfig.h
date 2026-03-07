@@ -14,7 +14,14 @@
 #define configUSE_TIME_SLICING                  1
 #define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
-#define configUSE_MALLOC_FAILED_HOOK            0
+/* ── Malloc-failure hook ────────────────────────────────────────────────── *
+ *
+ * When heap_4.c cannot satisfy a pvPortMalloc() request it calls
+ * vApplicationMallocFailedHook() (defined in main.c).  The hook logs the
+ * event to UART so that heap-exhaustion is diagnosable rather than causing
+ * a silent NULL-pointer dereference.
+ */
+#define configUSE_MALLOC_FAILED_HOOK            1
 
 /* ── Hardware clocks ───────────────────────────────────────────────────── *
  *
@@ -64,8 +71,16 @@
 #define configENABLE_BACKWARD_COMPATIBILITY     0
 #define configQUEUE_REGISTRY_SIZE               0
 
-/* ── Stack-overflow detection (disabled for production) ────────────────── */
-#define configCHECK_FOR_STACK_OVERFLOW          0
+/* ── Stack-overflow detection ───────────────────────────────────────────── *
+ *
+ * Method 2: FreeRTOS fills the bottom of each new task stack with a known
+ * pattern and checks on every context switch that the pattern is intact.
+ * If a stack overflow is detected, vApplicationStackOverflowHook() is called
+ * (defined in main.c).  This has a small per-context-switch overhead but
+ * catches overflows before they corrupt adjacent memory and cause silent
+ * crashes that are hard to diagnose.
+ */
+#define configCHECK_FOR_STACK_OVERFLOW          2
 
 /* ── Run-time statistics (disabled) ────────────────────────────────────── */
 #define configGENERATE_RUN_TIME_STATS           0
