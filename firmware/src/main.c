@@ -28,6 +28,9 @@
  *   Thread 16 — Status polling
  *   Thread 17 — Network watchdog / keep-alive
  *   Thread 18 — Idle / diagnostic
+ *   Thread 19 — eSCL scanner server (port 9290, AirScan for iOS/macOS)
+ *   Thread 20 — WS-Discovery responder (UDP port 3702, Windows WSD)
+ *   Thread 21 — WSD-Scan HTTP server (port 5357, Windows WSD)
  */
 
 #include "rtos.h"
@@ -49,6 +52,8 @@
 /* Service headers */
 #include "httpd.h"
 #include "ipp_server.h"
+#include "escl_server.h"
+#include "wsd_server.h"
 #include "mdns.h"
 #include "lpr.h"
 #include "config.h"
@@ -66,7 +71,7 @@ const char __attribute__((used, section(".version")))
  * Thread stacks and control structures
  * ───────────────────────────────────────────────────────────────────────────*/
 #define THREAD_STACK_SIZE   8192
-#define NUM_THREADS         19
+#define NUM_THREADS         22
 
 static cyg_handle_t thread_handles[NUM_THREADS];
 static cyg_thread   thread_objs[NUM_THREADS];
@@ -471,6 +476,9 @@ static const thread_desc_t thread_descs[NUM_THREADS] = {
     { status_thread,        "status",         20 },
     { watchdog_thread,      "watchdog",       10 },
     { idle_thread,          "idle",           30 },
+    { escl_server_thread,   "escl",           12 },
+    { wsd_discovery_thread, "wsd_disc",       12 },
+    { wsd_http_thread,      "wsd_http",       12 },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────

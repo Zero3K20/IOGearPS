@@ -144,3 +144,101 @@ advertise the `_universal._sub._ipp._tcp` sub-type using an Avahi service file
 on Linux or a Bonjour helper script on Windows.
 
 > **Installing software on your PC is NOT required for iOS 14+ / macOS 11+.**
+
+---
+
+## Scanner and Fax Support (Multi-Function Devices)
+
+### Scanners
+
+The firmware supports two complementary scanner protocols that together cover
+iOS, macOS, and Windows clients.  Both are controlled by the single
+**Scanner (AirScan / WSD)** toggle in **Setup → Services**.
+
+---
+
+#### AirScan (eSCL) — iOS 13+ and macOS 10.15+
+
+The firmware runs an **eSCL (AirScan) scanner server** on TCP port 9290.
+
+When the scanner is enabled (the default), the firmware:
+
+1. **Advertises** the scanner via mDNS as `_uscan._tcp` so that iOS and macOS
+   discover it automatically — no drivers or software needed on the client.
+2. **Answers eSCL HTTP requests** for scanner capabilities, scanner status, and
+   scan job creation (`GET /eSCL/ScannerCapabilities`,
+   `GET /eSCL/ScannerStatus`, `POST /eSCL/ScanJobs`).
+
+---
+
+#### WSD-Scan — Windows 7, 8, 10, 11
+
+The firmware runs a **WS-Discovery + WSD-Scan** scanner service for Windows.
+Two components work together:
+
+| Component | Protocol | Port |
+|-----------|----------|------|
+| WS-Discovery responder | UDP multicast 239.255.255.250 | 3702 |
+| WSD-Scan HTTP server | TCP | 5357 |
+
+When Windows opens **Windows Scan** (or the Scanners & Cameras control panel),
+it broadcasts a WS-Discovery Probe for `scan:ScannerServiceType` (Windows 8+)
+or `wsdp:Device` (Windows 7).  The firmware responds with a ProbeMatch
+advertising its WSD endpoint.
+
+**Windows 7 additionally** sends a WS-Discovery **Resolve** message (addressed
+to the device's `urn:uuid:` endpoint) to verify the XAddrs are still valid
+before opening a TCP connection.  The firmware responds with a **ResolveMatch**
+so that Windows 7 can proceed to connect to the WSD-Scan HTTP server on
+port 5357.  Without this ResolveMatch, Windows 7 silently drops the device
+from the scanner list.
+
+WSD-Scan operations handled by the firmware:
+
+| Operation | Result |
+|-----------|--------|
+| WS-Transfer `Get` (device metadata) | Returns device identity and scanner service endpoint |
+| `GetScannerElements` | Returns scanner capabilities (modes, resolutions, formats) |
+| `CreateScanJob` | Accepts the job (returns 200 OK) |
+| `GetJobElements` | Returns job status |
+| `RetrieveImage` | Returns SOAP fault — USB scanner driver TODO |
+
+> **Note:** Forwarding scan data from the USB scanner to the network client
+> (for both eSCL and WSD-Scan) depends on a USB scanner driver that has not
+> yet been written — the same status as USB printer forwarding.  The device
+> will appear in scan dialogs on all platforms, but image retrieval will fail
+> until the USB scanner driver is implemented.
+>
+> To add USB scanner support, implement:
+> - `GET /eSCL/ScanJobs/{id}/NextDocument` in `firmware/src/escl_server.c`
+> - `RetrieveImage` in `firmware/src/wsd_server.c`
+
+#### Enabling / disabling scanner support in the web interface
+
+1. Open `http://<device-ip>/` and navigate to **Setup → Services**.
+2. Find the **Scanner (AirScan / WSD)** row and set it to *Enabled* or *Disabled*.
+3. Click **Save & Restart**.
+
+#### Supported scan clients
+
+| Client | Protocol | Support |
+|--------|----------|---------|
+| **iOS 13+** | AirScan (eSCL) | ✅ Native — scanner appears automatically |
+| **macOS 10.15+ (Catalina+)** | AirScan (eSCL) | ✅ Native — appears in Image Capture and scan dialogs |
+| **Windows 7** | WSD-Scan | ✅ Native — Probe + Resolve/ResolveMatch supported; scanner appears in Devices and Printers |
+| **Windows 8 / 8.1** | WSD-Scan | ✅ Native — scanner appears in Devices and Printers |
+| **Windows 10 / 11** | WSD-Scan | ✅ Native — scanner appears in Windows Scan / Devices and Printers |
+| iOS 12 or earlier | — | ❌ AirScan not supported |
+| macOS 10.14 (Mojave) or earlier | — | ❌ AirScan not supported |
+
+---
+
+### Fax machines
+
+Standalone fax machines communicate over the **PSTN telephone network** rather
+than USB, so they cannot be connected to the GPSU21 directly.
+
+Some multi-function printers include a **USB-connected fax modem** (T.38 or
+Class 1/2 fax).  The GPSU21 firmware does not currently implement any fax
+forwarding protocol.  If you need network fax support, use a dedicated fax
+gateway device or a software fax server on a PC.

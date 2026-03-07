@@ -52,13 +52,15 @@
 #define MDNS_GROUP              "224.0.0.251"
 #define MDNS_ANNOUNCE_INTERVAL_S  5   /* seconds between periodic announcements */
 #define MDNS_TTL                4500  /* DNS TTL in seconds */
-#define MDNS_BUF_SIZE           768   /* enlarged to fit 6-record response */
+#define MDNS_BUF_SIZE           1024  /* enlarged to fit printer + scanner records */
 
 /* Fixed per-product values */
 #define MDNS_HOSTNAME           "gpsu21"       /* mDNS hostname (A record) */
 #define MDNS_SERVICE_TYPE       "_ipp._tcp"
+#define MDNS_SCAN_SERVICE_TYPE  "_uscan._tcp"  /* AirScan (eSCL) service type */
 #define MDNS_DOMAIN             "local"
 #define MDNS_PORT_IPP           631
+#define MDNS_PORT_ESCL          9290           /* eSCL (AirScan) server port */
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * DNS message construction helpers
@@ -313,12 +315,131 @@ static int build_announcement(dns_msg_t *m, uint32_t my_ip)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Check whether a received mDNS packet is a query that mentions _ipp._tcp.
+ * Build a mDNS announcement packet for the AirScan (eSCL) scanner service.
  *
- * Returns non-zero if the raw packet bytes contain the "_ipp" label (4-byte
- * length prefix 0x04 followed by the characters '_', 'i', 'p', 'p').  This
- * simple scan avoids writing a full DNS parser while covering all practical
- * iOS/macOS AirPrint queries (PTR and ANY queries for _ipp._tcp.local).
+ * Advertises the device as _uscan._tcp so that iOS 13+ / macOS 10.15+ AirScan
+ * clients can discover the scanner on a connected USB multi-function device.
+ *
+ * Records announced (4 answers):
+ *   PTR  _services._dns-sd._udp.local. → _uscan._tcp.local.
+ *   PTR  _uscan._tcp.local.            → <DeviceName>._uscan._tcp.local.
+ *   SRV  <DeviceName>._uscan._tcp.local. → gpsu21.local.:9290
+ *   TXT  <DeviceName>._uscan._tcp.local. → eSCL capability key-value pairs
+ * ───────────────────────────────────────────────────────────────────────────*/
+static int build_scanner_announcement(dns_msg_t *m, uint32_t my_ip)
+{
+    char fqsn[128];   /* fully-qualified scanner service instance name */
+    char fqst[64];    /* scanner service type.domain */
+    char sd_name[64]; /* _services._dns-sd._udp.local */
+    uint8_t txt_rdata[256];
+    int     txt_len;
+
+    (void)my_ip;   /* A record is sent in the printer announcement */
+
+    memset(m, 0, sizeof(*m));
+
+    snprintf(fqsn, sizeof(fqsn), "%s.%s.%s",
+             g_device_name, MDNS_SCAN_SERVICE_TYPE, MDNS_DOMAIN);
+    snprintf(fqst, sizeof(fqst), "%s.%s", MDNS_SCAN_SERVICE_TYPE, MDNS_DOMAIN);
+    snprintf(sd_name, sizeof(sd_name), "_services._dns-sd._udp.%s", MDNS_DOMAIN);
+
+    /* DNS header: QR=1, AA=1, ANCOUNT=4 */
+    dns_write_u16(m, 0x0000); /* ID = 0 (mDNS) */
+    dns_write_u16(m, 0x8400); /* Flags: response, authoritative */
+    dns_write_u16(m, 0x0000); /* QDCOUNT */
+    dns_write_u16(m, 0x0004); /* ANCOUNT = 4 */
+    dns_write_u16(m, 0x0000); /* NSCOUNT */
+    dns_write_u16(m, 0x0000); /* ARCOUNT */
+
+    /* ── PTR: _services._dns-sd._udp.local → _uscan._tcp.local ── */
+    {
+        dns_msg_t tmp;
+        memset(&tmp, 0, sizeof(tmp));
+        dns_write_name(&tmp, fqst);
+        dns_write_rr_header(m, sd_name, 0x000C, MDNS_TTL,
+                            (uint16_t)tmp.len, 0);
+        if (m->len + tmp.len <= MDNS_BUF_SIZE) {
+            memcpy(m->buf + m->len, tmp.buf, (size_t)tmp.len);
+            m->len += tmp.len;
+        }
+    }
+
+    /* ── PTR: _uscan._tcp.local → <DeviceName>._uscan._tcp.local ── */
+    {
+        dns_msg_t tmp;
+        memset(&tmp, 0, sizeof(tmp));
+        dns_write_name(&tmp, fqsn);
+        dns_write_rr_header(m, fqst, 0x000C, MDNS_TTL,
+                            (uint16_t)tmp.len, 0);
+        if (m->len + tmp.len <= MDNS_BUF_SIZE) {
+            memcpy(m->buf + m->len, tmp.buf, (size_t)tmp.len);
+            m->len += tmp.len;
+        }
+    }
+
+    /* ── SRV: <DeviceName>._uscan._tcp.local → gpsu21.local:9290 ── */
+    {
+        char fqhn[64];
+        dns_msg_t tmp;
+        memset(&tmp, 0, sizeof(tmp));
+        snprintf(fqhn, sizeof(fqhn), "%s.%s", MDNS_HOSTNAME, MDNS_DOMAIN);
+        tmp.buf[tmp.len++] = 0x00; /* priority hi */
+        tmp.buf[tmp.len++] = 0x00; /* priority lo */
+        tmp.buf[tmp.len++] = 0x00; /* weight hi */
+        tmp.buf[tmp.len++] = 0x00; /* weight lo */
+        tmp.buf[tmp.len++] = (uint8_t)(MDNS_PORT_ESCL >> 8);
+        tmp.buf[tmp.len++] = (uint8_t)(MDNS_PORT_ESCL & 0xFF);
+        dns_write_name(&tmp, fqhn);
+        dns_write_rr_header(m, fqsn, 0x0021, MDNS_TTL,
+                            (uint16_t)tmp.len, 1);
+        if (m->len + tmp.len <= MDNS_BUF_SIZE) {
+            memcpy(m->buf + m->len, tmp.buf, (size_t)tmp.len);
+            m->len += tmp.len;
+        }
+    }
+
+    /* ── TXT: eSCL capability key-value pairs ── */
+    {
+        static const char * const txt_kvs[] = {
+            "txtvers=1",
+            "Vers=2.63",
+            "rs=eSCL",
+            "ty=IOGear GPSU21",
+            "adminurl=http://gpsu21.local/",
+            "note=",
+            "pdl=image/jpeg,image/png,application/pdf",
+            "UUID=00000000-0000-0000-0000-000000001243",
+            "cs=color,grayscale,binary",
+            NULL
+        };
+        int txt_pos = 0;
+        cyg_uint32 ki;
+
+        for (ki = 0; txt_kvs[ki] != NULL; ki++) {
+            size_t kl = strlen(txt_kvs[ki]);
+            if (txt_pos + 1 + (int)kl > (int)sizeof(txt_rdata)) break;
+            txt_rdata[txt_pos++] = (uint8_t)kl;
+            memcpy(txt_rdata + txt_pos, txt_kvs[ki], kl);
+            txt_pos += (int)kl;
+        }
+        txt_len = txt_pos;
+
+        dns_write_rr_header(m, fqsn, 0x0010, MDNS_TTL,
+                            (uint16_t)txt_len, 1);
+        if (m->len + txt_len <= MDNS_BUF_SIZE) {
+            memcpy(m->buf + m->len, txt_rdata, (size_t)txt_len);
+            m->len += txt_len;
+        }
+    }
+
+    return m->len;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Check whether a received mDNS packet is a query that mentions _ipp._tcp or
+ * _uscan._tcp (for AirScan discovery).
+ *
+ * Returns non-zero if the raw packet bytes contain "_ipp" or "_uscan" labels.
  * ───────────────────────────────────────────────────────────────────────────*/
 static int is_mdns_ipp_query(const uint8_t *buf, int len)
 {
@@ -332,13 +453,25 @@ static int is_mdns_ipp_query(const uint8_t *buf, int len)
         return 0; /* QR=1 → response, not a query */
     }
 
-    /* Scan for the wire-format "_ipp" label: 0x04 '_' 'i' 'p' 'p' */
-    for (i = 12; i <= len - 5; i++) {
-        if (buf[i]   == 0x04u &&
+    /* Scan for "_ipp" label: 0x04 '_' 'i' 'p' 'p'
+     * or "_uscan" label: 0x06 '_' 'u' 's' 'c' 'a' 'n' */
+    for (i = 12; i < len; i++) {
+        if (i <= len - 5 &&
+            buf[i]   == 0x04u &&
             buf[i+1] == '_'   &&
             buf[i+2] == 'i'   &&
             buf[i+3] == 'p'   &&
             buf[i+4] == 'p') {
+            return 1;
+        }
+        if (i <= len - 7 &&
+            buf[i]   == 0x06u &&
+            buf[i+1] == '_'   &&
+            buf[i+2] == 'u'   &&
+            buf[i+3] == 's'   &&
+            buf[i+4] == 'c'   &&
+            buf[i+5] == 'a'   &&
+            buf[i+6] == 'n') {
             return 1;
         }
     }
@@ -423,6 +556,13 @@ void mdns_thread(cyg_addrword_t arg)
                             (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
             }
         }
+        if (g_scanner_enabled) {
+            int len = build_scanner_announcement(&msg, my_ip);
+            if (len > 0) {
+                lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                            (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+            }
+        }
         cyg_thread_delay(pdMS_TO_TICKS(1000));
     }
 
@@ -440,8 +580,8 @@ void mdns_thread(cyg_addrword_t arg)
         n = lwip_recvfrom(sock, rxbuf, sizeof(rxbuf), 0,
                           (struct sockaddr *)&from, &fromlen);
 
-        if (!g_airprint_enabled) {
-            /* AirPrint disabled — discard received packets and don't announce. */
+        if (!g_airprint_enabled && !g_scanner_enabled) {
+            /* Both services disabled — discard packets and don't announce. */
             continue;
         }
 
@@ -451,19 +591,38 @@ void mdns_thread(cyg_addrword_t arg)
              * are probing at the same time (RFC 6762 §6). */
             cyg_thread_delay(pdMS_TO_TICKS(100));
             my_ip = get_my_ip();
-            len = build_announcement(&msg, my_ip);
-            if (len > 0) {
-                lwip_sendto(sock, msg.buf, (size_t)len, 0,
-                            (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+            if (g_airprint_enabled) {
+                len = build_announcement(&msg, my_ip);
+                if (len > 0) {
+                    lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+                }
+            }
+            if (g_scanner_enabled) {
+                len = build_scanner_announcement(&msg, my_ip);
+                if (len > 0) {
+                    lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+                }
             }
         } else {
             /* Receive timeout (n <= 0) → send the periodic announcement. */
             if (n <= 0) {
-                len = build_announcement(&msg, my_ip);
-                if (len > 0) {
-                    lwip_sendto(sock, msg.buf, (size_t)len, 0,
-                                (struct sockaddr *)&mcast_addr,
-                                sizeof(mcast_addr));
+                if (g_airprint_enabled) {
+                    len = build_announcement(&msg, my_ip);
+                    if (len > 0) {
+                        lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                    (struct sockaddr *)&mcast_addr,
+                                    sizeof(mcast_addr));
+                    }
+                }
+                if (g_scanner_enabled) {
+                    len = build_scanner_announcement(&msg, my_ip);
+                    if (len > 0) {
+                        lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                    (struct sockaddr *)&mcast_addr,
+                                    sizeof(mcast_addr));
+                    }
                 }
             }
         }

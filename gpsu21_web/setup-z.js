@@ -10,7 +10,7 @@ Len_text6 = 8;
 Len_text7 = 14;		// error.htm
 Len_text8 = 19;		// cnetware.htm
 Len_text9 = 10;		// csmb.htm			original: 7
-Len_text10 = 34;	// cservices.htm	original: 26, updated: 31, now: 34 (added AirPrint)
+Len_text10 = 37;	// cservices.htm	original: 26, updated: 31, then: 34 (AirPrint), now: 37 (AirScan)
 
 htmArray = new Array(Len_html);
 

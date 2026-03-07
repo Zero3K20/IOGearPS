@@ -9,6 +9,7 @@
 
 char g_device_name[CONFIG_DEVICE_NAME_MAX] = "GPSU21";
 int  g_airprint_enabled = 1;   /* AirPrint on by default */
+int  g_scanner_enabled  = 1;   /* AirScan (eSCL) on by default */
 
 /* ── Public API ────────────────────────────────────────────────────────── */
 
@@ -32,4 +33,9 @@ void config_set_device_name(const char *name)
 void config_set_airprint_enabled(int enabled)
 {
     g_airprint_enabled = enabled ? 1 : 0;
+}
+
+void config_set_scanner_enabled(int enabled)
+{
+    g_scanner_enabled = enabled ? 1 : 0;
 }

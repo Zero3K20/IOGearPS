@@ -285,6 +285,26 @@ document.forms[0].AirPrintEnabled[iAirPrint].selected=true;
 </td>
 <td class="Wh"></td>
 </tr>
+<!-- AirScan (eSCL scanner support for multi-function devices) -->
+<tr>
+<td class="Na" height="28"></td>
+<td class="Na1" width="300"><Script Language="JavaScript">showtext10(textindex++);</script></td>
+<td class="Na2" width="300">
+<SCRIPT LANGUAGE=JavaScript>
+var iScanner = "<!--# echo var="ScannerEnabled"-->";
+document.write("<SELECT NAME=ScannerEnabled SIZE=1>");
+document.write("<OPTION VALUE=0>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("<OPTION VALUE=1>");
+showtext10(textindex++);
+document.write("</OPTION>");
+document.write("</SELECT>");
+document.forms[0].ScannerEnabled[iScanner].selected=true;
+</SCRIPT>
+</td>
+<td class="Na"></td>
+</tr>
 </table>
 </td>
 </tr>
