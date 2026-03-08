@@ -37,6 +37,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
+/* Optional built-in firmware blob (generated at build time from HP1020_FW).
+ * Included only when compiled with -DHAVE_HP1020_FW_BUILTIN.             */
+#ifdef HAVE_HP1020_FW_BUILTIN
+#  include "hp1020_fw_blob.h"
+#endif
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * Global printer status (shared with ipp_server, lpr, httpd)
  * ───────────────────────────────────────────────────────────────────────────*/
@@ -212,6 +218,17 @@ static uint8_t  s_ctrl_buf[256] __attribute__((aligned(4)));
 
 /* Flag: has the driver been initialised? */
 static cyg_bool_t s_initialised = false;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Printer firmware blob — Cypress EZ-USB ANCHOR_LOAD_INTERNAL
+ *
+ * Up to USB_FW_MAX_SIZE bytes of firmware data for stub-PID printers.
+ * Protected by s_fw_mutex; written by httpd (HTTP thread) via usb_fw_store()
+ * or usb_fw_commit(), read by the status thread during auto-upload.
+ * ───────────────────────────────────────────────────────────────────────────*/
+static uint8_t     s_fw_blob[USB_FW_MAX_SIZE] __attribute__((aligned(4)));
+static size_t      s_fw_blob_size;
+static cyg_mutex_t s_fw_mutex;
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Cache synchronisation
@@ -744,6 +761,346 @@ static int usb_set_configuration(uint8_t cfg)
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+ * Cypress EZ-USB firmware upload — ANCHOR_LOAD_INTERNAL protocol
+ *
+ * The HP LaserJet 1015/1020/1022 use a Cypress EZ-USB (CY7C64xxx) USB
+ * controller.  At power-on it enumerates as a vendor-specific stub device;
+ * a host must upload operating firmware via the ANCHOR_LOAD_INTERNAL vendor
+ * control request before the printer becomes functional.
+ *
+ * Protocol (clean-room reverse-engineered; see Linux kernel ezusb.c):
+ *   bmRequestType = 0x40  (OUT | VENDOR | DEVICE)
+ *   bRequest      = 0xA0  (ANCHOR_LOAD_INTERNAL / FW_LOAD)
+ *   wValue        = target address in EZ-USB internal RAM (0x0000–0x1FFF)
+ *   wIndex        = 0
+ *   wLength       = byte count
+ *   Data          = firmware bytes to write at wValue
+ *
+ * Special addresses:
+ *   0xE600 = CPUCS (CPU Control/Status register)
+ *     write 0x01 → hold 8051 in reset before loading firmware
+ *     write 0x00 → release 8051 (firmware begins executing)
+ *
+ * Firmware file formats supported:
+ *   Intel HEX — detected by ':' at byte 0 (HPLIP .fw files).  Each record
+ *               specifies its own load address and byte count.
+ *   Raw binary — any other first byte (foo2zjs .img files); the entire blob
+ *               is written consecutively starting at address 0x0000.
+ * ───────────────────────────────────────────────────────────────────────────*/
+
+#define ANCHOR_LOAD_BREQUEST  0xA0u  /* Cypress EZ-USB firmware-load request */
+#define CPUCS_ADDR            0xE600u /* EZ-USB CPU Control/Status register   */
+#define ANCHOR_MAX_CHUNK      64u    /* max bytes per ANCHOR_LOAD_INTERNAL    */
+#define IHEX_MAX_RECORD_DATA  64u    /* max data bytes per Intel HEX record   */
+
+/* Intel HEX record types */
+#define IHEX_TYPE_DATA    0x00u
+#define IHEX_TYPE_EOF     0x01u
+#define IHEX_TYPE_EXT_SEG 0x02u  /* extended segment address (ignored here) */
+#define IHEX_TYPE_EXT_LIN 0x04u  /* extended linear address  (ignored here) */
+
+/*
+ * anchor_load_internal — send one ANCHOR_LOAD_INTERNAL vendor request.
+ * Writes 'len' bytes from 'data' to EZ-USB internal RAM at 'addr'.
+ */
+static int anchor_load_internal(uint16_t addr, const uint8_t *data,
+                                 uint16_t len)
+{
+    uint8_t setup[8] = {
+        0x40u,                   /* bmRequestType: OUT, Vendor, Device      */
+        ANCHOR_LOAD_BREQUEST,    /* bRequest: ANCHOR_LOAD_INTERNAL (0xA0)   */
+        (uint8_t)(addr),         /* wValue low  — target address low byte   */
+        (uint8_t)(addr >> 8u),   /* wValue high — target address high byte  */
+        0x00u, 0x00u,            /* wIndex = 0                              */
+        (uint8_t)(len),          /* wLength low                             */
+        (uint8_t)(len >> 8u),    /* wLength high                            */
+    };
+    return usb_control_transfer(setup, (void *)data, len, false);
+}
+
+/*
+ * ihex_nibble / ihex_byte — minimal Intel HEX character parsers.
+ */
+static int ihex_nibble(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return -1;
+}
+
+static int ihex_byte(const char *p, uint8_t *out)
+{
+    int hi = ihex_nibble(p[0]);
+    int lo = ihex_nibble(p[1]);
+    if (hi < 0 || lo < 0) return -1;
+    *out = (uint8_t)((hi << 4) | lo);
+    return 0;
+}
+
+/*
+ * ihex_upload — parse an Intel HEX stream and upload each data record.
+ *
+ * Processes ':LL AAAA TT [DD...] CC' records.  Data records (type 0x00)
+ * are uploaded via anchor_load_internal; EOF (0x01) terminates the loop.
+ * Extended-address record types are accepted but the address extension is
+ * ignored — the Cypress EZ-USB 8051 has only 8 KB internal RAM and all
+ * records fit in a 16-bit address space.
+ */
+static int ihex_upload(const uint8_t *blob, size_t blob_len)
+{
+    const char *p   = (const char *)blob;
+    const char *end = p + blob_len;
+
+    while (p < end) {
+        /* Skip whitespace between records */
+        while (p < end && (*p == '\r' || *p == '\n' ||
+                           *p == ' '  || *p == '\t'))
+            p++;
+        if (p >= end) break;
+
+        if (*p != ':') {
+            diag_printf("usb_fw: HEX parse error: expected ':'\n");
+            return -1;
+        }
+        p++;  /* consume ':' */
+
+        /* Need at least LLAAAATT (8 hex chars) + checksum (2) */
+        if (p + 10 > end) return -1;
+
+        uint8_t blen, ah, al, rtype;
+        if (ihex_byte(p,   &blen)  < 0 ||
+            ihex_byte(p+2, &ah)    < 0 ||
+            ihex_byte(p+4, &al)    < 0 ||
+            ihex_byte(p+6, &rtype) < 0)
+            return -1;
+        p += 8;
+
+        if (blen > IHEX_MAX_RECORD_DATA) return -1;
+        /* Need blen*2 hex chars for data + 2 chars for checksum */
+        if ((size_t)(end - p) < (size_t)blen * 2u + 2u) return -1;
+
+        /* Read record data bytes */
+        uint8_t rdata[IHEX_MAX_RECORD_DATA] __attribute__((aligned(4)));
+        uint8_t csum = (uint8_t)(blen + ah + al + rtype);
+        uint8_t i;
+        for (i = 0; i < blen; i++) {
+            if (ihex_byte(p, &rdata[i]) < 0) return -1;
+            csum = (uint8_t)(csum + rdata[i]);
+            p += 2;
+        }
+
+        /* Verify checksum (two's-complement; sum of all bytes = 0 mod 256) */
+        uint8_t rec_csum;
+        if (ihex_byte(p, &rec_csum) < 0) return -1;
+        p += 2;
+        if ((uint8_t)(csum + rec_csum) != 0u) {
+            diag_printf("usb_fw: HEX checksum error\n");
+            return -1;
+        }
+
+        if (rtype == IHEX_TYPE_DATA) {
+            uint16_t addr = ((uint16_t)ah << 8u) | al;
+            if (anchor_load_internal(addr, rdata, blen) < 0) {
+                diag_printf("usb_fw: ANCHOR_LOAD failed at 0x%04x\n",
+                            (unsigned)addr);
+                return -1;
+            }
+        } else if (rtype == IHEX_TYPE_EOF) {
+            break;
+        }
+        /* IHEX_TYPE_EXT_SEG / IHEX_TYPE_EXT_LIN: accepted, address extension
+         * ignored — all Cypress EZ-USB internal RAM fits in 16-bit space. */
+    }
+    return 0;
+}
+
+/*
+ * raw_upload — upload a raw binary image starting at EZ-USB address 0x0000.
+ * Used for foo2zjs-style .img files which are plain binary blobs.
+ */
+static int raw_upload(const uint8_t *blob, size_t len)
+{
+    uint16_t addr   = 0;
+    size_t   offset = 0;
+
+    while (offset < len) {
+        size_t chunk = len - offset;
+        if (chunk > ANCHOR_MAX_CHUNK) chunk = ANCHOR_MAX_CHUNK;
+
+        if (anchor_load_internal(addr, blob + offset, (uint16_t)chunk) < 0) {
+            diag_printf("usb_fw: raw upload failed at addr 0x%04x\n",
+                        (unsigned)addr);
+            return -1;
+        }
+        offset += chunk;
+        addr    = (uint16_t)(addr + (uint16_t)chunk);
+    }
+    return 0;
+}
+
+/*
+ * wait_for_reenumeration — after releasing EZ-USB CPU from reset, wait for
+ * the device to disconnect and reconnect on the USB bus.
+ *
+ * After reset release the EZ-USB firmware boots, detaches from the bus, and
+ * re-attaches with the printer's operational PID.  At the EHCI level this
+ * appears as PORTSC_CCS toggling 0→1 after a brief absence.
+ */
+static int wait_for_reenumeration(uint32_t timeout_ms)
+{
+    uint32_t elapsed;
+
+    /* Phase 1: wait for device to disconnect (CCS=0) */
+    for (elapsed = 0; elapsed < timeout_ms; elapsed += 10u) {
+        if (!(ehci_read(EHCI_OPR_PORTSC0) & PORTSC_CCS))
+            break;
+        mdelay(10);
+    }
+    if (elapsed >= timeout_ms) {
+        diag_printf("usb_fw: re-enum: disconnect not seen within %u ms\n",
+                    (unsigned)timeout_ms);
+        return -1;
+    }
+
+    /* Phase 2: wait for device to reconnect (CCS=1) */
+    for (elapsed = 0; elapsed < timeout_ms; elapsed += 10u) {
+        if (ehci_read(EHCI_OPR_PORTSC0) & PORTSC_CCS)
+            break;
+        mdelay(10);
+    }
+    if (elapsed >= timeout_ms) {
+        diag_printf("usb_fw: re-enum: reconnect not seen within %u ms\n",
+                    (unsigned)timeout_ms);
+        return -1;
+    }
+
+    /* Clear CSC (connect-status-change) bit — write-1-to-clear */
+    {
+        uint32_t portsc = ehci_read(EHCI_OPR_PORTSC0);
+        ehci_write(EHCI_OPR_PORTSC0, portsc | PORTSC_CSC);
+    }
+    return 0;
+}
+
+/*
+ * do_fw_upload — perform the full Cypress EZ-USB firmware upload sequence.
+ *
+ * Must be called with s_fw_mutex held.
+ * Uses the blob currently in s_fw_blob[0..s_fw_blob_size-1].
+ *
+ * Returns USB_FW_OK on success, one of the USB_FW_ERR_* codes on failure.
+ */
+static int do_fw_upload(void)
+{
+    static const uint8_t cpu_halt[1]    = {0x01u};
+    static const uint8_t cpu_release[1] = {0x00u};
+    int result;
+
+    diag_printf("usb_fw: uploading %u-byte blob via ANCHOR_LOAD_INTERNAL\n",
+                (unsigned)s_fw_blob_size);
+
+    /* Step 1: hold EZ-USB CPU in reset so we can safely overwrite its RAM */
+    if (anchor_load_internal(CPUCS_ADDR, cpu_halt, 1u) < 0) {
+        diag_printf("usb_fw: CPU reset-assert failed\n");
+        return USB_FW_ERR_USB;
+    }
+    mdelay(10);
+
+    /* Step 2: upload firmware data */
+    if (s_fw_blob[0] == (uint8_t)':') {
+        diag_printf("usb_fw: format: Intel HEX (HPLIP .fw)\n");
+        result = ihex_upload(s_fw_blob, s_fw_blob_size);
+    } else {
+        diag_printf("usb_fw: format: raw binary (foo2zjs .img), "
+                    "load at 0x0000\n");
+        result = raw_upload(s_fw_blob, s_fw_blob_size);
+    }
+
+    /* Step 3: release CPU from reset — firmware begins running regardless
+     * of whether the data upload succeeded.  This returns the device to a
+     * predictable state and triggers re-enumeration. */
+    if (anchor_load_internal(CPUCS_ADDR, cpu_release, 1u) < 0) {
+        diag_printf("usb_fw: CPU reset-release failed\n");
+        return USB_FW_ERR_USB;
+    }
+
+    if (result < 0) {
+        diag_printf("usb_fw: firmware upload failed\n");
+        return (s_fw_blob[0] == (uint8_t)':') ? USB_FW_ERR_FORMAT
+                                               : USB_FW_ERR_USB;
+    }
+
+    diag_printf("usb_fw: upload complete — waiting for re-enumeration\n");
+
+    /* Step 4: wait for device to reconnect with operational printer PID */
+    if (wait_for_reenumeration(5000u) < 0)
+        return USB_FW_ERR_TIMEOUT;
+
+    diag_printf("usb_fw: device re-enumerated — will enumerate as printer\n");
+    return USB_FW_OK;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Public firmware blob API (used by httpd.c)
+ * ───────────────────────────────────────────────────────────────────────────*/
+
+int usb_fw_store(const uint8_t *data, size_t len)
+{
+    if (!data || len == 0u || len > USB_FW_MAX_SIZE)
+        return -1;
+    cyg_mutex_lock(&s_fw_mutex);
+    memcpy(s_fw_blob, data, len);
+    s_fw_blob_size = len;
+    cyg_mutex_unlock(&s_fw_mutex);
+    diag_printf("usb_fw: stored %u-byte firmware blob\n", (unsigned)len);
+    return 0;
+}
+
+uint8_t *usb_fw_get_write_buf(size_t *max_len)
+{
+    /* Clear s_fw_blob_size atomically so that do_fw_upload() in the status
+     * thread cannot begin reading the blob while the HTTP thread is still
+     * streaming new bytes into it.  The caller must call usb_fw_commit()
+     * with the final byte count once the write is complete. */
+    cyg_mutex_lock(&s_fw_mutex);
+    s_fw_blob_size = 0u;
+    cyg_mutex_unlock(&s_fw_mutex);
+
+    if (max_len)
+        *max_len = USB_FW_MAX_SIZE;
+    return s_fw_blob;
+}
+
+void usb_fw_commit(size_t len)
+{
+    if (len == 0u || len > USB_FW_MAX_SIZE)
+        return;
+    cyg_mutex_lock(&s_fw_mutex);
+    s_fw_blob_size = len;
+    cyg_mutex_unlock(&s_fw_mutex);
+    diag_printf("usb_fw: committed %u-byte firmware blob\n", (unsigned)len);
+}
+
+int usb_fw_has_blob(void)
+{
+    int has;
+    cyg_mutex_lock(&s_fw_mutex);
+    has = (s_fw_blob_size > 0u) ? 1 : 0;
+    cyg_mutex_unlock(&s_fw_mutex);
+    return has;
+}
+
+size_t usb_fw_blob_size(void)
+{
+    size_t sz;
+    cyg_mutex_lock(&s_fw_mutex);
+    sz = s_fw_blob_size;
+    cyg_mutex_unlock(&s_fw_mutex);
+    return sz;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
  * USB device enumeration
  *
  * Follows the standard USB enumeration sequence:
@@ -816,6 +1173,7 @@ typedef struct {
 #define USB_EP_XFER_BULK       0x02u
 #define USB_CLASS_PRINTER      0x07u
 #define USB_SUBCLASS_PRINTER   0x01u
+#define USB_PROTO_UNIDIR       0x01u   /* Unidirectional (output only)     */
 #define USB_PROTO_BIDIR        0x02u   /* Bi-directional protocol          */
 
 static uint8_t s_config_buf[512] __attribute__((aligned(4)));
@@ -855,6 +1213,77 @@ static int enumerate_printer(void)
                 (unsigned)dev->idVendor, (unsigned)dev->idProduct,
                 (unsigned)dev->bDeviceClass);
 
+    /* ── Step 3.5: Detect devices that need host-side firmware upload ──────
+     *
+     * Some printers do not store their firmware in non-volatile memory and
+     * must receive it from the host at every power-on.  Until the firmware is
+     * loaded they enumerate with a vendor-specific "stub" PID and do NOT
+     * present a USB Printer Class interface.  Well-known examples:
+     *
+     *   HP LaserJet 1015 — VID 03f0 PID 2911 (stub) → 03f0:3315 (ready)
+     *   HP LaserJet 1020 — VID 03f0 PID 2b17 (stub) → 03f0:3417 (ready)
+     *   HP LaserJet 1022 — VID 03f0 PID 2c17 (stub) → 03f0:3517 (ready)
+     *
+     * The firmware binary is HP-proprietary and cannot be redistributed.
+     * However, if the user has previously stored a firmware blob via
+     * usb_fw_store() (e.g. through the web interface upload endpoint), we
+     * perform the Cypress EZ-USB ANCHOR_LOAD_INTERNAL upload here automatically.
+     * After a successful upload the device re-enumerates as a full Printer
+     * Class device and the next status-thread poll will enumerate it normally.
+     * ────────────────────────────────────────────────────────────────────── */
+    {
+        static const struct {
+            uint16_t    vid;
+            uint16_t    pid;
+            const char *name;
+        } needs_fw_table[] = {
+            { 0x03f0u, 0x2911u, "HP LaserJet 1015" },
+            { 0x03f0u, 0x2b17u, "HP LaserJet 1020" },
+            { 0x03f0u, 0x2c17u, "HP LaserJet 1022" },
+            { 0, 0, NULL }
+        };
+        unsigned i;
+        for (i = 0; needs_fw_table[i].name != NULL; i++) {
+            if (dev->idVendor  == needs_fw_table[i].vid &&
+                dev->idProduct == needs_fw_table[i].pid) {
+                diag_printf("usb: %s detected (VID=%04x PID=%04x, "
+                            "pre-firmware stub)\n",
+                            needs_fw_table[i].name,
+                            (unsigned)dev->idVendor,
+                            (unsigned)dev->idProduct);
+
+                /* Attempt automatic upload if a firmware blob is stored */
+                cyg_mutex_lock(&s_fw_mutex);
+                if (s_fw_blob_size > 0u) {
+                    int fw_result = do_fw_upload();
+                    cyg_mutex_unlock(&s_fw_mutex);
+                    if (fw_result == USB_FW_OK) {
+                        /* Device re-enumerated; status_thread will pick it up
+                         * on the next poll and call enumerate_printer() again.
+                         * Return -1 here so the current attempt exits cleanly.*/
+                        g_printer_status.needs_firmware = false;
+                        return -1;
+                    }
+                    diag_printf("usb_fw: automatic upload failed (err=%d)\n",
+                                fw_result);
+                } else {
+                    cyg_mutex_unlock(&s_fw_mutex);
+                }
+
+                g_printer_status.needs_firmware = true;
+                diag_printf(
+                    "usb: No firmware blob stored.\n"
+                    "usb: Option A — pre-load via Windows PC (HP driver) or\n"
+                    "usb:            Linux/macOS host (HPLIP), then reconnect.\n"
+                    "usb: Option B — upload firmware blob to this print server:\n"
+                    "usb:   curl -X POST http://<ip>/api/upload_printer_fw "
+                            "--data-binary @hp_laserjet_1020.fw\n"
+                    "usb:   (see COMPATIBILITY.md for full instructions)\n");
+                return -1;
+            }
+        }
+    }
+
     /* ── Step 4: Configuration descriptor (first 9 bytes to get wTotalLength) ── */
     memset(s_config_buf, 0, sizeof(s_config_buf));
     if (usb_get_descriptor(USB_DT_CONFIG, 0, 0, s_config_buf, 9) < 0) {
@@ -889,9 +1318,12 @@ static int enumerate_printer(void)
             const usb_iface_desc_t *iface = (const usb_iface_desc_t *)p;
             if (iface->bInterfaceClass    == USB_CLASS_PRINTER &&
                 iface->bInterfaceSubClass == USB_SUBCLASS_PRINTER &&
-                iface->bInterfaceProtocol == USB_PROTO_BIDIR) {
+                (iface->bInterfaceProtocol == USB_PROTO_BIDIR ||
+                 iface->bInterfaceProtocol == USB_PROTO_UNIDIR)) {
                 found_iface = 1;
-                diag_printf("usb: found bi-directional Printer interface\n");
+                diag_printf("usb: found %s Printer interface\n",
+                            iface->bInterfaceProtocol == USB_PROTO_BIDIR ?
+                            "bi-directional" : "unidirectional");
             } else {
                 found_iface = 0;
             }
@@ -1025,6 +1457,22 @@ int usb_printer_init(void)
 {
     memset((void *)&g_printer_status, 0, sizeof(g_printer_status));
 
+    /* Initialise the firmware-blob mutex (before any possible upload) */
+    cyg_mutex_init(&s_fw_mutex);
+
+    /* If the firmware was baked in at build time, pre-populate the blob
+     * buffer so stub-PID printers (HP LJ 1015/1020/1022) are handled
+     * automatically without any web-UI upload step. */
+#ifdef HAVE_HP1020_FW_BUILTIN
+    if (HP1020_FW_BLOB_SIZE > 0u &&
+        HP1020_FW_BLOB_SIZE <= USB_FW_MAX_SIZE) {
+        memcpy(s_fw_blob, hp1020_fw_blob, HP1020_FW_BLOB_SIZE);
+        s_fw_blob_size = HP1020_FW_BLOB_SIZE;
+        diag_printf("usb_fw: built-in blob loaded (%u bytes)\n",
+                    (unsigned)HP1020_FW_BLOB_SIZE);
+    }
+#endif
+
     diag_printf("usb: initialising MT7688 USB host controller\n");
 
     platform_usb_init();
@@ -1089,20 +1537,27 @@ void usb_printer_update_status(void)
     {
         uint32_t portsc = ehci_read(EHCI_OPR_PORTSC0);
         if (!(portsc & PORTSC_CCS)) {
-            /* Device disconnected */
-            if (g_printer_status.connected) {
-                diag_printf("usb: printer disconnected\n");
+            /* Device disconnected — clear all state including needs_firmware */
+            if (g_printer_status.connected || g_printer_status.needs_firmware) {
+                diag_printf("usb: USB device disconnected\n");
                 memset((void *)&g_printer_status, 0,
                        sizeof(g_printer_status));
             }
             return;
         }
         if (!g_printer_status.connected) {
-            /* New device connected — try to enumerate */
-            diag_printf("usb: printer connected — enumerating\n");
-            if (ehci_port_reset() == 0 && enumerate_printer() == 0) {
-                g_printer_status.connected = true;
-                diag_printf("usb: printer ready\n");
+            /* A USB device is physically present but not yet enumerated as a
+             * printer.  If we already know it needs host-side firmware, skip
+             * re-enumeration — the device's PID will not change until it is
+             * power-cycled after receiving firmware from a host PC.  Only
+             * attempt enumeration again after a physical disconnect/reconnect,
+             * which clears needs_firmware via the branch above. */
+            if (!g_printer_status.needs_firmware) {
+                diag_printf("usb: USB device connected — enumerating\n");
+                if (ehci_port_reset() == 0 && enumerate_printer() == 0) {
+                    g_printer_status.connected = true;
+                    diag_printf("usb: printer ready\n");
+                }
             }
             return;
         }

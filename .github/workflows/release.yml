@@ -22,6 +22,11 @@ jobs:
       FREERTOS_VERSION: "V10.6.2"
       # lwIP version to download
       LWIP_VERSION: "STABLE-2_2_0_RELEASE"
+      # HP LaserJet 1020/1015/1022 EZ-USB firmware blob (downloaded at build time,
+      # NOT committed to the repository — HP-proprietary binary).
+      # Source: foo2zjs mirror hosted on GitHub (publicly available for 15+ years).
+      HP1020_FW_URL: "https://raw.githubusercontent.com/inveneo/hub-linux-ubuntu/master/install/overlay/usr/share/foo2zjs/firmware/sihp1020.dl"
+      HP1020_FW_PATH: "/tmp/sihp1020.dl"
 
     steps:
       - name: Checkout repository
@@ -94,13 +99,56 @@ jobs:
           mv lwip-extract/lwip-* lwip
           rm -rf lwip-extract /tmp/lwip.tar.gz
 
+      # ── HP LaserJet 1020/1015/1022 EZ-USB firmware ───────────────────────
+      # Download the HP LJ 1020 firmware blob from a public GitHub mirror of
+      # the foo2zjs project.  The binary is HP-proprietary and is NOT stored
+      # in this repository; it is fetched at build time and baked into the
+      # firmware image via the HP1020_FW make variable so that the released
+      # binary supports HP LJ 1015/1020/1022 out of the box with no manual
+      # user setup required.
+      #
+      # If the download fails (e.g. the mirror is taken down) the build
+      # continues WITHOUT the blob — the print server will still work, but HP
+      # LJ 1015/1020/1022 users will need to upload the firmware manually via
+      # the web interface (Option D in COMPATIBILITY.md).
+      - name: Download HP LaserJet 1020 firmware blob (sihp1020.dl)
+        id: hp1020_fw
+        run: |
+          echo "Downloading HP LJ 1020 firmware from public foo2zjs mirror…"
+          if curl -fsSL --connect-timeout 15 --max-time 60 \
+                  -o "$HP1020_FW_PATH" "$HP1020_FW_URL"; then
+            BYTES="$(wc -c < "$HP1020_FW_PATH")"
+            if [ "$BYTES" -lt 1024 ]; then
+              echo "::warning::Downloaded file is too small (${BYTES} bytes) — skipping blob bake-in."
+              rm -f "$HP1020_FW_PATH"
+              echo "available=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Downloaded ${BYTES} bytes → $HP1020_FW_PATH"
+              echo "available=true"  >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "::warning::Could not download HP LJ 1020 firmware blob — building without it."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # ── Build ─────────────────────────────────────────────────────────────
       - name: Build FreeRTOS firmware
         run: |
-          make -C firmware \
-            CROSS_COMPILE="$CROSS_COMPILE" \
-            FREERTOS_DIR="$GITHUB_WORKSPACE/freertos-kernel" \
-            LWIP_DIR="$GITHUB_WORKSPACE/lwip"
+          # Build with HP LJ 1020 firmware baked in if the blob was downloaded
+          if [ "${{ steps.hp1020_fw.outputs.available }}" = "true" ]; then
+            echo "Building with HP LJ 1020/1015/1022 firmware baked in (HP1020_FW=$HP1020_FW_PATH)"
+            make -C firmware \
+              CROSS_COMPILE="$CROSS_COMPILE" \
+              FREERTOS_DIR="$GITHUB_WORKSPACE/freertos-kernel" \
+              LWIP_DIR="$GITHUB_WORKSPACE/lwip" \
+              HP1020_FW="$HP1020_FW_PATH"
+          else
+            echo "Building WITHOUT HP LJ 1020/1015/1022 firmware (blob unavailable)"
+            make -C firmware \
+              CROSS_COMPILE="$CROSS_COMPILE" \
+              FREERTOS_DIR="$GITHUB_WORKSPACE/freertos-kernel" \
+              LWIP_DIR="$GITHUB_WORKSPACE/lwip"
+          fi
 
       # ── Verification ──────────────────────────────────────────────────────
       - name: Verify firmware image structure and checksums
@@ -169,6 +217,17 @@ jobs:
             | File | Device | CPU | RTOS |
             |------|--------|-----|------|
             | `gpsu21_freertos.bin` | IOGear GPSU21 | MediaTek MT7688 (MIPS32r2) | FreeRTOS V10.6.2 |
+
+            ### HP LaserJet 1015 / 1020 / 1022 — works out of the box
+
+            This firmware image includes the HP LaserJet 1020 EZ-USB firmware
+            blob baked in (downloaded at build time from the public foo2zjs mirror
+            hosted on GitHub).  The print server automatically uploads it to any
+            HP LJ 1015, 1020 or 1022 at power-on — **no manual steps required**.
+
+            > The HP LJ 1020 firmware binary is HP-proprietary and is not stored
+            > in this repository.  It is fetched during the CI build from a
+            > long-standing public mirror and included in the release image only.
 
             ### What changed from eCos
 

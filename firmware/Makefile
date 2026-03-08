@@ -4,6 +4,23 @@
 #   FREERTOS_DIR   - path to extracted FreeRTOS-Kernel source tree
 #   LWIP_DIR       - path to extracted lwIP source tree
 #   CROSS_COMPILE  - toolchain prefix (default: mipsel-linux-gnu-)
+#
+# Optional — HP LaserJet 1020/1015/1022 firmware bake-in:
+#   HP1020_FW      - path to the HP LaserJet 1020 EZ-USB firmware blob
+#                    (.dl / .img / .fw / Intel HEX).  When supplied, the
+#                    firmware blob is baked into the firmware image so the
+#                    print server automatically uploads it to the printer at
+#                    power-on without any manual web-UI step.
+#
+#   Example:
+#     # Download the blob first (see scripts/get_hp1020_firmware.sh):
+#     ./scripts/get_hp1020_firmware.sh --save /tmp/sihp1020.dl
+#
+#     make -C firmware \
+#       HP1020_FW=/tmp/sihp1020.dl \
+#       CROSS_COMPILE=mipsel-linux-gnu- \
+#       FREERTOS_DIR=../freertos-kernel \
+#       LWIP_DIR=../lwip
 
 CROSS_COMPILE ?= mipsel-linux-gnu-
 CC      := $(CROSS_COMPILE)gcc
@@ -58,6 +75,23 @@ CFLAGS := \
 	-DRAM_STARTUP \
 	-U_FORTIFY_SOURCE \
 	-D_FORTIFY_SOURCE=0
+
+# ── Optional: bake HP LaserJet 1020 firmware blob into the firmware image ──
+# If HP1020_FW is set to a valid firmware file, generate a C header from it
+# and compile usb_printer.c with -DHAVE_HP1020_FW_BUILTIN so the print server
+# automatically uploads the blob to any HP LJ 1015/1020/1022 at power-on.
+HP1020_FW          ?=
+HP1020_FW_BLOB_H   := $(BUILD_DIR)/hp1020_fw_blob.h
+GEN_FW_BLOB_SCRIPT := $(TOP_DIR)/scripts/gen_fw_blob.py
+SCRIPTS_DIR        := $(TOP_DIR)/scripts
+
+ifneq ($(HP1020_FW),)
+CFLAGS += -DHAVE_HP1020_FW_BUILTIN -I$(BUILD_DIR)
+$(HP1020_FW_BLOB_H): $(HP1020_FW) | $(BUILD_DIR)
+	python3 $(GEN_FW_BLOB_SCRIPT) $(HP1020_FW) $@
+	@echo "  FW blob header: $@"
+$(BUILD_DIR)/usb_printer.o: $(HP1020_FW_BLOB_H)
+endif
 
 ASFLAGS := \
 	$(CFLAGS) \
