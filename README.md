@@ -614,6 +614,73 @@ flashrom -p ch341a_spi -r gpsu21_flash_BACKUP_$(date +%Y%m%d).bin
 A backup lets you restore the device to its exact previous state without needing
 to find a donor unit.
 
+---
+
+## Would a Full IC Flash Dump Help Prevent Bricking?
+
+**Yes — a full flash dump is the most direct way to confirm exactly what the
+ZOT bootloader validates before writing new firmware to flash.**
+
+### What a full IC dump reveals
+
+The GPSU21's SPI NOR flash chip stores more than the application firmware:
+
+| Flash region | What it contains | Why it matters |
+|---|---|---|
+| U-Boot bootloader | The boot ROM that runs before our firmware | Contains the **upgrade validation code** — by disassembling U-Boot we can see exactly what checks it performs on an incoming firmware image before writing it to flash |
+| U-Boot environment | Variables like `fwaddr`, `firmware_addr`, `serverip` | Confirms the **exact flash address** and size of the firmware partition, so recovery `erase`/`cp.b` commands in this README use correct values |
+| Application firmware | The ZOT-formatted LZMA image | The known-good firmware image that can be written back to a bricked device |
+
+### What specifically causes bricking — and how the code addresses it
+
+The code changes in this repository address the known bricking mechanisms:
+
+| Risk | Root cause | Fixed by |
+|---|---|---|
+| **Hardware watchdog reboot loop** | ZOT U-Boot arms the SoC watchdog with a ~30 s timeout; if firmware doesn't disable it first, the SoC resets and the cycle repeats forever | `mt7688_wdt_disable()` called as the **first** thing in `board_init()` (`firmware/bsp/mt7688_init.c`) before any other code runs |
+| **Scheduler never ticks** | CP0 Status IM7 (bit 15) and IM0 (bit 8) must be set on every task's initial context frame; without them the timer and yield interrupts remain masked after the first `eret`, and the FreeRTOS scheduler hangs | `pxPortInitialiseStack()` sets CP0 Status = `0x00008103` (IE \| EXL \| IM0 \| IM7) — see `firmware/bsp/freertos_port/port.c` |
+| **Upgrade validator rejects image** | The ZOT bootloader checks the firmware image before writing it to flash; if any header field is wrong the write does not proceed | `firmware/package_firmware.py` constructs the ZOT header, uImage header, and LZMA payload to exactly match the format the bootloader expects (magic bytes, CRCs, load address `0x80500000`, and version string starting with `J#MT7688-`) |
+
+### How to share a flash dump to help the project
+
+If you have a working GPSU21 and are willing to share a flash dump:
+
+1. **Create the dump** (requires a CH341A programmer and `flashrom`):
+
+   ```bash
+   flashrom -p ch341a_spi -r gpsu21_flash_$(date +%Y%m%d).bin
+   ```
+
+2. **Analyse the dump** with the included tool:
+
+   ```bash
+   python3 tools/analyze_flash_dump.py  gpsu21_flash_YYYYMMDD.bin
+   ```
+
+   This validates all header fields, reports the partition layout, and prints
+   the exact U-Boot `erase`/`cp.b` addresses for the firmware partition on your
+   specific device.
+
+3. **Share the analysis output** — the output of `analyze_flash_dump.py` tells
+   us what firmware partition offset and size your device uses.  The dump
+   itself also contains the U-Boot binary, which can be disassembled to
+   confirm exactly what validation logic the bootloader uses.
+
+   > The flash dump does **not** contain passwords or personal user data — only
+   > firmware code and factory-default network configuration.
+
+### Verifying a firmware image before flashing
+
+The `tools/analyze_flash_dump.py` script can also validate a firmware-only
+`.bin` file (such as `firmware/build/gpsu21_freertos.bin`) before you flash it:
+
+```bash
+python3 tools/analyze_flash_dump.py  firmware/build/gpsu21_freertos.bin
+```
+
+If all checks pass, the firmware image has the correct ZOT magic, CRCs,
+version string, load address, and LZMA payload — and is safe to flash.
+
 ## Flashing the Firmware
 
 ### IOGear GPSU21

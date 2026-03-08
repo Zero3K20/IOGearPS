@@ -36,17 +36,22 @@ GPSU21:
 
 ### Firmware version format
 
-The version string is embedded in the firmware at offset 0x28:
+The version string is embedded in the firmware at offset 0x28 and always starts
+with the `J#` prefix:
 
 ```
-MT7688-<major>.<minor>.<release>.<build>.<serial>-<date> <time>
+J#MT7688-<major>.<minor>.<release>.<build>.<serial>-<date> <time>
 ```
 
 Example from this firmware:
 
 ```
-MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10
+J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10
 ```
+
+The `J#` prefix is required by the ZOT upgrade validator.  A firmware image
+whose version string at offset 0x28 does **not** start with `J#MT7688-` will
+be rejected by the bootloader's upgrade check without being written to flash.
 
 ### Extracting and modifying the web interface
 
