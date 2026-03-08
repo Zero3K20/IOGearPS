@@ -85,6 +85,11 @@ HP1020_FW_BLOB_H   := $(BUILD_DIR)/hp1020_fw_blob.h
 GEN_FW_BLOB_SCRIPT := $(TOP_DIR)/scripts/gen_fw_blob.py
 SCRIPTS_DIR        := $(TOP_DIR)/scripts
 
+# Declare 'all' as the default goal before any conditional target rules so that
+# GNU Make's default goal is always 'all' regardless of whether HP1020_FW is set.
+.PHONY: all
+all: firmware
+
 ifneq ($(HP1020_FW),)
 CFLAGS += -DHAVE_HP1020_FW_BUILTIN -I$(BUILD_DIR)
 $(HP1020_FW_BLOB_H): $(HP1020_FW) | $(BUILD_DIR)
@@ -194,9 +199,6 @@ APP_OBJS := $(addprefix $(BUILD_DIR)/, $(APP_SRCS:.c=.o)) \
 		$(BUILD_DIR)/web_resources.o
 
 ALL_OBJS := $(BSP_OBJS) $(FRT_OBJS) $(PORT_OBJS) $(LWIP_OBJS) $(APP_OBJS)
-
-.PHONY: all
-all: firmware
 
 .PHONY: app-build
 app-build: $(ELF_OUT)
