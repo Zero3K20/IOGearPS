@@ -312,111 +312,29 @@ failure path was removed and error logging improved.  All workarounds and
 service-disablement recommendations that apply to build 9034 apply equally to
 build 9032.
 
-### Applying all bug fixes with `tools/patch_gpsu21.py`
-
-A purpose-built patch tool is included that applies **all confirmed binary
-fixes** in a single command.  It requires only Python 3 (no additional
-packages) and produces a drop-in replacement firmware image.
-
-```sh
-python3 tools/patch_gpsu21.py  MPS56_90956F_9034_20191119.zip  fixed.bin
-```
-
-Flash `fixed.bin` using the normal upgrade path:
-**GPSU21 web interface → System → Upgrade → browse → upload**.
-Do NOT power-cycle during the ~60-second upgrade.
-
-#### What `patch_gpsu21.py` fixes
-
-| Finding | Fix applied | Patch technique |
-|---------|-------------|-----------------|
-| **Finding 1** — HTTP connection exhaustion from browser auto-refresh | Removes `<meta HTTP-EQUIV="Refresh">` tags from `INDEX.HTM` (10 s) and `SERVICES.HTM` (5 s) | In-place byte replacement — identical size, spaces substituted |
-| **Finding 2** — mDNS/Bonjour lock counter de-sync | When `mDNS_Lock` or `mDNS_Unlock` detects `mDNS_busy ≠ mDNS_reentrancy`, it now corrects `mDNS_reentrancy = mDNS_busy` instead of logging and continuing with the mismatch | 36-byte MIPS in-place replacement in both `mDNS_Lock` and `mDNS_Unlock` |
-| **Finding 3** — Ethernet TX-descriptor stall | Self-healing — no patch needed | (auto-reset by the Ethernet driver) |
-| **Finding 4** — eCos `wakeup_count` overflow assertion | Removes the `BEQZ → fatal-assert` branch that fires when a thread accumulates ≥ 500 pending wakeups; the counter now simply continues instead of halting | 4-byte NOP replacing one MIPS branch instruction |
-
-The tool locates all patch sites **dynamically** from known error strings
-embedded in the firmware, so it works on both the 2019 (build 9034) and 2017
-(build 9032) firmware images.
-
-#### Technical details of the MIPS binary patches
-
-All code patches are in-place replacements — the patched instructions occupy
-exactly the same bytes as the originals, so no branch targets or load
-addresses are disturbed.
-
-**mDNS_Lock / mDNS_Unlock (Finding 2)**
-
-The Apple mDNSCore lock/unlock functions check that the re-entrancy counters
-are consistent immediately after acquiring the platform lock.  The original
-code in the error path is:
-
-```mips
-; Original — error path when mDNS_busy ≠ mDNS_reentrancy
-lw   $v0, X($sp)          ; reload m pointer
-lw   $v1, 0x18($v0)       ; v1 = m->mDNS_busy
-lw   $v0, X($sp)          ; reload m pointer
-lw   $a2, 0x1c($v0)       ; a2 = m->mDNS_reentrancy  (old, to pass to LogMsg)
-lui  $v0, <string_hi>
-addiu $a0, $v0, <string_lo>    ; a0 = "mDNS_Lock: Locking failure! ..."
-move $a1, $v1                  ; a1 = mDNS_busy
-jal  LogMsg                    ; log the error — mismatch persists!
-nop
-```
-
-The patched version:
-
-```mips
-; Patched — resync counters instead of logging
-lw   $v0, X($sp)          ; reload m pointer
-lw   $v1, 0x18($v0)       ; v1 = m->mDNS_busy
-lw   $v0, X($sp)          ; reload m pointer
-sw   $v1, 0x1c($v0)       ; m->mDNS_reentrancy = m->mDNS_busy  ← THE FIX
-nop                        ; (was: lui)
-nop                        ; (was: addiu)
-nop                        ; (was: move)
-nop                        ; (was: jal LogMsg)
-nop                        ; (was: delay slot)
-```
-
-After the patched error path the function continues normally and increments
-`mDNS_busy` as usual, so the counters are always in sync when `mDNS_Lock`
-returns.
-
-**eCos wakeup_count (Finding 4)**
-
-`cyg_thread_wakeup()` asserts fatally if a thread accumulates ≥ 500 pending
-wakeups.  The original code compiles to:
-
-```mips
-lw    $v0, 0x50($a0)     ; load  thread->wakeup_count
-addiu $v0, $v0, 1        ; increment
-sltiu $v1, $v0, 500      ; v1 = (count < 500)
-beqz  $v1, <assert>      ; if count ≥ 500 → fatal assert  ← PATCHED TO NOP
-sw    $v0, 0x50($a0)     ; store incremented count (delay slot)
-```
-
-The single `beqz` is replaced with `nop`.  The `sltiu` result is discarded,
-the counter continues incrementing (it wraps at 2³²), and the fatal assert
-code is never reached.
-
 ### Which issues are fixed?
+
+The FreeRTOS-based firmware in this repository is a clean reimplementation that
+avoids all of the OEM freeze mechanisms described above — the eCos kernel, the
+Apple mDNSCore stack, and the original Ethernet driver are all replaced.
 
 | Finding | Status |
 |---------|--------|
-| **Finding 1** — HTTP browser auto-refresh exhausting the connection pool | ✅ Fixed by `patch_gpsu21.py` |
-| **Finding 2** — mDNS/Bonjour lock counter de-sync (Bonjour stops working) | ✅ Fixed by `patch_gpsu21.py` |
-| **Finding 3** — Ethernet TX-descriptor stall | ✅ Self-healing (auto-reset, no patch needed) |
-| **Finding 4** — eCos thread `wakeup_count` overflow assertion | ✅ Fixed by `patch_gpsu21.py` |
+| **Finding 1** — HTTP browser auto-refresh exhausting the connection pool | ✅ Eliminated — new HTTP server does not share a fixed socket pool |
+| **Finding 2** — mDNS/Bonjour lock counter de-sync (Bonjour stops working) | ✅ Eliminated — custom mDNS implementation replaces mDNSCore |
+| **Finding 3** — Ethernet TX-descriptor stall | ✅ Eliminated — new PDMA Ethernet driver with proper descriptor management |
+| **Finding 4** — eCos thread `wakeup_count` overflow assertion | ✅ Eliminated — FreeRTOS replaces the eCos kernel entirely |
+
+Flash `firmware/build/gpsu21_freertos.bin` (built from source or downloaded
+from the [Releases](../../releases) page) to replace the OEM firmware.
 
 ### Workarounds for periodic freeze
 
-> **The `tools/patch_gpsu21.py` tool now fixes all confirmed freeze
-> mechanisms** (see the section above).  Flash the patched firmware first;
-> the workarounds below are only needed if you cannot or do not want to flash
+> **Flashing the FreeRTOS firmware eliminates all confirmed freeze mechanisms.**
+> The workarounds below are only needed if you cannot or do not want to flash
 > custom firmware.
 
-If you choose not to use the patched firmware, the following workarounds keep
+If you choose not to flash the FreeRTOS firmware, the following workarounds keep
 the device running reliably without manual intervention.
 
 #### Option 1 — Smart power outlet or hardware timer
@@ -635,8 +553,7 @@ UART output at all and the ping/recovery-IP steps above produce no result).
 #### Identifying the flash chip
 
 The GPSU21's SPI NOR flash chip is an 8-pin package (SOIC-8 or WSON-8) located
-near the MT7688 SoC.  Read the part number printed on the chip.  The eCos
-firmware supports:
+near the MT7688 SoC.  Read the part number printed on the chip.  The MT7688 SoC is compatible with:
 
 | Manufacturer | Part numbers |
 |---|---|

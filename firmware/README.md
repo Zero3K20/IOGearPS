@@ -1,12 +1,12 @@
-# Building eCos Firmware for the IOGear GPSU21
+# Building FreeRTOS Firmware for the IOGear GPSU21
 
 This directory contains everything needed to build a compatible firmware image
-for the **IOGear GPSU21 print server** from eCos RTOS source.
+for the **IOGear GPSU21 print server** using FreeRTOS.
 
-The GPSU21 uses a **MediaTek MT7688** MIPS SoC and runs an eCos-based firmware
-built by ZOT Technology.  The sources here re-implement the same print-server
-application on top of a stock eCos kernel so that the resulting binary can be
-flashed using the device's standard firmware upgrade page.
+The GPSU21 uses a **MediaTek MT7688** MIPS SoC.  The sources here re-implement
+the same print-server application on top of FreeRTOS V10.6.2 and lwIP 2.2.0 so
+that the resulting binary can be flashed using the device's standard firmware
+upgrade page.
 
 ---
 
@@ -14,8 +14,9 @@ flashed using the device's standard firmware upgrade page.
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| eCos RTOS source | 3.0 | From https://ecos.sourceware.org/ |
-| MIPS cross-compiler | `mipsel-elf-gcc` 9.x+ | Buildroot or crosstool-ng |
+| FreeRTOS-Kernel | V10.6.2 | From https://github.com/FreeRTOS/FreeRTOS-Kernel |
+| lwIP | 2.2.0 | From https://github.com/lwip-tcpip/lwip |
+| MIPS cross-compiler | `mipsel-linux-gnu-gcc` 9.x+ | Ubuntu/Debian package or crosstool-ng |
 | Python 3 | 3.8+ | For `package_firmware.py` |
 | `lzma` / `xz-utils` | any | LZMA compression |
 
@@ -23,14 +24,16 @@ flashed using the device's standard firmware upgrade page.
 
 ```sh
 sudo apt-get install gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu
-# or use a bare-metal (elf) toolchain from crosstool-ng
 ```
 
-### Obtain eCos
+### Obtain FreeRTOS-Kernel and lwIP
 
 ```sh
-git clone https://git.code.sf.net/p/ecos/ecos ecos-src
-export ECOS_REPOSITORY=$PWD/ecos-src/packages
+curl -fL https://github.com/FreeRTOS/FreeRTOS-Kernel/archive/refs/tags/V10.6.2.tar.gz \
+  | tar -xz && mv FreeRTOS-Kernel-* freertos-kernel
+
+curl -fL https://github.com/lwip-tcpip/lwip/archive/refs/tags/STABLE-2_2_0_RELEASE.tar.gz \
+  | tar -xz && mv lwip-* lwip
 ```
 
 ---
@@ -39,17 +42,24 @@ export ECOS_REPOSITORY=$PWD/ecos-src/packages
 
 ```
 firmware/
-├── README.md           ← this file
-├── Makefile            ← top-level build automation
-├── ecos.ecc            ← exported eCos component configuration for MT7688
-├── package_firmware.py ← packages the eCos ELF binary into a flashable GPSU21 .bin
+├── README.md               ← this file
+├── Makefile                ← top-level build automation
+├── package_firmware.py     ← packages the ELF binary into a flashable GPSU21 .bin
+├── bsp/                    ← MT7688 board support (startup, UART, init, linker script)
+│   └── freertos_port/      ← custom MIPS32r2 FreeRTOS port
+├── freertos/               ← lwIP port and MT7688 Ethernet driver
+│   ├── lwip_port/          ← lwIP sys_arch (FreeRTOS ↔ lwIP glue)
+│   └── netif/              ← MT7688 RAETH PDMA Ethernet driver
 └── src/
-    ├── Makefile        ← eCos application build file
-    ├── main.c          ← application entry point, thread creation
-    ├── httpd.c         ← minimal HTTP server (serves web UI from ROM table)
-    ├── ipp_server.c    ← IPP/AirPrint server (port 631)
-    ├── mdns.c          ← mDNS/Bonjour advertising (_ipp._tcp)
-    └── lpr.c           ← LPR/LPD print server (port 515)
+    ├── main.c              ← application entry point, thread creation
+    ├── httpd.c             ← minimal HTTP server (serves web UI from ROM table)
+    ├── ipp_server.c        ← IPP/AirPrint server (port 631)
+    ├── escl_server.c       ← eSCL/AirScan server (port 9290)
+    ├── wsd_server.c        ← WSD discovery server (UDP 3702 / TCP 5357)
+    ├── mdns.c              ← mDNS/Bonjour advertising
+    ├── lpr.c               ← LPR/LPD print server (port 515)
+    ├── config.c            ← persistent device configuration
+    └── usb_printer.c       ← USB printer forwarding
 ```
 
 ---
@@ -57,62 +67,37 @@ firmware/
 ## Quick start
 
 ```sh
-# 1. Configure and build the eCos kernel library
-make ecos-build
+# Build (from the repository root, with freertos-kernel and lwip extracted alongside)
+make -C firmware \
+  CROSS_COMPILE=mipsel-linux-gnu- \
+  FREERTOS_DIR=$(pwd)/freertos-kernel \
+  LWIP_DIR=$(pwd)/lwip
 
-# 2. Build the application against the kernel library
-make app-build
-
-# 3. Package the ELF into a GPSU21-compatible .bin
-make firmware
-
-# Output: build/gpsu21_ecos.bin
+# Output: firmware/build/gpsu21_freertos.bin
 ```
 
 Flash the output file via the GPSU21 web interface:
-**System → Upgrade → browse → select `build/gpsu21_ecos.bin` → Upload**
+**System → Upgrade → browse → select `firmware/build/gpsu21_freertos.bin` → Upload**
 
 ---
 
 ## Build details
 
-### Step 1 — Configure eCos for MT7688
+### Step 1 — Compile the firmware
 
-The supplied `ecos.ecc` selects the correct HAL packages for the MT7688:
-
-| eCos package | Purpose |
-|---|---|
-| `CYGPKG_HAL_MIPS` | MIPS architecture HAL |
-| `CYGPKG_HAL_MIPS_RALINK_MT7688` | MT7688 board HAL (memory map, clocks, Ethernet) |
-| `CYGPKG_KERNEL` | eCos RTOS kernel (threads, mutexes, semaphores) |
-| `CYGPKG_IO_ETH_DRIVERS` | Ethernet I/O framework |
-| `CYGPKG_NET_LWIP` | lwIP TCP/IP stack |
-| `CYGPKG_COMPRESS_LZMA` | LZMA support (for ROM table) |
-
-The `ecosconfig` tool reads `ecos.ecc` and generates the `ecos_build/` tree:
-
-```sh
-ecosconfig import ecos.ecc
-ecosconfig check
-make -C ecos_build
-```
-
-This produces `ecos_build/install/lib/libtarget.a` — the kernel library.
-
-### Step 2 — Build the application
-
-The `src/Makefile` compiles the application sources against the generated
-`libtarget.a` and produces a MIPS ELF binary (`build/gpsu21_app.elf`).
+The top-level `Makefile` compiles FreeRTOS, lwIP, the MT7688 BSP, and the
+application sources in a single pass, producing a MIPS ELF binary
+(`build/gpsu21_app.elf`).
 
 Key linker settings:
 
 | Setting | Value | Reason |
 |---|---|---|
-| Load address | `0x80000400` | MT7688 DRAM start used by ZOT firmware |
-| Entry point | `cyg_user_start` | eCos application entry |
+| Load address | `0x80000400` | MT7688 DRAM start used by ZOT bootloader |
+| Entry point | `_start` (BSP startup) | Low-level MIPS init before FreeRTOS scheduler |
 | Output format | `binary` | Flat binary for LZMA compression |
 
-### Step 3 — Package the firmware
+### Step 2 — Package the firmware
 
 `package_firmware.py` takes the raw binary and wraps it in the layers that
 the GPSU21 bootloader expects:
@@ -125,13 +110,13 @@ flashable .bin layout (same as OEM firmware)
   0x0100 – 0x013F   64-byte U-Boot uImage header
                     (MIPS standalone, CRC32 over payload)
   0x0140 – 0x4ABF   Padding / extended header region (all 0xFF)
-  0x4AC0 – end      LZMA-compressed eCos binary
+  0x4AC0 – end      LZMA-compressed firmware binary
 ```
 
 Usage:
 
 ```sh
-python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_ecos.bin
+python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_freertos.bin
 ```
 
 ---
@@ -149,7 +134,7 @@ Pass `--version` to override:
 
 ```sh
 python3 firmware/package_firmware.py \
-    build/gpsu21_app.bin  build/gpsu21_ecos.bin \
+    build/gpsu21_app.bin  build/gpsu21_freertos.bin \
     --version "MT7688-1.00.00.0001.00000001t-2026/01/01 00:00:00"
 ```
 
@@ -159,10 +144,10 @@ The bootloader accepts any version string that begins with `MT7688-`.
 
 ## Web interface
 
-The web UI files are compiled into the ROM file table at the end of the eCos
-binary (see `unpack_gpsu21.py` / `repack_gpsu21.py` in `tools/`).  The
-source files live in `gpsu21_web/`.  The `src/Makefile` generates the C
-array (`web_resources.c`) from that directory automatically.
+The web UI files are compiled into a ROM file table embedded in the firmware
+binary.  The source files live in `gpsu21_web/`.  The `src/gen_web_resources.py`
+script generates `build/web_resources.c` from that directory automatically as
+part of the build.
 
 ---
 
@@ -170,7 +155,7 @@ array (`web_resources.c`) from that directory automatically.
 
 1. Open `http://<printer-ip>/` in a browser.
 2. Navigate to the firmware upgrade page.
-3. Upload `build/gpsu21_ecos.bin`.
+3. Upload `firmware/build/gpsu21_freertos.bin`.
 4. Wait ~60 seconds.  **Do not power-cycle during the upgrade.**
 
 To recover a bricked device, see the **Emergency Recovery** section in the
