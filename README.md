@@ -600,7 +600,42 @@ For a cleaner read/write, desolder the chip and use a ZIF or SOP8 socket adapter
    ```
 6. Reinstall the chip (if desoldered) and power on the device.
 
-### Prevention — back up your flash before flashing
+### Prevention — validate before flashing, back up your flash
+
+#### Step 1 — Validate the firmware image before writing it to the device
+
+Run the pre-flash validator on any `.bin` or `.zip` firmware image before
+uploading it.  It catches every known cause of bricking (bad CRCs, wrong
+load address, corrupt LZMA payload, missing CP0 interrupt-mask bits, missing
+WDT-disable instruction) and exits non-zero if anything looks wrong:
+
+```
+python3 tools/validate_firmware.py  firmware/build/gpsu21_freertos.bin
+python3 tools/validate_firmware.py  MPS56_90956F_9034_20191119.zip
+```
+
+Example output on a good image:
+
+```
+  [PASS]  ZOT magic
+  [PASS]  ZOT header CRC32
+  [PASS]  ZOT payload size
+  [PASS]  ZOT version fields
+  [PASS]  uImage magic
+  [PASS]  uImage header CRC32
+  [PASS]  uImage data CRC32
+  [PASS]  uImage load/entry address
+  [PASS]  LZMA decompression
+  [PASS]  CP0 Status IM0+IM7 (interrupt mask)
+  [PASS]  WDT disable at startup
+
+  ✓ All checks passed — this image is safe to flash.
+```
+
+If any check prints `[FAIL]`, **do not flash** — fix the reported problem and
+re-run the validator until it is clean.
+
+#### Step 2 — Back up your flash before writing
 
 Before flashing any modified firmware:
 
@@ -611,18 +646,22 @@ flashrom -p ch341a_spi -r gpsu21_flash_BACKUP_$(date +%Y%m%d).bin
 # Keep this file safe — it is your recovery image.
 ```
 
-A backup lets you restore the device to its exact previous state without needing
-to find a donor unit.
+A backup lets you restore the device to its exact previous state without
+needing to find a donor unit.
 
 ## Flashing the Firmware
 
 ### IOGear GPSU21
 
 1. Extract `MPS56_90956F_9034_20191119.bin` from the ZIP file.
-2. Open the GPSU21 web interface at `http://<printer-ip>/`.
-3. Navigate to the firmware upgrade page.
-4. Upload the `.bin` file (not the ZIP).
-5. Do **not** power-cycle the device during the upgrade.
+2. **Validate the image** to avoid bricking (see *Prevention* above):
+   ```
+   python3 tools/validate_firmware.py  MPS56_90956F_9034_20191119.zip
+   ```
+3. Open the GPSU21 web interface at `http://<printer-ip>/`.
+4. Navigate to the firmware upgrade page.
+5. Upload the `.bin` file (not the ZIP).
+6. Do **not** power-cycle the device during the upgrade.
 
 ---
 
@@ -651,6 +690,12 @@ python3 --version
 ---
 
 ### IOGear GPSU21 firmware tools
+
+| Script | Purpose |
+|---|---|
+| `tools/validate_firmware.py` | **Pre-flash validator** — run this before every flash to catch all known bricking causes |
+| `tools/unpack_gpsu21.py` | Extract the 61 web-interface files (HTML/JS/CSS/images) from a firmware `.bin` |
+| `tools/repack_gpsu21.py` | Rebuild a flashable `.bin` after editing the extracted web files |
 
 The GPSU21 firmware (`MPS56_90956F_9034_20191119.zip`) originally used **eCos RTOS**
 on a MediaTek MT7688 MIPS SoC.  This repository has **migrated to FreeRTOS** to
