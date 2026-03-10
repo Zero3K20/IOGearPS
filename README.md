@@ -697,3 +697,156 @@ make -C firmware \
 
 ---
 
+## OpenWrt Alternative
+
+> **Short answer:** Yes — OpenWrt can run on the GPSU21, but it requires
+> building the kernel from source with one non-default setting (the load
+> address).  The tools in this repository handle the rest.
+
+The GPSU21's MT7688 SoC is **officially supported** by OpenWrt under the
+`ramips/mt76x8` target.  With 64 MB of RAM and USB 2.0, the hardware is
+fully capable of running OpenWrt plus a CUPS or p910nd print server.
+
+### Why a custom load address is needed
+
+The GPSU21's ZOT bootloader copies the firmware image to DRAM address
+**0x80500000** and jumps there.  A standard OpenWrt MT7688 kernel is compiled
+for load address **0x80000000** and will crash immediately on this device.
+
+The kernel must be built with:
+
+```
+CONFIG_PHYSICAL_START=0x00500000   # physical 0x500000 = KSEG0 virtual 0x80500000
+```
+
+The `scripts/openwrt_gpsu21.config` fragment and
+`scripts/build_openwrt_gpsu21.sh` helper script apply this setting
+automatically.
+
+### Hardware summary
+
+| Component | Specification |
+|-----------|---------------|
+| CPU | MediaTek MT7688 MIPS32r2 (little-endian) |
+| RAM | 64 MB SDRAM |
+| Flash | 8–16 MB SPI NOR |
+| USB | USB 2.0 host (for printer) |
+| Ethernet | MT7688 built-in 10/100 switch |
+| Bootloader | ZOT Technology (U-Boot-based, proprietary image format) |
+| Kernel load address | 0x80500000 (ZOT constraint) |
+
+### Build steps
+
+#### 1. Build OpenWrt with the GPSU21 config
+
+```bash
+# Clone OpenWrt and build (30–90 minutes on a modern machine)
+./scripts/build_openwrt_gpsu21.sh
+
+# Or, if you already have an OpenWrt source tree:
+./scripts/build_openwrt_gpsu21.sh --openwrt-dir /path/to/openwrt
+```
+
+The script:
+- Clones or updates the OpenWrt source tree
+- Applies `scripts/openwrt_gpsu21.config` (ramips/mt76x8 target, initramfs
+  build, p910nd print server, correct load address)
+- Patches `CONFIG_PHYSICAL_START=0x00500000` into the kernel config
+- Adds a `gpsu21` device profile with `KERNEL_LOADADDR=0x80500000`
+- Runs `make` and reports the output image path
+
+#### 2. Wrap the kernel in ZOT format
+
+```bash
+python3 tools/package_openwrt_gpsu21.py \
+    openwrt/bin/targets/ramips/mt76x8/openwrt-ramips-mt76x8-gpsu21-initramfs-kernel.bin \
+    gpsu21_openwrt.bin
+```
+
+`package_openwrt_gpsu21.py` accepts either a raw vmlinux binary or an
+OpenWrt uImage (strips the 64-byte uImage header automatically), re-compresses
+the payload with ZOT-compatible LZMA settings, and wraps the result with the
+ZOT firmware header and stage-2 MIPS bootstrap — producing a `.bin` that
+the GPSU21 web interface accepts.
+
+#### 3. Flash
+
+Flash `gpsu21_openwrt.bin` via the GPSU21 web interface exactly as you would
+any other firmware:
+
+1. Open `http://<printer-ip>/` in a browser.
+2. Navigate to **System → Upgrade**.
+3. Upload `gpsu21_openwrt.bin`.
+4. Do **not** power-cycle during the upgrade (~60 s).
+
+> **Recovery:** if the OpenWrt image does not boot, use the UART + U-Boot
+> recovery procedure described in the
+> [**Emergency Recovery — Bricked GPSU21**](#emergency-recovery--bricked-gpsu21)
+> section above to reflash the original OEM firmware or the FreeRTOS firmware.
+
+### Print server configuration under OpenWrt
+
+Once OpenWrt boots, configure the print server via LuCI (if installed) or SSH.
+
+#### p910nd (lightweight, included by default)
+
+p910nd is a pass-through print server with a tiny footprint (~20 KB).  It
+listens on port 9100 and forwards jobs directly to the USB printer.
+
+```sh
+# /etc/config/p910nd  (already configured by the OpenWrt package)
+config p910nd
+    option enabled   1
+    option device    /dev/usb/lp0
+    option port      9100
+    option bidirectional 0
+```
+
+Start and enable at boot:
+
+```sh
+/etc/init.d/p910nd enable
+/etc/init.d/p910nd start
+```
+
+On a client machine, add a printer with the RAW protocol pointing to
+`socket://<gpsu21-ip>:9100`.
+
+#### CUPS (full IPP + AirPrint)
+
+For AirPrint and IPP support, rebuild OpenWrt with CUPS and avahi-daemon:
+
+```bash
+./scripts/build_openwrt_gpsu21.sh \
+    --package cups \
+    --package avahi-daemon \
+    --package kmod-usb-printer
+```
+
+After flashing, configure CUPS via `http://<gpsu21-ip>:631/` and enable
+Bonjour advertising so AirPrint devices discover the printer automatically.
+
+### Comparison: FreeRTOS vs OpenWrt
+
+| | FreeRTOS (this repo) | OpenWrt |
+|---|---|---|
+| **Image size** | ~300 KB compressed | ~5–8 MB compressed |
+| **Boot time** | ~3 s | ~15–30 s |
+| **RAM usage** | ~2 MB | ~20–30 MB |
+| **Print protocols** | LPR, IPP, AirPrint, RAW, SMB | p910nd (LPR/RAW) or CUPS (IPP/AirPrint) |
+| **Web interface** | Built-in print-server UI | LuCI (full router UI) |
+| **Extensibility** | Source-level only | opkg package manager |
+| **Community support** | This repository | OpenWrt forums / wiki |
+| **Flash requirement** | Any (image ≪ 1 MB) | Minimum 8 MB recommended |
+
+The **FreeRTOS firmware** in this repository is the recommended choice for a
+dedicated print server: it boots in seconds, uses minimal resources, and has a
+purpose-built web interface.
+
+**OpenWrt** is the better choice if you want a fully extensible Linux
+environment — for example, to run additional services (VPN, DNS, firewall) on
+the same device, or to use the `opkg` package manager to install software
+without rebuilding from source.
+
+---
+
