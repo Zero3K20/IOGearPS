@@ -35,9 +35,9 @@ The GPSU21 firmware image layout
                        0x1E        Image type: 0x01 (matches OEM firmware)
                        0x1F        Compression: 0x00 (matches OEM firmware)
                        0x20–0x3F  Image name: "zot716u2" (null-padded)
-    0x0140   18816 B  Stage-2 bootstrap code (MIPS machine code — copied from
+    0x0140   18848 B  Stage-2 bootstrap code (MIPS machine code — copied from
                        the OEM firmware; see note below)
-    0x4AC0    var     LZMA-compressed FreeRTOS binary (dict=8 MB, lc=3, lp=0, pb=2)
+    0x4AE0    var     LZMA-compressed FreeRTOS binary (dict=8 MB, lc=3, lp=0, pb=2)
 
 Why the stage-2 bootstrap is required
 ──────────────────────────────────────
@@ -71,14 +71,18 @@ Usage:
     input.bin        — raw FreeRTOS binary (output of objcopy -O binary)
     output.bin       — output file for the flashable firmware image
     --version        — override the version string embedded in the ZOT header
-                       (default: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
+                       (default: "H#MT7688-9.09.56.9032.00000394t-2017/11/23 10:36:02")
     --base-firmware  — OEM .bin or .zip to extract the stage-2 bootstrap from
-                       (default: MPS56_90956F_9034_20191119.zip in the repo root)
+                       (default: MPS56_IOG_GPSU21_20171123.zip in the repo root —
+                        the native IOGear GPSU21 firmware; LZMA offset is 0x4AE0)
+                       NOTE: If you supply MPS56_90956F_9034_20191119.zip instead,
+                       its LZMA starts at 0x4AC0 (not 0x4AE0); you would need to
+                       edit LZMA_OFFSET in this script to match.
 
-    The two-character prefix (e.g. "J#" or "H#") in the version string encodes
-    the OEM product code as a little-endian uint16 in ASCII.  The 2019 OEM
-    reference firmware uses "J#" (product code 9034) and the original 2017
-    IOGear-branded firmware uses "H#" (product code 9032).
+    The two-character prefix (e.g. "H#" or "J#") in the version string encodes
+    the OEM product code as a little-endian uint16 in ASCII.  The 2017
+    IOGear-branded firmware uses "H#" (product code 9032) and the 2019 OEM
+    reference firmware uses "J#" (product code 9034).
 
 Example:
     python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_freertos.bin
@@ -99,13 +103,19 @@ import zipfile
 # ──────────────────────────────────────────────────────────────────────────────
 
 UIMAGE_OFFSET  = 0x0100   # offset of the 64-byte uImage header in the .bin
-LZMA_OFFSET    = 0x4AC0   # offset of the LZMA payload in the .bin
-BOOTSTRAP_SIZE = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 18816 B
+LZMA_OFFSET    = 0x4AE0   # offset of the LZMA payload in the .bin
+BOOTSTRAP_SIZE = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AE0 - 0x0140 = 18848 B
 
 # Default OEM base firmware (used to extract the stage-2 bootstrap).
+# We use the 2017 IOGear-branded firmware (MPS56_IOG_GPSU21_20171123.zip)
+# because it is the native firmware for the exact target hardware (IOGear GPSU21)
+# and its LZMA payload begins at 0x4AE0 — matching LZMA_OFFSET above.
+# The 2019 ZOTECH firmware (MPS56_90956F_9034_20191119.zip) uses the same
+# hardware/bootloader but its LZMA starts at 0x4AC0 (different bootstrap length),
+# so it cannot be used as a drop-in default without changing LZMA_OFFSET.
 # Path is relative to this script (firmware/package_firmware.py → ../OEM.zip).
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_BASE_FW = os.path.join(_SCRIPT_DIR, "..", "MPS56_90956F_9034_20191119.zip")
+DEFAULT_BASE_FW = os.path.join(_SCRIPT_DIR, "..", "MPS56_IOG_GPSU21_20171123.zip")
 
 # Load/entry address: the ZOT/U-Boot bootloader decompresses the LZMA payload
 # to this KSEG0 DRAM address and jumps there.  This MUST match the address the
@@ -119,7 +129,7 @@ ZOT_HEADER_SIZE = 256          # bytes
 VERSION_OFFSET  = 0x28         # within ZOT header
 VERSION_PKT_OFFSET = 0x20      # packed version record within ZOT header
 
-DEFAULT_VERSION = "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
+DEFAULT_VERSION = "H#MT7688-9.09.56.9032.00000394t-2017/11/23 10:36:02"
 
 # LZMA filter parameters that match the original firmware
 LZMA_FILTERS = [
