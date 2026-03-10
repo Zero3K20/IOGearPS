@@ -11,3 +11,4 @@ firmware/build/
 *~
 .DS_Store
 firmware/__pycache__
+tools/__pycache__
