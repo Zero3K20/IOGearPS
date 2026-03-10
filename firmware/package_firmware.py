@@ -3,8 +3,8 @@
 package_firmware.py — Package a raw FreeRTOS binary into an IOGear GPSU21
                        flashable firmware image.
 
-The GPSU21 bootloader expects a specific binary layout:
-
+The GPSU21 firmware image layout
+─────────────────────────────────
     Offset    Size    Content
     ──────────────────────────────────────────────────────────
     0x0000    256 B   ZOT Technology firmware header
@@ -26,7 +26,7 @@ The GPSU21 bootloader expects a specific binary layout:
                        0x00–0x03  Magic: 0x27051956
                        0x04–0x07  Header CRC32 (covers header with this field zeroed)
                        0x08–0x0B  Timestamp (Unix epoch, big-endian)
-                       0x0C–0x0F  Data size (big-endian) = len(padding + lzma_payload)
+                       0x0C–0x0F  Data size (big-endian) = len(bootstrap + lzma_payload)
                        0x10–0x13  Load address: 0x80500000 (big-endian)
                        0x14–0x17  Entry point: 0x80500000 (big-endian)
                        0x18–0x1B  Data CRC32 (big-endian)
@@ -35,16 +35,45 @@ The GPSU21 bootloader expects a specific binary layout:
                        0x1E        Image type: 0x01 (matches OEM firmware)
                        0x1F        Compression: 0x00 (matches OEM firmware)
                        0x20–0x3F  Image name: "zot716u2" (null-padded)
-    0x0140   18816 B  Padding (0xFF bytes) — gap between uImage header and LZMA
-    0x4AC0    var     LZMA-compressed FreeRTOS binary
+    0x0140   18816 B  Stage-2 bootstrap code (MIPS machine code — copied from
+                       the OEM firmware; see note below)
+    0x4AC0    var     LZMA-compressed FreeRTOS binary (dict=8 MB, lc=3, lp=0, pb=2)
+
+Why the stage-2 bootstrap is required
+──────────────────────────────────────
+The ZOT bootloader copies the entire uImage data region (0x0140–end) to DRAM
+starting at the load address (0x80500000) and then jumps to the entry point
+(also 0x80500000).  The CPU therefore executes whatever bytes are at offset
+0x0140 in the firmware file first, before the LZMA payload is even read.
+
+The stage-2 bootstrap is a small MIPS program that:
+  1. Relocates itself out of the destination DRAM window if needed
+  2. Decompresses the LZMA payload (which resides at 0x80504980 in DRAM after
+     the initial copy) into the final load address (0x80500000)
+  3. Jumps to 0x80500000
+
+Without the stage-2 bootstrap, the bytes at 0x80500000 would be the first
+bytes of the LZMA-compressed blob (0x5d, 0x00, 0x00, ...) which are NOT valid
+MIPS instructions.  The CPU crashes immediately → hardware WDT fires → brick.
+
+This is why "patching the ZOTECH brand firmware was working fine": the repack
+approach preserves the original stage-2 bootstrap, while building the image
+from scratch without it causes an immediate crash.
+
+The bootstrap code is taken verbatim from the OEM firmware via --base-firmware.
+Because the bootstrap only decompresses bytes and jumps to 0x80500000, it is
+fully reusable for any payload (eCos or FreeRTOS) linked to that address.
 
 Usage:
-    python3 firmware/package_firmware.py  <input.bin>  <output.bin>  [--version VER]
+    python3 firmware/package_firmware.py  <input.bin>  <output.bin>  \\
+            [--version VER]  [--base-firmware OEM.bin|OEM.zip]
 
-    input.bin   — raw FreeRTOS binary (output of objcopy -O binary)
-    output.bin  — output file for the flashable firmware image
-    --version   — override the version string embedded in the ZOT header
-                  (default: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
+    input.bin        — raw FreeRTOS binary (output of objcopy -O binary)
+    output.bin       — output file for the flashable firmware image
+    --version        — override the version string embedded in the ZOT header
+                       (default: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
+    --base-firmware  — OEM .bin or .zip to extract the stage-2 bootstrap from
+                       (default: MPS56_90956F_9034_20191119.zip in the repo root)
 
     The two-character prefix (e.g. "J#" or "H#") in the version string encodes
     the OEM product code as a little-endian uint16 in ASCII.  The 2019 OEM
@@ -62,6 +91,7 @@ import struct
 import zlib
 import argparse
 import time
+import zipfile
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -70,7 +100,12 @@ import time
 
 UIMAGE_OFFSET  = 0x0100   # offset of the 64-byte uImage header in the .bin
 LZMA_OFFSET    = 0x4AC0   # offset of the LZMA payload in the .bin
-PADDING_SIZE   = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 18816 B
+BOOTSTRAP_SIZE = LZMA_OFFSET - UIMAGE_OFFSET - 64   # 0x4AC0 - 0x0140 = 18816 B
+
+# Default OEM base firmware (used to extract the stage-2 bootstrap).
+# Path is relative to this script (firmware/package_firmware.py → ../OEM.zip).
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_BASE_FW = os.path.join(_SCRIPT_DIR, "..", "MPS56_90956F_9034_20191119.zip")
 
 # Load/entry address: the ZOT/U-Boot bootloader decompresses the LZMA payload
 # to this KSEG0 DRAM address and jumps there.  This MUST match the address the
@@ -107,8 +142,8 @@ def _build_uimage_header(data_crc, data_size, timestamp):
     """
     Build a 64-byte U-Boot uImage header.
 
-    data_crc   — CRC32 of (padding || lzma_payload)
-    data_size  — byte length of (padding || lzma_payload)
+    data_crc   — CRC32 of (bootstrap || lzma_payload)
+    data_size  — byte length of (bootstrap || lzma_payload)
     timestamp  — Unix timestamp to embed
 
     The OS/arch/image-type/compression fields are set to match the OEM firmware
@@ -239,7 +274,55 @@ def _patch_zot_crc(fw_bytes):
     struct.pack_into("<I", fw_bytes, 0, crc)
 
 
-def package(input_path, output_path, version_str=DEFAULT_VERSION):
+def _load_bootstrap(base_fw_path=None):
+    """
+    Extract the 18,816-byte stage-2 bootstrap region from *base_fw_path*.
+
+    The bootstrap lives at byte offsets 0x0140–0x4ABF of the raw .bin file.
+    This function accepts either a raw .bin file or a .zip archive containing
+    exactly one .bin file.
+
+    The bootstrap is MIPS machine code written by ZOT Technology.  It is
+    copied verbatim from the OEM firmware so it can run unchanged in front of
+    any LZMA payload linked to 0x80500000 (eCos or FreeRTOS).
+    """
+    if base_fw_path is None:
+        base_fw_path = DEFAULT_BASE_FW
+    base_fw_path = os.path.normpath(base_fw_path)
+    if base_fw_path.lower().endswith(".zip"):
+        with zipfile.ZipFile(base_fw_path) as zf:
+            names = [n for n in zf.namelist() if n.lower().endswith(".bin")]
+            if not names:
+                raise ValueError(f"No .bin file found inside {base_fw_path}")
+            fw = zf.read(names[0])
+    else:
+        with open(base_fw_path, "rb") as f:
+            fw = f.read()
+
+    if len(fw) < LZMA_OFFSET:
+        raise ValueError(
+            f"Base firmware {base_fw_path!r} is too small "
+            f"({len(fw):,} bytes < {LZMA_OFFSET:#x}); "
+            "file may be corrupted or truncated"
+        )
+
+    bootstrap = fw[UIMAGE_OFFSET + 64 : LZMA_OFFSET]
+    if len(bootstrap) != BOOTSTRAP_SIZE:
+        raise ValueError(
+            f"Bootstrap region has unexpected size {len(bootstrap)} "
+            f"(expected {BOOTSTRAP_SIZE}); base firmware may be corrupted"
+        )
+    return bootstrap
+
+
+def package(input_path, output_path, version_str=DEFAULT_VERSION,
+            base_fw_path=None):
+    print(f"Loading stage-2 bootstrap from: "
+          f"{os.path.basename(base_fw_path or DEFAULT_BASE_FW)}")
+    bootstrap = _load_bootstrap(base_fw_path)
+    print(f"  Bootstrap size:   {len(bootstrap):,} bytes "
+          f"(0x{UIMAGE_OFFSET+64:04X}–0x{LZMA_OFFSET-1:04X})")
+
     print(f"Loading raw FreeRTOS binary: {input_path}")
     with open(input_path, "rb") as f:
         raw = f.read()
@@ -251,23 +334,20 @@ def package(input_path, output_path, version_str=DEFAULT_VERSION):
                                   filters=LZMA_FILTERS)
     print(f"  Compressed size:  {len(lzma_payload):,} bytes")
 
-    # Build the padding region (0x0140–0x4ABF, all 0xFF)
-    padding = b"\xFF" * PADDING_SIZE
-
-    # The uImage "data" field covers padding + lzma_payload
-    uimage_data = padding + lzma_payload
+    # The uImage "data" field covers bootstrap + lzma_payload
+    uimage_data = bootstrap + lzma_payload
     data_crc    = _crc32(uimage_data)
     timestamp   = int(time.time())
 
     # Build headers
     uimage_hdr = _build_uimage_header(data_crc, len(uimage_data), timestamp)
 
-    # ZOT payload_size = len(uimage_hdr) + len(padding) + len(lzma_payload)
-    payload_size = len(uimage_hdr) + len(padding) + len(lzma_payload)
+    # ZOT payload_size = len(uimage_hdr) + len(bootstrap) + len(lzma_payload)
+    payload_size = len(uimage_hdr) + len(bootstrap) + len(lzma_payload)
     zot_hdr = _build_zot_header_stub(payload_size, version_str)
 
     # Assemble the complete firmware image
-    fw = bytearray(zot_hdr + uimage_hdr + padding + lzma_payload)
+    fw = bytearray(zot_hdr + uimage_hdr + bootstrap + lzma_payload)
 
     # Patch the ZOT checksum now that the full image is assembled
     _patch_zot_crc(fw)
@@ -277,7 +357,7 @@ def package(input_path, output_path, version_str=DEFAULT_VERSION):
     # Verify layout
     assert len(zot_hdr) == ZOT_HEADER_SIZE
     assert len(uimage_hdr) == 64
-    assert len(padding) == PADDING_SIZE
+    assert len(bootstrap) == BOOTSTRAP_SIZE
 
     with open(output_path, "wb") as f:
         f.write(fw)
@@ -300,6 +380,10 @@ if __name__ == "__main__":
     parser.add_argument("output",  help="output firmware image (.bin)")
     parser.add_argument("--version", default=DEFAULT_VERSION,
                         help="firmware version string (default: %(default)s)")
+    parser.add_argument("--base-firmware", default=None, dest="base_fw",
+                        metavar="OEM_FW",
+                        help="OEM .bin or .zip to extract stage-2 bootstrap from "
+                             "(default: MPS56_90956F_9034_20191119.zip in repo root)")
     args = parser.parse_args()
 
-    package(args.input, args.output, args.version)
+    package(args.input, args.output, args.version, args.base_fw)

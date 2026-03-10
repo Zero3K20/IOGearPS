@@ -154,7 +154,7 @@ jobs:
       - name: Verify firmware image structure and checksums
         run: |
           python3 - <<'PYEOF'
-          import struct, zlib, lzma, sys, os
+          import struct, zlib, lzma, sys, os, zipfile
 
           fw_path = os.environ["FW_OUT"]
           with open(fw_path, "rb") as f:
@@ -187,6 +187,18 @@ jobs:
           assert load_addr == 0x80500000, \
               f"uImage load_addr wrong: {load_addr:#010x} (expected 0x80500000)"
 
+          # Stage-2 bootstrap region (0x0140–0x4ABF) must match the OEM firmware
+          # exactly.  If this region is all 0xFF (or otherwise wrong), the ZOT
+          # bootloader copies it to 0x80500000 and jumps there — causing an
+          # immediate CPU crash and WDT-triggered brick.
+          bootstrap = fw[0x140:0x4AC0]
+          with zipfile.ZipFile("MPS56_90956F_9034_20191119.zip") as zf:
+              oem = zf.read("MPS56_90956F_9034_20191119.bin")
+          oem_bootstrap = oem[0x140:0x4AC0]
+          assert bootstrap == oem_bootstrap, \
+              "Bootstrap region (0x0140-0x4ABF) does not match OEM firmware — " \
+              "stage-2 bootstrap was not embedded correctly; this image may brick the device"
+
           # Firmware version string
           ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
           assert ver.startswith("J#MT7688-"), f"Unexpected version string: {ver!r}"
@@ -195,6 +207,7 @@ jobs:
           raw = lzma.decompress(fw[0x4AC0:])
 
           print(f"OK  {len(fw):,} bytes  version={ver}  decompressed={len(raw):,} bytes")
+          print(f"    bootstrap: {len(bootstrap):,} bytes — OEM match ✓")
           PYEOF
 
       # ── Release ───────────────────────────────────────────────────────────
