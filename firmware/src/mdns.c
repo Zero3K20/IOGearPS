@@ -546,21 +546,29 @@ void mdns_thread(void *arg)
     /* Send three rapid initial announcements (RFC 6762 §8.3 Probing/
      * Announcing) spaced 1 second apart, then switch to the normal 5-second
      * interval.  This ensures iOS devices that are already on the network
-     * see the printer quickly after it boots. */
-    my_ip = get_my_ip();
+     * see the printer quickly after it boots.
+     *
+     * Skip any iteration where we have not yet been assigned an IP address
+     * (my_ip == 0).  Advertising 0.0.0.0 in the A record would cause clients
+     * to cache an invalid address.  This also avoids spurious mDNS traffic
+     * visible in WireShark when the device is still waiting for a DHCP lease
+     * (e.g. when connected directly to a MacBook Pro in recovery scenarios). */
     for (i = 0; i < 3; i++) {
-        if (g_airprint_enabled) {
-            int len = build_announcement(&msg, my_ip);
-            if (len > 0) {
-                lwip_sendto(sock, msg.buf, (size_t)len, 0,
-                            (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+        my_ip = get_my_ip();
+        if (my_ip != 0) {
+            if (g_airprint_enabled) {
+                int len = build_announcement(&msg, my_ip);
+                if (len > 0) {
+                    lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+                }
             }
-        }
-        if (g_scanner_enabled) {
-            int len = build_scanner_announcement(&msg, my_ip);
-            if (len > 0) {
-                lwip_sendto(sock, msg.buf, (size_t)len, 0,
-                            (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+            if (g_scanner_enabled) {
+                int len = build_scanner_announcement(&msg, my_ip);
+                if (len > 0) {
+                    lwip_sendto(sock, msg.buf, (size_t)len, 0,
+                                (struct sockaddr *)&mcast_addr, sizeof(mcast_addr));
+                }
             }
         }
         cyg_thread_delay(pdMS_TO_TICKS(1000));
@@ -585,12 +593,24 @@ void mdns_thread(void *arg)
             continue;
         }
 
+        /* Never advertise until we have a valid IP address.  Sending an A
+         * record of 0.0.0.0 would cache a bogus address on every client on
+         * the multicast segment (typically observable in WireShark as the
+         * device appearing to share the host's IP during direct-connect
+         * recovery scenarios). */
+        if (my_ip == 0) {
+            continue;
+        }
+
         if (n > 0 && is_mdns_ipp_query(rxbuf, n)) {
             /* Respond to the query with a small random delay (100–200 ms) to
              * reduce the chance of a response collision when multiple devices
              * are probing at the same time (RFC 6762 §6). */
             cyg_thread_delay(pdMS_TO_TICKS(100));
             my_ip = get_my_ip();
+            if (my_ip == 0) {
+                continue;
+            }
             if (g_airprint_enabled) {
                 len = build_announcement(&msg, my_ip);
                 if (len > 0) {
