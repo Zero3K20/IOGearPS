@@ -154,7 +154,7 @@ jobs:
       - name: Verify firmware image structure and checksums
         run: |
           python3 - <<'PYEOF'
-          import struct, zlib, lzma, sys, os
+          import struct, zlib, lzma, sys, os, zipfile
 
           fw_path = os.environ["FW_OUT"]
           with open(fw_path, "rb") as f:
@@ -187,14 +187,29 @@ jobs:
           assert load_addr == 0x80500000, \
               f"uImage load_addr wrong: {load_addr:#010x} (expected 0x80500000)"
 
-          # Firmware version string
-          ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
-          assert ver.startswith("J#MT7688-"), f"Unexpected version string: {ver!r}"
+          # Stage-2 bootstrap region (0x0140–0x4ADF) must match the IOGear OEM firmware
+          # exactly.  The 2017 IOGear firmware is the device-native firmware; its
+          # LZMA payload starts at 0x4AE0 (bootstrap is 18,848 bytes: 0x0140–0x4ADF).
+          # If this region contains wrong bytes (e.g. all 0xFF), the ZOT bootloader
+          # copies it to 0x80500000 and jumps there — causing an immediate CPU crash
+          # and WDT-triggered brick.
+          bootstrap = fw[0x140:0x4AE0]
+          with zipfile.ZipFile("MPS56_IOG_GPSU21_20171123.zip") as zf:
+              oem = zf.read("MPS56_IOG_GPSU21_20171123.bin")
+          oem_bootstrap = oem[0x140:0x4AE0]
+          assert bootstrap == oem_bootstrap, \
+              "Bootstrap region (0x0140-0x4ADF) does not match IOGear OEM firmware — " \
+              "stage-2 bootstrap was not embedded correctly; this image may brick the device"
 
-          # LZMA payload decompresses
-          raw = lzma.decompress(fw[0x4AC0:])
+          # Firmware version string — native IOGear firmware uses "H#" prefix
+          ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
+          assert ver.startswith("H#MT7688-"), f"Unexpected version string: {ver!r}"
+
+          # LZMA payload decompresses (starts at 0x4AE0 in the 2017 IOGear firmware)
+          raw = lzma.decompress(fw[0x4AE0:])
 
           print(f"OK  {len(fw):,} bytes  version={ver}  decompressed={len(raw):,} bytes")
+          print(f"    bootstrap: {len(bootstrap):,} bytes — IOGear OEM match ✓")
           PYEOF
 
       # ── Release ───────────────────────────────────────────────────────────
