@@ -20,45 +20,119 @@ The GPSU21 supports the following printing protocols:
 
 ## AirPrint Support
 
-The GPSU21 firmware includes a **built-in Bonjour stack and IPP server** (port 631).
-It advertises itself as `_ipp._tcp` via mDNS automatically on your local network.
+The GPSU21 has an **IPP server on port 631** and a **built-in mDNS/Bonjour
+stack** in the OEM firmware, so the hardware is capable of AirPrint out of the
+box.  The problem is reliability: binary analysis of both the 2017 and 2019 OEM
+firmware builds reveals five confirmed failure paths in the Apple mDNSCore stack
+that cause AirPrint to stop working randomly until the device is power-cycled
+(see [Finding 2](#finding-2--mdnsbonjour-responder-can-enter-a-permanent-lock-failure)).
 
-### No PC software needed for modern devices
+The fix is **`tools/airprint_proxy.py`** — a pure-Python mDNS proxy that runs
+on any computer on your network and replaces the device's broken mDNS entirely.
+No firmware modifications are needed.
 
-| Apple device | How to print |
-|---|---|
-| **iOS 14+** | Goes to Settings → Wi-Fi (on same network) → AirPrint appears automatically |
-| **macOS 11+ (Big Sur and later)** | System Preferences → Printers & Scanners → "+" → print server appears automatically |
-| iOS 13 or earlier | Requires optional helper (see below) |
-| macOS 10.15 (Catalina) or earlier | Requires optional helper (see below) |
+### Quick start — reliable AirPrint with the OEM firmware
 
-### Setup
+**Step 1 — Assign a static IP to the GPSU21**
 
-1. **Assign a static IP address** to the GPSU21 (via your router's DHCP
-   reservation or the print server's web interface at `http://<printer-ip>/`).
-2. **Enable IPP** — open the web interface, go to **Setup → Services** and
-   ensure *Use IPP* is set to *Enabled*.
-3. **Enable Bonjour** — on the **Setup → TCP/IP** page, set *Rendezvous (Bonjour)
-   Service* to *Enabled* and enter a descriptive *Service Name* (e.g. `IOGear
-   GPSU21`).
-4. **Save & Restart** the device.
+Use your router's DHCP reservation page, or the GPSU21 web interface
+(`http://<printer-ip>/` → Setup → TCP/IP), to give the printer a permanent IP
+address (e.g. `192.168.1.100`).
 
-The printer will now appear automatically on iOS 14+ and macOS 11+ devices that
-are on the same Wi-Fi network.
+**Step 2 — Enable IPP on the printer**
 
-### Optional: older Apple device support (iOS 13 / macOS 10.15 and earlier)
+Open the web interface → **Setup → Services** and ensure *Use IPP* is set to
+*Enabled*.  The OEM Bonjour/Rendezvous setting does not matter — the proxy
+handles all mDNS advertising.
 
-For older Apple devices, you can manually advertise the `_universal._sub._ipp._tcp`
-sub-type using an Avahi service file on Linux or a Bonjour helper on Windows.
+**Step 3 — Run the mDNS proxy** (Python 3, no extra packages needed)
 
-> **Installing software on your PC is not required for iOS 14+ / macOS 11+.**
-> The above is only needed if you must also support older Apple devices.
+```bash
+# Replace 192.168.1.100 with your GPSU21's actual IP address
+python3 tools/airprint_proxy.py --ip 192.168.1.100
+```
 
-### Supported Document Formats
+The proxy sends mDNS announcements every 5 seconds and responds instantly to
+AirPrint discovery queries.  The printer appears on iOS 14+ and macOS 11+
+devices within a few seconds.
 
-When printing via AirPrint the iOS/macOS client sends jobs in one
-of the following formats, all of which are forwarded by the print server
-to the attached USB printer:
+Run it on any always-on machine on the same subnet: a Raspberry Pi, a home
+NAS, or a desktop PC.  Press **Ctrl+C** to stop.
+
+Optional arguments:
+
+| Argument | Default | Description |
+|---|---|---|
+| `--ip PRINTER_IP` | *(required)* | IP address of the GPSU21 |
+| `--name NAME` | `IOGear GPSU21` | Name shown in AirPrint dialogs |
+| `--hostname HOST` | `gpsu21` | `.local` hostname for the A record |
+| `--port PORT` | `631` | IPP port on the printer |
+| `--interval SECS` | `5` | Seconds between keep-alive announcements |
+
+#### Running the proxy automatically at startup
+
+**Linux (systemd)**
+
+```ini
+# /etc/systemd/system/airprint-proxy.service
+[Unit]
+Description=AirPrint mDNS proxy for IOGear GPSU21
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/IOGearPS/tools/airprint_proxy.py --ip 192.168.1.100
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now airprint-proxy
+```
+
+**macOS (launchd)**
+
+```bash
+# Run once; launchd keeps it running across reboots
+python3 tools/airprint_proxy.py --ip 192.168.1.100 &
+```
+
+**Windows (Task Scheduler)**
+
+Create a basic task that runs
+`python.exe C:\path\to\tools\airprint_proxy.py --ip 192.168.1.100`
+at logon, with "Run whether user is logged on or not" checked.
+
+#### Linux alternative — Avahi service file
+
+If your Linux machine already runs the **Avahi** mDNS daemon (common on
+Raspberry Pi OS, Ubuntu, Debian), you can use the provided service file
+instead of the Python proxy:
+
+```bash
+# Edit the IP address inside the file first:
+nano tools/gpsu21-airprint.service
+
+# Install it:
+sudo cp tools/gpsu21-airprint.service /etc/avahi/services/
+# Avahi picks it up automatically within a few seconds (no restart needed)
+
+# Verify:
+avahi-browse -r _ipp._tcp
+```
+
+> **Note:** The Avahi service file does not advertise the
+> `_universal._sub._ipp._tcp` sub-type that some iOS versions require.  Use
+> `airprint_proxy.py` if you need that sub-type, or if Avahi is not available.
+
+### Supported document formats
+
+When printing via AirPrint the iOS/macOS client sends jobs in one of the
+following formats, all of which are forwarded by the print server to the
+attached USB printer:
 
 - `application/pdf`
 - `image/jpeg`
@@ -80,21 +154,23 @@ IOGear-branded firmware from 2017/11/23) confirms:
 | `_ipp._tcp` Bonjour advertisement | ✅ Present | ✅ Present |
 | `_printer._tcp` Bonjour advertisement | ✅ Present | ✅ Present |
 
-Both components are present in both OEM builds; the 2017 firmware is an
-earlier build of the same 9.09.56 series as the 2019 firmware.
+Both components are present in both OEM builds; the 2017 firmware is an earlier
+build of the same 9.09.56 series as the 2019 firmware.
 
-**However, AirPrint reliability is poor on both OEM builds.**
+**The built-in mDNS is unreliable on both OEM builds.**
 [Finding 2](#finding-2--mdnsbonjour-responder-can-enter-a-permanent-lock-failure)
-in the stability analysis below documents five confirmed failure paths inside
-the Apple mDNSCore implementation.  When any of those paths is triggered, the
-mDNS responder stops advertising the printer — making the device invisible to
-AirPrint clients until a power-cycle, even though the device is otherwise still
-running.  The 2017 firmware is affected identically to the 2019 firmware (see
+documents five confirmed failure paths in the Apple mDNSCore implementation.
+When any of them triggers, the mDNS responder stops advertising the printer —
+making it invisible to AirPrint until a power-cycle.  The 2017 firmware is
+affected identically to the 2019 build (see
 [Does the 2017 IOGear firmware have the same issues?](#does-the-2017-iogear-firmware-have-the-same-issues)).
 
-The FreeRTOS firmware in this repository replaces the Apple mDNSCore stack with
-a purpose-built, lightweight mDNS implementation that eliminates all five failure
-paths, providing reliable AirPrint support.
+**The fix without modifying firmware:** run `tools/airprint_proxy.py` (see
+[Quick start](#quick-start--reliable-airprint-with-the-oem-firmware) above).
+The proxy takes over all mDNS advertising for the device; the OEM mDNS stack
+becomes irrelevant.  You cannot patch compiled MIPS machine code in the OEM
+binary directly, but the proxy achieves the same result from the network's
+point of view.
 
 ## Firmware Files
 

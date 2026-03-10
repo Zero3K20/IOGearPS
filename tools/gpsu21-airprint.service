@@ -1,0 +1,63 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!--
+  gpsu21-airprint.service — Avahi service file for the IOGear GPSU21
+
+  Drop this file into /etc/avahi/services/ on any Linux machine that is
+  always on and connected to the same network as the GPSU21.  Avahi will
+  then advertise the printer as an AirPrint service, completely replacing
+  the unreliable mDNS stack built into the OEM firmware.
+
+  SETUP:
+    1. Edit PRINTER_IP below (both occurrences) to your GPSU21's IP.
+    2. Optionally change the <name> to whatever you want shown in AirPrint.
+    3. Add a static host mapping so Avahi resolves gpsu21.local to the
+       printer's IP.  Create (or append to) /etc/avahi/hosts:
+         echo "192.168.1.100  gpsu21.local" | sudo tee -a /etc/avahi/hosts
+    4. Copy this file:
+         sudo cp tools/gpsu21-airprint.service /etc/avahi/services/
+    5. Reload Avahi (picks up both the service file and the hosts entry):
+         sudo systemctl reload avahi-daemon
+    6. Verify:
+         avahi-browse -r _ipp._tcp
+
+  The printer will appear in AirPrint dialogs on iOS 14+ and macOS 11+
+  devices on the same network within a few seconds.
+
+  NOTE: Avahi service files do not support the _universal._sub._ipp._tcp
+  sub-type needed by some iOS versions.  Use tools/airprint_proxy.py
+  instead if you need that sub-type advertised.
+-->
+<service-group>
+  <!-- Change this to whatever name you want shown in AirPrint / Print dialogs -->
+  <name replace-wildcards="yes">IOGear GPSU21</name>
+
+  <service protocol="ipv4">
+    <type>_ipp._tcp</type>
+    <!-- Port 631 is the standard IPP port used by the GPSU21 -->
+    <port>631</port>
+    <!--
+      Hostname (without .local) pointing to the printer.
+      IMPORTANT: this name must be mapped in /etc/avahi/hosts:
+        192.168.1.100  gpsu21.local
+      Replace 192.168.1.100 with the actual IP of your GPSU21.
+    -->
+    <host-name>gpsu21</host-name>
+    <!-- AirPrint requires these TXT records exactly as shown -->
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+    <txt-record>rp=ipp/print</txt-record>
+    <txt-record>ty=IOGear GPSU21</txt-record>
+    <!-- IMPORTANT: replace 192.168.1.100 with the actual IP of your GPSU21 -->
+    <txt-record>adminurl=http://192.168.1.100/</txt-record>
+    <txt-record>note=</txt-record>
+    <txt-record>priority=50</txt-record>
+    <txt-record>product=(GPL Ghostscript)</txt-record>
+    <txt-record>pdl=application/pdf,image/jpeg,image/png,image/urf,application/octet-stream</txt-record>
+    <txt-record>Color=F</txt-record>
+    <txt-record>Duplex=F</txt-record>
+    <txt-record>usb_MFG=IOGear</txt-record>
+    <txt-record>usb_MDL=GPSU21</txt-record>
+    <txt-record>air=username,password,t2600,pwg</txt-record>
+  </service>
+</service-group>
