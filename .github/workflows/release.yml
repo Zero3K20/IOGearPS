@@ -187,9 +187,20 @@ jobs:
           assert load_addr == 0x80500000, \
               f"uImage load_addr wrong: {load_addr:#010x} (expected 0x80500000)"
 
+          # ZOT header: product identifier fields
+          # 0x0C–0x0D: OEM product code LE uint16 (e.g. 9034 → bytes 0x4A 0x23 = "J#")
+          # 0x0E–0x12: hardware model string "MPS56" (null-terminated)
+          # Without these the GPSU21 bootloader refuses to boot the image.
+          oem_code = struct.unpack_from("<H", fw, 0x0C)[0]
+          assert oem_code == 9034, \
+              f"ZOT OEM product code wrong: {oem_code} (expected 9034)"
+          model_id = fw[0x0E:0x13].rstrip(b"\x00").decode("latin-1")
+          assert model_id == "MPS56", \
+              f"ZOT hardware model ID wrong: {model_id!r} (expected 'MPS56')"
+
           # Firmware version string
           ver = fw[0x28:0x5b].rstrip(b"\x00").decode("latin-1")
-          assert ver.startswith("J#MT7688-"), f"Unexpected version string: {ver!r}"
+          assert ver.startswith("MT7688-"), f"Unexpected version string: {ver!r}"
 
           # LZMA payload decompresses
           raw = lzma.decompress(fw[0x4AC0:])

@@ -11,12 +11,14 @@ The GPSU21 bootloader expects a specific binary layout:
                        0x00–0x03  CRC32 (bitwise complement, covers bytes 4–end)
                        0x04–0x07  Magic: 0xb25a4758 (ZXT)
                        0x08–0x0B  Payload size (LE uint32, counts bytes 0x0100–end)
+                       0x0C–0x0D  OEM product code (LE uint16, e.g. 9034 → bytes 0x4A 0x23 = "J#")
+                       0x0E–0x12  Hardware model identifier "MPS56" (5 bytes, null-terminated)
                        0x20        Version major (integer byte, e.g. 9)
                        0x21        Version minor (integer byte, e.g. 9)
                        0x22        Version patch (integer byte, e.g. 56)
                        0x23        Version suffix char (ASCII, e.g. 't' = 0x74)
                        0x24–0x27  Build count (LE uint32, e.g. 1243)
-                       0x28–0x5A  Version string (null-terminated, must start with "J#")
+                       0x28–0x5A  Version string (null-terminated, e.g. "MT7688-9.09.56.9034.00001243t-...")
     0x0100     64 B   U-Boot uImage header (ZOT-specific fields, big-endian)
                        0x00–0x03  Magic: 0x27051956
                        0x04–0x07  Header CRC32 (covers header with this field zeroed)
@@ -39,7 +41,7 @@ Usage:
     input.bin   — raw FreeRTOS binary (output of objcopy -O binary)
     output.bin  — output file for the flashable firmware image
     --version   — override the version string embedded in the ZOT header
-                  (default: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
+                  (default: "MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10")
 
 Example:
     python3 firmware/package_firmware.py  build/gpsu21_app.bin  build/gpsu21_freertos.bin
@@ -73,8 +75,11 @@ ZOT_MAGIC      = 0xb25a4758   # ZOT Technology magic (verified from OEM firmware
 ZOT_HEADER_SIZE = 256          # bytes
 VERSION_OFFSET  = 0x28         # within ZOT header
 VERSION_PKT_OFFSET = 0x20      # packed version record within ZOT header
+OEM_CODE_OFFSET = 0x0C         # LE uint16 OEM product code (e.g. 9034) within ZOT header
+MODEL_ID_OFFSET = 0x0E         # null-terminated hardware model string within ZOT header
+MODEL_ID        = "MPS56"      # GPSU21 hardware model identifier (from OEM firmware filename)
 
-DEFAULT_VERSION = "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
+DEFAULT_VERSION = "MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
 
 # LZMA filter parameters that match the original firmware
 LZMA_FILTERS = [
@@ -135,10 +140,12 @@ def _build_uimage_header(data_crc, data_size, timestamp):
 def _parse_version_fields(version_str):
     """
     Parse the packed version fields from the version string for ZOT header
-    offsets 0x20–0x27.
+    offsets 0x0C–0x0D and 0x20–0x27.
 
     The OEM firmware encodes a packed version record in the ZOT header at these
     offsets.  Reverse-engineering of the OEM binary confirms the layout:
+      0x0C–0x0D — OEM product code (LE uint16, extracted from the 4th dot-separated
+                  field in the version string, e.g. "9034" → 9034 → bytes 0x4A 0x23)
       0x20  — version major  (integer byte, e.g. 9)
       0x21  — version minor  (integer byte, e.g. 9 from "09")
       0x22  — version patch  (integer byte, e.g. 56)
@@ -148,24 +155,27 @@ def _parse_version_fields(version_str):
     The upgrade validator in the running firmware checks these bytes; if they
     are zero the firmware is rejected as "Wrong firmware".
 
-    Expected version_str format: "J#MT7688-{maj}.{min}.{patch}.{ignored}.{count}{suffix}-..."
-    Example: "J#MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
-    Returns (major, minor, patch, suffix_char, build_count) or None on parse failure.
+    Expected version_str format: "MT7688-{maj}.{min}.{patch}.{oem}.{count}{suffix}-..."
+    Example: "MT7688-9.09.56.9034.00001243t-2019/11/19 13:00:10"
+    Returns (major, minor, patch, oem_code, suffix_char, build_count) or None on parse failure.
     """
     import re
-    # Strip optional leading "J#" and platform prefix "MT7688-"
+    # Strip optional leading "J#" (legacy — the "J#" bytes belong in ZOT header
+    # offset 0x0C–0x0D, not in the version string; accept both formats for
+    # compatibility with old-style version strings passed via --version).
     # int() handles leading zeros in version components (e.g. "09" → 9)
     m = re.match(
-        r"(?:J#)?MT7688-(\d+)\.(\d+)\.(\d+)\.\d+\.(\d+)([a-zA-Z]?)",
+        r"(?:J#)?MT7688-(\d+)\.(\d+)\.(\d+)\.(\d+)\.(\d+)([a-zA-Z]?)",
         version_str)
     if not m:
         return None
     major      = int(m.group(1))
     minor      = int(m.group(2))
     patch      = int(m.group(3))
-    build      = int(m.group(4))
-    suffix     = ord(m.group(5)) if m.group(5) else 0
-    return (major, minor, patch, suffix, build)
+    oem_code   = int(m.group(4))
+    build      = int(m.group(5))
+    suffix     = ord(m.group(6)) if m.group(6) else 0
+    return (major, minor, patch, oem_code, suffix, build)
 
 
 def _build_zot_header_stub(payload_size, version_str):
@@ -180,6 +190,13 @@ def _build_zot_header_stub(payload_size, version_str):
     It must be computed AFTER the complete image is assembled; call
     _patch_zot_crc() on the assembled bytearray to fill it in.
 
+    Bytes 0x0C–0x0D hold the OEM product code as a LE uint16 (e.g. 9034, which
+    the bootloader reads as bytes 0x4A 0x23 = "J#").  Bytes 0x0E–0x12 hold the
+    null-terminated hardware model identifier "MPS56".  The GPSU21 bootloader
+    validates these fields to confirm the firmware targets the correct device;
+    without them it refuses to boot the image, leaving the device in network
+    recovery mode with the LEDs and Ethernet stack controlled by the bootloader.
+
     Bytes 0x20–0x27 hold a packed version record that the upgrade validator
     cross-checks; they are populated from the version string.
     """
@@ -192,14 +209,24 @@ def _build_zot_header_stub(payload_size, version_str):
     struct.pack_into("<I", hdr, 8, payload_size)
 
     # Packed version record at offsets 0x20–0x27 (must match OEM firmware layout)
+    # OEM product code at 0x0C–0x0D (LE uint16) and model ID at 0x0E–0x12
     fields = _parse_version_fields(version_str)
     if fields:
-        major, minor, patch, suffix_byte, build_count = fields
+        major, minor, patch, oem_code, suffix_byte, build_count = fields
+        # OEM product code — LE uint16 (e.g. 9034 → bytes 0x4A 0x23)
+        struct.pack_into("<H", hdr, OEM_CODE_OFFSET, oem_code & 0xFFFF)
         hdr[VERSION_PKT_OFFSET]     = major  & 0xFF
         hdr[VERSION_PKT_OFFSET + 1] = minor  & 0xFF
         hdr[VERSION_PKT_OFFSET + 2] = patch  & 0xFF
         hdr[VERSION_PKT_OFFSET + 3] = suffix_byte & 0xFF
         struct.pack_into("<I", hdr, VERSION_PKT_OFFSET + 4, build_count)
+
+    # Hardware model identifier at offset 0x0E (null-terminated).
+    # The GPSU21 bootloader checks this field to verify the firmware is for
+    # the correct hardware model (MPS56 = the GPSU21 internal model code).
+    model_bytes = MODEL_ID.encode("latin-1")
+    hdr[MODEL_ID_OFFSET : MODEL_ID_OFFSET + len(model_bytes)] = model_bytes
+    # null terminator is already present (bytearray initialised to 0x00)
 
     # Version string at offset 0x28 (null-terminated)
     ver_bytes = version_str.encode("latin-1")[:50]
