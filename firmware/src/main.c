@@ -31,6 +31,8 @@
  *   Thread 19 — eSCL scanner server (port 9290, AirScan for iOS/macOS)
  *   Thread 20 — WS-Discovery responder (UDP port 3702, Windows WSD)
  *   Thread 21 — WSD-Scan HTTP server (port 5357, Windows WSD)
+ *   Thread 22 — Ethernet RX polling
+ *   Thread 23 — LED indicator (LightToggleProc)
  */
 
 #include "rtos.h"
@@ -58,6 +60,7 @@
 #include "lpr.h"
 #include "config.h"
 #include "usb_printer.h"
+#include "led.h"
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Build-time firmware version string — embedded at a fixed offset so that
@@ -71,7 +74,7 @@ const char __attribute__((used, section(".version")))
  * Thread stacks and control structures
  * ───────────────────────────────────────────────────────────────────────────*/
 #define THREAD_STACK_SIZE   8192
-#define NUM_THREADS         23
+#define NUM_THREADS         24
 
 static cyg_handle_t thread_handles[NUM_THREADS];
 static cyg_thread   thread_objs[NUM_THREADS];
@@ -501,6 +504,7 @@ static const thread_desc_t thread_descs[NUM_THREADS] = {
     { wsd_discovery_thread, "wsd_disc",       12 },
     { wsd_http_thread,      "wsd_http",       12 },
     { eth_rx_thread,        "eth_rx",         11 },
+    { led_thread,           "led",            25 },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
