@@ -66,6 +66,36 @@ to the attached USB printer:
 - `image/urf` (Universal Raster Format)
 - `application/octet-stream` (raw)
 
+### Does the MPS56_IOG_GPSU21_20171123 (2017) firmware support AirPrint?
+
+**Yes — the 2017 OEM firmware contains both components that AirPrint requires.**
+
+Binary analysis of `MPS56_IOG_GPSU21_20171123.zip` (build 9032, the official
+IOGear-branded firmware from 2017/11/23) confirms:
+
+| AirPrint component | Build 9032 (2017 IOGear) | Build 9034 (2019 ZOT) |
+|---|:---:|:---:|
+| **mDNS/Bonjour** — Apple mDNSCore stack (`mDNSPosix.c`) | ✅ Present | ✅ Present |
+| **IPP server** on port 631 | ✅ Present | ✅ Present |
+| `_ipp._tcp` Bonjour advertisement | ✅ Present | ✅ Present |
+| `_printer._tcp` Bonjour advertisement | ✅ Present | ✅ Present |
+
+Both components are present in both OEM builds; the 2017 firmware is an
+earlier build of the same 9.09.56 series as the 2019 firmware.
+
+**However, AirPrint reliability is poor on both OEM builds.**
+[Finding 2](#finding-2--mdnsbonjour-responder-can-enter-a-permanent-lock-failure)
+in the stability analysis below documents five confirmed failure paths inside
+the Apple mDNSCore implementation.  When any of those paths is triggered, the
+mDNS responder stops advertising the printer — making the device invisible to
+AirPrint clients until a power-cycle, even though the device is otherwise still
+running.  The 2017 firmware is affected identically to the 2019 firmware (see
+[Does the 2017 IOGear firmware have the same issues?](#does-the-2017-iogear-firmware-have-the-same-issues)).
+
+The FreeRTOS firmware in this repository replaces the Apple mDNSCore stack with
+a purpose-built, lightweight mDNS implementation that eliminates all five failure
+paths, providing reliable AirPrint support.
+
 ## Firmware Files
 
 | File | Device | Version | Notes |
