@@ -30,19 +30,27 @@ err_t mt7688_eth_init(struct netif *netif);
 void mt7688_eth_rx_poll(void);
 
 /*
- * Network configuration — used only when LWIP_DHCP=0 (no DHCP server
- * available) or before a DHCP lease is granted.
+ * Network configuration — static fallback used when no DHCP server responds.
  *
- * These values are deliberately placed in the 192.168.0.0/24 subnet so that
- * a directly-connected host (laptop) can reach both the running firmware
- * (192.168.0.100) and the U-Boot recovery web-server (192.168.0.1) without
- * reconfiguring its network adapter.  In normal operation DHCP overrides
- * these values.
+ * lwIP's dhcp_start() clears the interface address to 0.0.0.0 while a lease
+ * is being negotiated.  If no DHCP server exists (e.g. the device is plugged
+ * directly into a laptop for recovery), the dhcp_fallback_thread in main.c
+ * waits DHCP_FALLBACK_TIMEOUT_MS and then restores these values.
+ *
+ * Address assignment:
+ *   192.168.0.1   — this device (firmware fallback / U-Boot recovery)
+ *   192.168.0.100 — the directly-connected host (laptop / MacBook)
+ *
+ * To reach the device after a direct connection:
+ *   1. Set the laptop's Ethernet adapter to a manual IP of 192.168.0.100,
+ *      subnet mask 255.255.255.0, no default gateway.
+ *   2. Wait ~30 seconds for DHCP to time out and the fallback to apply.
+ *   3. ping 192.168.0.1  /  http://192.168.0.1/
  */
 #define MT7688_IP_ADDR0     192
 #define MT7688_IP_ADDR1     168
 #define MT7688_IP_ADDR2       0
-#define MT7688_IP_ADDR3     100
+#define MT7688_IP_ADDR3       1
 
 #define MT7688_NETMASK0     255
 #define MT7688_NETMASK1     255

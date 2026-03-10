@@ -33,6 +33,7 @@
  *   Thread 21 — WSD-Scan HTTP server (port 5357, Windows WSD)
  *   Thread 22 — Ethernet RX polling
  *   Thread 23 — LED indicator (LightToggleProc)
+ *   Thread 24 — DHCP fallback (restores static IP if no DHCP server)
  */
 
 #include "rtos.h"
@@ -74,7 +75,7 @@ const char __attribute__((used, section(".version")))
  * Thread stacks and control structures
  * ───────────────────────────────────────────────────────────────────────────*/
 #define THREAD_STACK_SIZE   8192
-#define NUM_THREADS         24
+#define NUM_THREADS         25
 
 static cyg_handle_t thread_handles[NUM_THREADS];
 static cyg_thread   thread_objs[NUM_THREADS];
@@ -98,6 +99,7 @@ static void status_thread(void *arg);
 static void watchdog_thread(void *arg);
 static void idle_thread(void *arg);
 static void eth_rx_thread(void *arg);
+static void dhcp_fallback_thread(void *arg);
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Main print-server loop
@@ -448,6 +450,67 @@ static void idle_thread(void *arg)
     for (;;) cyg_thread_delay(10000);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * DHCP fallback thread
+ *
+ * lwIP's dhcp_start() clears the interface IP to 0.0.0.0 while waiting for
+ * a lease.  If no DHCP server responds within DHCP_FALLBACK_TIMEOUT_MS (e.g.
+ * the device is plugged directly into a laptop with no router), the static
+ * address defined in mt7688_eth.h (192.168.0.1/24) is applied so the device
+ * remains reachable for administration or firmware recovery.
+ *
+ * The static address is also what U-Boot uses, so users can follow the same
+ * direct-connection instructions regardless of whether U-Boot or the
+ * application firmware is running:
+ *   device  → 192.168.0.1
+ *   laptop  → 192.168.0.100 (set manually, /24, no gateway)
+ * ─────────────────────────────────────────────────────────────────────────────*/
+#define DHCP_FALLBACK_TIMEOUT_MS  30000   /* 30 seconds */
+
+/* Runs inside the lwIP tcpip thread — safe to modify netif state. */
+static void do_dhcp_fallback(void *arg)
+{
+    ip4_addr_t ipaddr, netmask, gw;
+    (void)arg;
+
+    dhcp_stop(&gpsu21_netif);
+
+    IP4_ADDR(&ipaddr,  MT7688_IP_ADDR0, MT7688_IP_ADDR1,
+                       MT7688_IP_ADDR2, MT7688_IP_ADDR3);
+    IP4_ADDR(&netmask, MT7688_NETMASK0, MT7688_NETMASK1,
+                       MT7688_NETMASK2, MT7688_NETMASK3);
+    IP4_ADDR(&gw,      MT7688_GW_ADDR0, MT7688_GW_ADDR1,
+                       MT7688_GW_ADDR2, MT7688_GW_ADDR3);
+
+    netif_set_addr(&gpsu21_netif, &ipaddr, &netmask, &gw);
+
+    diag_printf("GPSU21: DHCP fallback — static IP %d.%d.%d.%d applied\n",
+                MT7688_IP_ADDR0, MT7688_IP_ADDR1,
+                MT7688_IP_ADDR2, MT7688_IP_ADDR3);
+}
+
+static void dhcp_fallback_thread(void *arg)
+{
+    (void)arg;
+
+    /* Wait long enough for a DHCP server to respond. */
+    cyg_thread_delay(pdMS_TO_TICKS(DHCP_FALLBACK_TIMEOUT_MS));
+
+    if (!dhcp_supplied_address(&gpsu21_netif)) {
+        diag_printf("GPSU21: no DHCP lease after %u ms — applying static "
+                    "%d.%d.%d.%d\n",
+                    DHCP_FALLBACK_TIMEOUT_MS,
+                    MT7688_IP_ADDR0, MT7688_IP_ADDR1,
+                    MT7688_IP_ADDR2, MT7688_IP_ADDR3);
+        tcpip_callback(do_dhcp_fallback, NULL);
+    } else {
+        diag_printf("GPSU21: DHCP address assigned\n");
+    }
+
+    /* One-shot thread — nothing more to do. */
+    for (;;) cyg_thread_delay(pdMS_TO_TICKS(60000));
+}
+
 static void eth_rx_thread(void *arg)
 {
     (void)arg;
@@ -505,6 +568,7 @@ static const thread_desc_t thread_descs[NUM_THREADS] = {
     { wsd_http_thread,      "wsd_http",       12 },
     { eth_rx_thread,        "eth_rx",         11 },
     { led_thread,           "led",            25 },
+    { dhcp_fallback_thread, "dhcp_fb",        20 },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -529,7 +593,9 @@ static void netif_setup(void *arg)
     netif_set_default(&gpsu21_netif);
     netif_set_up(&gpsu21_netif);
 
-    /* Request an address via DHCP (falls back to static if no server). */
+    /* Start DHCP.  dhcp_start() clears the interface address to 0.0.0.0
+     * while a lease is being negotiated.  The dhcp_fallback_thread will
+     * restore the static address if no server responds within 30 seconds. */
     dhcp_start(&gpsu21_netif);
 }
 

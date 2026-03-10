@@ -374,37 +374,38 @@ If the device no longer responds after a firmware flash (web interface unreachab
 device does not appear on the network), follow these steps in order from easiest to
 hardest.
 
-### Step 1 — Wait and check recovery IP
+### IP address reference
 
-Some ZOT firmware builds enter a recovery/rescue mode automatically when the
-application image is corrupt.  After powering on, wait **60 seconds**, then try:
+| Who               | Address         | Notes |
+|-------------------|-----------------|-------|
+| GPSU21 (static fallback / U-Boot) | `192.168.0.1`   | Applied after ~30 seconds if no DHCP server responds |
+| Your laptop / Mac | `192.168.0.100` | Set manually for a direct Ethernet connection |
 
-```
-ping 192.168.0.1
-http://192.168.0.1/
-```
+The firmware's `dhcp_start()` clears the interface address to `0.0.0.0` while
+waiting for a DHCP lease.  If your router is not in the path (direct cable), no
+DHCP server answers, and after 30 seconds the firmware restores its static address
+`192.168.0.1`.  U-Boot uses the same address, so the recovery instructions below
+work identically regardless of whether the bootloader or the application is running.
 
-Also try the device's **last known IP address** (the one it used before it stopped
-responding) in case it kept its previous network configuration.
+> ⚠️ **Do not** set your laptop to `192.168.0.1` — that is the device's address.
+> Use `192.168.0.100` (or any other `.2`–`.254` address on the same `/24` subnet).
 
-If the device responds, it may be running a minimal recovery web server.  Upload
-the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that page
-(extract it from `MPS56_90956F_9034_20191119.zip` in this repository first).
+### Step 1 — Direct connection to your laptop / MacBook
 
-> **"Request timed out" / "Unable to connect"?**  Before concluding that Step 1
-> has failed, check for a **subnet mismatch**.  The recovery image uses the fixed
-> IP `192.168.0.1`.  If your home router hands out addresses on a *different*
-> subnet (e.g. `192.168.1.x`, `10.0.0.x`, `172.16.x.x`) the router will never
-> forward packets to `192.168.0.1` — so the ping times out even though the device
-> is alive and waiting.  **Try the direct-connection method below first.**
+1. **Connect the GPSU21 directly to your computer** with an Ethernet cable.
+   MacBook Pro and most modern laptops have no built-in RJ-45 port — use a
+   **USB-C to Ethernet adapter** (Apple's own adapter or any USB-C/Thunderbolt
+   to Gigabit Ethernet adapter works).
 
-#### Direct connection (bypasses the router — recommended first attempt)
+2. **Set the Ethernet adapter to a manual static IP:**
 
-1. **Connect the GPSU21 directly to your PC** with an Ethernet cable.  If your PC
-   has no Ethernet port, use a **USB-to-Ethernet adapter** (any USB 2.0/3.0 to
-   10/100 adapter works).
-2. **Assign your PC's Ethernet adapter a static IP on the same subnet:**
-
+   - **macOS (System Settings / System Preferences):**
+     *System Settings → Network → select the Ethernet / USB adapter →
+     Details… → TCP/IP tab → Configure IPv4: Manually*
+     - IP Address: `192.168.0.100`
+     - Subnet Mask: `255.255.255.0`
+     - Router: *(leave blank)*
+     → OK / Apply
    - **Windows:** Control Panel → Network and Sharing Center → Change adapter
      settings → right-click the Ethernet adapter → Properties →
      *Internet Protocol Version 4 (TCP/IPv4)* → *Use the following IP address*:
@@ -412,39 +413,41 @@ the original unmodified firmware (`MPS56_90956F_9034_20191119.bin`) from that pa
      - Subnet mask: `255.255.255.0`
      - Default gateway: *(leave blank)*
      → OK
-   - **macOS:** System Preferences → Network → select the Ethernet adapter →
-     Configure IPv4: *Manually* → IP Address: `192.168.0.100`,
-     Subnet Mask: `255.255.255.0` → Apply
    - **Linux:** `sudo ip addr add 192.168.0.100/24 dev eth0`
      *(replace `eth0` with your adapter name shown by `ip link`)*
 
-3. Power on the GPSU21 and wait **60 seconds**.
-4. Try again:
+3. Power on the GPSU21 and wait **35 seconds** (30 seconds for the DHCP fallback to
+   apply, plus a few seconds for the network stack to start).
+
+4. Verify connectivity:
    ```
    ping 192.168.0.1
    ```
    Then open `http://192.168.0.1/` in a browser.
+
 5. **After recovery, restore your network settings:**
 
-   - **Windows:** Return to the TCP/IPv4 properties dialog (same path as above)
-     and select *Obtain an IP address automatically* → OK
-   - **macOS:** Return to Network preferences → Configure IPv4: *Using DHCP* →
-     Apply
+   - **macOS:** Return to *System Settings → Network → Ethernet adapter →
+     Details… → TCP/IP* and set *Configure IPv4* back to *Using DHCP* → Apply.
+   - **Windows:** Return to the TCP/IPv4 properties dialog and select
+     *Obtain an IP address automatically* → OK.
    - **Linux:** `sudo ip addr del 192.168.0.100/24 dev eth0 && sudo dhclient eth0`
-     *(or restart your network service — e.g.
-     `sudo systemctl restart NetworkManager` on most distros,
-     `sudo systemctl restart systemd-networkd` on systemd-networkd systems)*
 
-> **Still timing out?**  The ZOT rescue web server is only present in a small
-> subset of firmware revisions.  If there is no response after the direct
-> connection, skip to Step 2 — U-Boot is stored in a separate flash partition
-> and is almost always still intact, so UART recovery will work.
+> **Still timing out after 35 seconds?**  If there is no response after the direct
+> connection attempt above, proceed to Step 2.  U-Boot is stored in a separate
+> flash partition and is almost always still intact, so UART recovery will work.
 
 ### Step 2 — UART + U-Boot recovery (recommended before IC programmer)
 
 The GPSU21's MT7688 SoC boots U-Boot before loading the application firmware.
 If only the application partition is corrupt, U-Boot is still functional and can
 reflash the firmware over the network — **no hardware programmer is required**.
+
+> **How U-Boot TFTP works:**  U-Boot acts as a TFTP **client** — it downloads
+> the firmware **from** a TFTP server running on your computer.  You do not
+> connect to the device with a TFTP client; instead, you run a TFTP server on
+> your laptop and U-Boot fetches the file.  UART access is required to type the
+> U-Boot commands.
 
 #### Hardware needed
 
@@ -496,14 +499,43 @@ while the terminal session is active.  Two common no-solder methods:
 
 You should now see a `MT7688 #` or `zot #` prompt.
 
+#### Setting up a TFTP server on your computer
+
+U-Boot will download the firmware **from** your computer.  Start a TFTP server
+and place the firmware file in its root directory before running the U-Boot
+commands below.
+
+- **macOS:**
+  macOS includes a built-in TFTP server (disabled by default).  Enable it for
+  this session:
+  ```bash
+  # Copy firmware to the TFTP root
+  sudo mkdir -p /private/tftpboot
+  sudo cp MPS56_90956F_9034_20191119.bin /private/tftpboot/
+
+  # Start the TFTP server (runs until you reboot or stop it)
+  sudo launchctl load -F /System/Library/LaunchDaemons/tftp.plist
+  ```
+  Stop it afterwards with:
+  ```bash
+  sudo launchctl unload /System/Library/LaunchDaemons/tftp.plist
+  ```
+
+- **Linux:** Install and start *tftpd-hpa*:
+  ```bash
+  sudo apt install tftpd-hpa          # Debian / Ubuntu
+  sudo cp MPS56_90956F_9034_20191119.bin /srv/tftp/
+  sudo systemctl restart tftpd-hpa
+  ```
+
+- **Windows:** Use [Tftpd64](https://bitbucket.org/phjounin/tftpd64/downloads/)
+  (free).  Set the root directory to the folder containing the `.bin` file.
+
 #### Reflashing via TFTP
 
-Set up a TFTP server on your computer (e.g. *tftpd-hpa* on Linux,
-*SolarWinds TFTP Server* or *Tftpd64* on Windows) and copy
-`MPS56_90956F_9034_20191119.bin` (extracted from the ZIP in this repository)
-to its root directory.
-
-Then at the U-Boot prompt:
+With the TFTP server running on your computer (at `192.168.0.100`) and the
+Ethernet cable connecting the GPSU21 to your computer, enter these commands at
+the U-Boot prompt:
 
 ```
 setenv ipaddr   192.168.0.1       # temporary IP for the GPSU21
