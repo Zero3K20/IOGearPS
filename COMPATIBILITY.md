@@ -659,6 +659,69 @@ but they serve the same purpose and support the same printing protocols
 > required — refer to the [Scanner and Fax Support](#scanner-and-fax-support-multi-function-devices)
 > section for the extended firmware capabilities of the GPSU21.
 
+### Shared administration software
+
+All ZOTECH MT7688-platform devices — the IOGear GPSU21 (PS2101-C), PS2101W-B,
+and PS-2101W-A — are managed through exactly the same set of programs and
+interfaces.  The software is the same across the entire family; only the
+branding on the download page differs.
+
+#### Management interfaces (all ZOTECH MT7688-platform devices)
+
+| Interface | Access method | What you can configure |
+|-----------|---------------|----------------------|
+| **Web interface** | Browser → `http://<device-ip>/` | Network (IP, DNS, DHCP), printing protocols (LPR, IPP, SMB, AppleTalk), device name, firmware upgrade, reboot |
+| **PSAdmin Windows utility** | Run `PSAdmin.exe` on any Windows PC on the same subnet | Discover print servers, assign IP, set port name, configure protocols, upgrade firmware, monitor status |
+| **PSWizard-LPR** | Run `PSWizard.exe` on a Windows PC | Step-by-step wizard for adding an LPR printer port; guided first-time setup |
+| **Telnet** | `telnet <device-ip>` | Command-line access to the same settings as the web interface |
+| **SNMP** | Any SNMP manager (e.g. LibreNMS, Nagios) | Read-only status monitoring; some writable OIDs for basic configuration |
+
+#### PSAdmin utility — same program, different download branding
+
+The Windows PSAdmin utility is identical software distributed under two
+different names depending on which vendor's download page you use:
+
+| Download source | File name | Version |
+|-----------------|-----------|---------|
+| IOGear (GPSU21 product page) | `GPSU21_wizard_3.6.5.zip` | 3.6.5 (released 2022-01-19) |
+| ZOTECH (ZOT support page) | `PSAdmin` | v1.09.02 |
+
+Both packages contain the same **PSAdmin** discovery/management application
+and the same **PSWizard-LPR** LPR-port setup wizard.  Either download works
+with any ZOTECH MT7688-platform print server regardless of brand name, so you
+can use the IOGear download on a bare PS2101-C or the ZOTECH download on a
+GPSU21.
+
+#### PSAdmin features
+
+- **Auto-discovery** — broadcasts on the local subnet to find all ZOT-platform
+  print servers and lists them by device name and IP address.
+- **IP assignment** — set a static IP, subnet mask, and gateway without
+  needing to know the device's current address first.
+- **Protocol configuration** — enable or disable LPR/LPD, RAW TCP (port
+  9100), IPP, SMB/Windows printing, and AppleTalk from a single screen.
+- **Printer port wizard** — adds a correctly configured printer port on the
+  Windows PC so that the standard Windows print driver can send jobs to the
+  print server.
+- **Firmware upgrade** — uploads a new `.bin` firmware image directly to the
+  device over the network (same as the web-based upgrade page).
+- **Status display** — shows the connected printer's IEEE 1284 device ID,
+  current job status, and network statistics.
+
+#### Web interface — identical layout across ZOTECH-platform devices
+
+The built-in HTTP configuration pages served at `http://<device-ip>/` are
+the same across all ZOTECH MT7688 devices:
+
+| Page | URL path | Function |
+|------|----------|---------|
+| Status | `/` | Device name, firmware version, IP, MAC, connected printer |
+| TCP/IP | `/TCPIP.HTM` | IP address, DNS, DHCP, Bonjour/Rendezvous |
+| Services | `/cnetware.htm` | Enable/disable LPR, IPP, SMB, AppleTalk, RAW TCP |
+| SMB | `/CSMB.HTM` | Windows workgroup and share name |
+| System | `/SYSTEM.HTM` | Device name, password, reboot, factory reset |
+| Firmware upgrade | `/UPGRADE.HTM` | Upload a new firmware `.bin` |
+
 ### Identifying a potential ZOTECH-platform device
 
 If you have a USB print server of unknown origin and want to determine whether
