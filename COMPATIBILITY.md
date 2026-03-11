@@ -597,3 +597,83 @@ Some multi-function printers include a **USB-connected fax modem** (T.38 or
 Class 1/2 fax).  The GPSU21 firmware does not currently implement any fax
 forwarding protocol.  If you need network fax support, use a dedicated fax
 gateway device or a software fax server on a PC.
+
+---
+
+## Similar and Related Devices
+
+The IOGear GPSU21 is built on the **ZOTECH (ZOT Technology Co., Ltd.)** OEM
+platform.  ZOTECH manufactures several print server models, and other consumer
+brands offer functionally similar USB print servers.
+
+### ZOTECH OEM variants (same platform as GPSU21)
+
+The GPSU21 is a rebranded **ZOTECH PS2101-C**.  ZOTECH sells the same
+underlying hardware under their own brand and supplies it to other OEM/ODM
+customers.  The following ZOTECH models share the same MT7688AN SoC and
+firmware generation:
+
+| Model | Interface | Wireless | CPU | Notes |
+|-------|-----------|----------|-----|-------|
+| **PS2101-C** | 1× USB 2.0, 10/100 Mbps Ethernet | No | MT7688AN | The exact OEM model behind the GPSU21 |
+| **PS2101W-B** | 1× USB 2.0, 10/100 Mbps Ethernet | 802.11b/g/n | MT7688AN | Wireless variant; adds Wi-Fi alongside wired Ethernet |
+| **PS-2101W-A** | 1× USB 2.0, 10/100 Mbps Ethernet | 802.11b/g/n | MT7688AN | Earlier wireless variant; FCC ID `2AGB9-PS-2101W-A` |
+
+The PS2101W-B and PS-2101W-A use the same MT7688AN SoC and the same ZOT
+firmware format as the GPSU21.  The ZOT header version string prefix differs
+(`J#` for 9034-series, `H#` for 9032-series), and the wireless models carry
+an additional wireless driver blob.  The bootstrap and LZMA offsets may differ
+from the wired GPSU21; **do not cross-flash** without first verifying the
+bootstrap offset and size from a matching OEM firmware image.
+
+ZOTECH also produces print servers based on different SoCs that are **not**
+firmware-compatible with the GPSU21:
+
+| Model | Interface | CPU | Notes |
+|-------|-----------|-----|-------|
+| **PAN1001B** | 1× Parallel port, 10/100 Mbps Ethernet | ARM7 | Parallel-port only; different platform |
+| **PAN3001** | 3× Parallel ports, 10/100 Mbps Ethernet | ARM7 | Multi-port parallel; different platform |
+| **PUN2300** | 2× USB 2.0 + 1× Parallel port, 10/100 Mbps Ethernet | RDC2886 | Multi-interface; different platform |
+| **US-2101** | 1× USB 2.0, 10/100 Mbps Ethernet | E2868 | USB server (printer + storage + scanner); different platform |
+
+### Other consumer USB print servers
+
+The following devices from other brands offer similar single-USB-port
+10/100 Mbps Ethernet print server functionality.  They are **not** based on
+the ZOTECH platform and their firmware is not interchangeable with the GPSU21,
+but they serve the same purpose and support the same printing protocols
+(LPR/LPD, IPP, RAW TCP 9100, SMB):
+
+| Brand / Model | USB ports | Notes |
+|---------------|-----------|-------|
+| **TP-Link TL-PS110U** | 1× USB 2.0 | Common budget option; web interface and protocol support similar to GPSU21 |
+| **TRENDnet TE100-P1U** | 1× USB 2.0 | Single-port USB print server with similar protocol set |
+| **StarTech PM1115U2** | 1× USB 2.0 | Similar form factor and feature set |
+| **Edimax PS-1206U** | 1× USB 2.0 | Compact USB print server with comparable protocol support |
+| **LevelOne FPS-1032** | 1× USB 2.0 | Similar single-port USB Ethernet print server |
+
+> **Note on multi-function printer (MFP) support:** Like the GPSU21, most of
+> these single-port print servers only forward raw print data and do **not**
+> support the scanning or faxing functions of MFPs.  For scan support over the
+> network, a device that specifically implements eSCL (AirScan) or WSD-Scan is
+> required — refer to the [Scanner and Fax Support](#scanner-and-fax-support-multi-function-devices)
+> section for the extended firmware capabilities of the GPSU21.
+
+### Identifying a potential ZOTECH-platform device
+
+If you have a USB print server of unknown origin and want to determine whether
+it shares the ZOTECH MT7688 platform with the GPSU21, check for the following:
+
+1. **Default IP address** — `192.168.0.10`
+2. **Web interface appearance** — the ZOTECH/ZOT web UI has a distinctive
+   tabbed layout with a **Setup** menu containing TCP/IP, Services, SMB, and
+   System sub-pages.
+3. **Firmware file name pattern** — ZOT firmware ZIPs contain a single `.bin`
+   file whose name follows the pattern `MPS56_<variant>_<build>_<date>.bin`.
+4. **ZOT header magic** — the first four bytes of the `.bin` file are the ZOT
+   header signature; offset 0x28 contains a version string of the form
+   `MT7688-<version>-<date>`.
+5. **uImage name** — the embedded uImage header names the kernel `zot716u2`.
+
+If all five match, the device almost certainly runs the ZOT MT7688 firmware
+and the tools and patching approach in this repository will apply.
