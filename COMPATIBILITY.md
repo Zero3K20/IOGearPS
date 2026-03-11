@@ -597,3 +597,170 @@ Some multi-function printers include a **USB-connected fax modem** (T.38 or
 Class 1/2 fax).  The GPSU21 firmware does not currently implement any fax
 forwarding protocol.  If you need network fax support, use a dedicated fax
 gateway device or a software fax server on a PC.
+
+---
+
+## Similar and Related Devices
+
+The IOGear GPSU21 is built on the **ZOTECH (ZOT Technology Co., Ltd.)** OEM
+platform.  ZOTECH manufactures several print server models, and other consumer
+brands offer functionally similar USB print servers.
+
+### ZOTECH OEM variants (same platform as GPSU21)
+
+The GPSU21 is a rebranded **ZOTECH PS2101-C**.  ZOTECH sells the same
+underlying hardware under their own brand and supplies it to other OEM/ODM
+customers.  The following ZOTECH models share the same MT7688AN SoC and
+firmware generation:
+
+| Model | Interface | Wireless | CPU | Notes |
+|-------|-----------|----------|-----|-------|
+| **PS2101-C** | 1× USB 2.0, 10/100 Mbps Ethernet | No | MT7688AN | The exact OEM model behind the GPSU21 |
+| **PS2101W-B** | 1× USB 2.0, 10/100 Mbps Ethernet | 802.11b/g/n | MT7688AN | Wireless variant; adds Wi-Fi alongside wired Ethernet |
+| **PS-2101W-A** | 1× USB 2.0, 10/100 Mbps Ethernet | 802.11b/g/n | MT7688AN | Earlier wireless variant; FCC ID `2AGB9-PS-2101W-A` |
+
+The PS2101W-B and PS-2101W-A use the same MT7688AN SoC and the same ZOT
+firmware format as the GPSU21.  The ZOT header version string prefix differs
+(`J#` for 9034-series, `H#` for 9032-series), and the wireless models carry
+an additional wireless driver blob.  The bootstrap and LZMA offsets may differ
+from the wired GPSU21; **do not cross-flash** without first verifying the
+bootstrap offset and size from a matching OEM firmware image.
+
+ZOTECH also produces print servers based on different SoCs that are **not**
+firmware-compatible with the GPSU21:
+
+| Model | Interface | CPU | Notes |
+|-------|-----------|-----|-------|
+| **PAN1001B** | 1× Parallel port, 10/100 Mbps Ethernet | ARM7 | Parallel-port only; different platform |
+| **PAN3001** | 3× Parallel ports, 10/100 Mbps Ethernet | ARM7 | Multi-port parallel; different platform |
+| **PUN2300** | 2× USB 2.0 + 1× Parallel port, 10/100 Mbps Ethernet | RDC2886 | Multi-interface; different platform |
+| **US-2101** | 1× USB 2.0, 10/100 Mbps Ethernet | E2868 | USB server (printer + storage + scanner); different platform |
+
+### Other consumer USB print servers
+
+The following devices from other brands offer similar single-USB-port
+10/100 Mbps Ethernet print server functionality.  They are **not** based on
+the ZOTECH platform and their firmware is not interchangeable with the GPSU21,
+but they serve the same purpose and support the same printing protocols
+(LPR/LPD, IPP, RAW TCP 9100, SMB):
+
+| Brand / Model | USB ports | Notes |
+|---------------|-----------|-------|
+| **TP-Link TL-PS110U** | 1× USB 2.0 | Common budget option; web interface and protocol support similar to GPSU21 |
+| **TRENDnet TE100-P1U** | 1× USB 2.0 | Single-port USB print server with similar protocol set |
+| **StarTech PM1115U2** | 1× USB 2.0 | Similar form factor and feature set |
+| **Edimax PS-1206U** | 1× USB 2.0 | Compact USB print server with comparable protocol support |
+| **LevelOne FPS-1032** | 1× USB 2.0 | Similar single-port USB Ethernet print server |
+
+### Potential porting targets
+
+The following devices use different CPUs from the MT7688 but share the same
+feature set, protocols, and general architecture as the GPSU21.  They are
+**not** firmware-compatible with the GPSU21 as-is, but may be able to run a
+ported version of this firmware if the CPU-level BSP is adapted (boot code,
+UART, Ethernet, and USB host drivers) for their respective SoC:
+
+| Brand / Model | CPU | Notes |
+|---------------|-----|-------|
+| **Zonet ZPS1002** | RDC2886 @133MHz | 1× USB 2.0, 10/100 Mbps; 2 MB SDRAM, 1 MB Flash; protocols TCP/IP, IPX, NetBEUI, AppleTalk, LPR, SMB; default IP 192.168.0.10; web interface + Windows-based setup program |
+| **X-Media XM-PS110U** | Unknown (requires teardown to identify) | 1× USB 2.0, 10/100 Mbps; protocols TCP/IP, IPX/SPX, NetBEUI, AppleTalk, LPR/LPD, IPP, SMB; web interface + Windows utility; firmware upgradeable |
+| **Digitus DN-13003-2** | Unknown (requires teardown to identify) | 1× USB 2.0, 10/100 Mbps; protocols TCP/IP, IPX/SPX, NetBEUI, AppleTalk, LPR/IPP/Raw/SMB; web interface + Windows utility |
+
+Porting to any of these would require at minimum: a replacement BSP for the
+target SoC (memory map, timers, interrupt controller, UART), a matching
+Ethernet MAC/PHY driver, and a USB host-controller driver.  The printing
+protocol layer (LPR, IPP, SMB, RAW TCP) and web interface code would
+be reusable without modification.  The CPU architecture for the Zonet ZPS1002
+is known (RDC2886, MIPS-like); the CPU for the X-Media and Digitus models
+has not been confirmed from public documentation and would need a physical
+teardown to identify.
+
+> **Note on multi-function printer (MFP) support:** Like the GPSU21, most of
+> these single-port print servers only forward raw print data and do **not**
+> support the scanning or faxing functions of MFPs.  For scan support over the
+> network, a device that specifically implements eSCL (AirScan) or WSD-Scan is
+> required — refer to the [Scanner and Fax Support](#scanner-and-fax-support-multi-function-devices)
+> section for the extended firmware capabilities of the GPSU21.
+
+### Shared administration software
+
+All ZOTECH MT7688-platform devices — the IOGear GPSU21 (PS2101-C), PS2101W-B,
+and PS-2101W-A — are managed through exactly the same set of programs and
+interfaces.  The software is the same across the entire family; only the
+branding on the download page differs.
+
+#### Management interfaces (all ZOTECH MT7688-platform devices)
+
+| Interface | Access method | What you can configure |
+|-----------|---------------|----------------------|
+| **Web interface** | Browser → `http://<device-ip>/` | Network (IP, DNS, DHCP), printing protocols (LPR, IPP, SMB, AppleTalk), device name, firmware upgrade, reboot |
+| **PSAdmin Windows utility** | Run `PSAdmin.exe` on any Windows PC on the same subnet | Discover print servers, assign IP, set port name, configure protocols, upgrade firmware, monitor status |
+| **PSWizard-LPR** | Run `PSWizard.exe` on a Windows PC | Step-by-step wizard for adding an LPR printer port; guided first-time setup |
+| **Network Print Server Setup Wizard** | Run from the bundled Windows CD (or download); launches an all-in-one installer | Installs PSAdmin and PSWizard-LPR onto the Windows PC, then walks through initial device discovery and printer port configuration in a single guided flow |
+| **Telnet** | `telnet <device-ip>` | Command-line access to the same settings as the web interface |
+| **SNMP** | Any SNMP manager (e.g. LibreNMS, Nagios) | Read-only status monitoring; some writable OIDs for basic configuration |
+
+#### PSAdmin utility — same program, different download branding
+
+The Windows PSAdmin utility is identical software distributed under two
+different names depending on which vendor's download page you use:
+
+| Download source | File name | Version |
+|-----------------|-----------|---------|
+| IOGear (GPSU21 product page) | `GPSU21_wizard_3.6.5.zip` | 3.6.5 (released 2022-01-19) |
+| ZOTECH (ZOT support page) | `PSAdmin` | v1.09.02 |
+
+Both packages contain the same **PSAdmin** discovery/management application
+and the same **PSWizard-LPR** LPR-port setup wizard.  Either download works
+with any ZOTECH MT7688-platform print server regardless of brand name, so you
+can use the IOGear download on a bare PS2101-C or the ZOTECH download on a
+GPSU21.
+
+#### PSAdmin features
+
+- **Auto-discovery** — broadcasts on the local subnet to find all ZOT-platform
+  print servers and lists them by device name and IP address.
+- **IP assignment** — set a static IP, subnet mask, and gateway without
+  needing to know the device's current address first.
+- **Protocol configuration** — enable or disable LPR/LPD, RAW TCP (port
+  9100), IPP, SMB/Windows printing, and AppleTalk from a single screen.
+- **Printer port wizard** — adds a correctly configured printer port on the
+  Windows PC so that the standard Windows print driver can send jobs to the
+  print server.
+- **Firmware upgrade** — uploads a new `.bin` firmware image directly to the
+  device over the network (same as the web-based upgrade page).
+- **Status display** — shows the connected printer's IEEE 1284 device ID,
+  current job status, and network statistics.
+
+#### Web interface — identical layout across ZOTECH-platform devices
+
+The built-in HTTP configuration pages served at `http://<device-ip>/` are
+the same across all ZOTECH MT7688 devices:
+
+| Page | URL path | Function |
+|------|----------|---------|
+| Status | `/` | Device name, firmware version, IP, MAC, connected printer |
+| TCP/IP | `/TCPIP.HTM` | IP address, DNS, DHCP, Bonjour/Rendezvous |
+| Services | `/cnetware.htm` | Enable/disable LPR, IPP, SMB, AppleTalk, RAW TCP |
+| SMB | `/CSMB.HTM` | Windows workgroup and share name |
+| System | `/SYSTEM.HTM` | Device name, password, reboot, factory reset |
+| Firmware upgrade | `/UPGRADE.HTM` | Upload a new firmware `.bin` |
+
+### Identifying a potential ZOTECH-platform device
+
+If you have a USB print server of unknown origin and want to determine whether
+it shares the ZOTECH MT7688 platform with the GPSU21, check for the following:
+
+1. **Default IP address** — `192.168.0.10`
+2. **Web interface appearance** — the ZOTECH/ZOT web UI has a distinctive
+   tabbed layout with a **Setup** menu containing TCP/IP, Services, SMB, and
+   System sub-pages.
+3. **Firmware file name pattern** — ZOT firmware ZIPs contain a single `.bin`
+   file whose name follows the pattern `MPS56_<variant>_<build>_<date>.bin`.
+4. **ZOT header magic** — the first four bytes of the `.bin` file are the ZOT
+   header signature; offset 0x28 contains a version string of the form
+   `MT7688-<version>-<date>`.
+5. **uImage name** — the embedded uImage header names the kernel `zot716u2`.
+
+If all five match, the device almost certainly runs the ZOT MT7688 firmware
+and the tools and patching approach in this repository will apply.
