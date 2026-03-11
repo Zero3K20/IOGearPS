@@ -8,7 +8,7 @@
  *   xPortStartScheduler()     — program CP0 Count/Compare for the tick,
  *                               enable interrupts, and restore the first
  *                               task's context.
- *   vPortEndScheduler()       — not used; loops forever.
+ *   vPortEndScheduler()       — not used; logs and resets SoC.
  *   vPortEnterCritical()      — increment nesting counter, DI.
  *   vPortExitCritical()       — decrement nesting counter, EI when zero.
  *   vPortYield()              — assert SW0 in CP0 Cause → context switch.
@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include "FreeRTOS.h"
 #include "task.h"
+#include "../mt7688_uart.h"
 
 /* Prototype of assembly routine that restores the first task context. */
 extern void _portRestoreContext(void);
@@ -72,14 +73,26 @@ void vPortYield(void)
  * Word 31 (highest addr): RA ($31) = (uint32_t)prvTaskExitError
  */
 
-/* Spin loop called if a task function returns (it should not). */
+/* Properly delete a task that returned without calling vTaskDelete(NULL). */
 static void prvTaskExitError(void)
 {
-    /* Tasks must never return.  If one does, spin here so a debugger can
-     * catch it.  The volatile prevents the compiler from optimising away
-     * the loop. */
-    volatile int spin = 1;
-    while (spin) { }
+    /*
+     * A task function returned without calling vTaskDelete(NULL).  This
+     * leaves a "zombie" task in FreeRTOS's ready list that wastes CPU time
+     * and permanently prevents the service associated with that thread from
+     * running (even after a power cycle, the same early-return condition
+     * fires again).
+     *
+     * Fix: log the error and call vTaskDelete(NULL) to properly remove the
+     * current task from all FreeRTOS lists.  The idle task then processes
+     * the deletion (freeing dynamic TCB/stack for xTaskCreate tasks; doing
+     * nothing extra for xTaskCreateStatic tasks where memory is static).
+     * Other services continue running normally.
+     */
+    uart_puts("\r\n*** Task returned without vTaskDelete — deleting task ***\r\n");
+    vTaskDelete(NULL);
+    /* vTaskDelete(NULL) never returns for the calling task. */
+    for (;;) { }
 }
 
 StackType_t *pxPortInitialiseStack(StackType_t  *pxTopOfStack,
@@ -180,8 +193,13 @@ BaseType_t xPortStartScheduler(void)
 
 void vPortEndScheduler(void)
 {
-    /* Not implemented. */
-    for (;;);
+    /*
+     * The FreeRTOS scheduler cannot be stopped cleanly on MIPS bare-metal.
+     * Calling vPortEndScheduler() is a fatal error; log and reset so the
+     * device reboots rather than hanging in an infinite loop.
+     */
+    uart_puts("\r\n*** vPortEndScheduler() called — resetting SoC ***\r\n");
+    mt7688_soc_reset();
 }
 
 /* ── Static memory for the Idle task ───────────────────────────────────── */

@@ -577,6 +577,21 @@ void cyg_user_start(void)
  * ───────────────────────────────────────────────────────────────────────────*/
 
 /*
+ * vAssertCalled() — FreeRTOS and lwIP assertion handler.
+ *
+ * Called by configASSERT(x) (FreeRTOSConfig.h) and LWIP_PLATFORM_ASSERT(x)
+ * (cc.h) whenever an internal invariant check fails.  Logs to UART and
+ * triggers an immediate SoC reset so the device reboots and can be reflashed
+ * rather than hanging permanently (which looks identical to a bricked device
+ * when the hardware watchdog is disabled).
+ */
+void __attribute__((noreturn)) vAssertCalled(void)
+{
+    uart_puts("\r\n*** ASSERTION FAILED — resetting SoC ***\r\n");
+    mt7688_soc_reset();
+}
+
+/*
  * vApplicationStackOverflowHook — called by FreeRTOS when a task stack
  * overflow is detected (configCHECK_FOR_STACK_OVERFLOW = 2).
  *
