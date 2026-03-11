@@ -21,7 +21,9 @@ Firmware layout (MPS56_90956F_9034_20191119.bin, 350,428 bytes):
     0x0000 - 0x00FF   256-byte ZOT Technology firmware header
                       Contains version string: "MT7688-9.09.56.9034.00001243t-..."
     0x0100 - 0x013F   U-Boot uImage header (name "zot716u2", MIPS, standalone)
-    0x0140 - 0x4ABF   Padding / extended header region
+    0x0140 - 0x4ABF   Stage-2 MIPS bootstrap code (NOT padding — the ZOT bootloader
+                      copies this region to DRAM at 0x80500000 and jumps there before
+                      the LZMA payload is decompressed; see package_firmware.py)
     0x4AC0 - end      LZMA-compressed eCos application image (decompresses to ~1.53 MB)
 
 Decompressed eCos image layout:

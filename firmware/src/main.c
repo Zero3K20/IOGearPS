@@ -49,7 +49,7 @@
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
 #include "../freertos/netif/mt7688_eth.h"
-#include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive() */
+#include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive(), mt7688_soc_reset() */
 
 /* Service headers */
 #include "httpd.h"
@@ -589,9 +589,18 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
     (void)xTask;
     uart_puts("\r\n*** STACK OVERFLOW in task: ");
     uart_puts(pcTaskName ? pcTaskName : "(unknown)");
-    uart_puts(" ***\r\n");
-    /* Halt — the hardware watchdog (if armed) will reset the device. */
-    for (;;) { }
+    uart_puts(" ***\r\nResetting SoC to allow firmware recovery...\r\n");
+    /*
+     * Trigger an immediate SoC reset via the SYSCTRL RSTCTRL register.
+     *
+     * A stack overflow means adjacent memory is already corrupted; continuing
+     * is unsafe.  With the WDT disabled (by design), a plain for(;;) spin
+     * would leave the device permanently unresponsive — the web interface
+     * would be unreachable and reflashing impossible, which users report as
+     * a bricked device.  A SoC reset allows the ZOT bootloader to restart
+     * cleanly so the user can reflash the firmware.
+     */
+    mt7688_soc_reset();
 }
 
 /*

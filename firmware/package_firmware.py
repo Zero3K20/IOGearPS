@@ -286,15 +286,26 @@ def _patch_zot_crc(fw_bytes):
 
 def _load_bootstrap(base_fw_path=None):
     """
-    Extract the 18,816-byte stage-2 bootstrap region from *base_fw_path*.
+    Extract the 18,848-byte stage-2 bootstrap region from *base_fw_path*.
 
-    The bootstrap lives at byte offsets 0x0140–0x4ABF of the raw .bin file.
-    This function accepts either a raw .bin file or a .zip archive containing
-    exactly one .bin file.
+    The bootstrap lives at byte offsets 0x0140–0x4ADF of the raw .bin file
+    (i.e. between the end of the uImage header and the start of the LZMA
+    payload at LZMA_OFFSET = 0x4AE0).  This function accepts either a raw
+    .bin file or a .zip archive containing exactly one .bin file.
 
     The bootstrap is MIPS machine code written by ZOT Technology.  It is
     copied verbatim from the OEM firmware so it can run unchanged in front of
     any LZMA payload linked to 0x80500000 (eCos or FreeRTOS).
+
+    IMPORTANT: the base firmware MUST be the 2017 IOGear-branded firmware
+    (MPS56_IOG_GPSU21_20171123.zip), whose LZMA payload begins at 0x4AE0.
+    The 2019 ZOTECH reference firmware (MPS56_90956F_9034_20191119.zip) has
+    its LZMA payload starting at 0x4AC0 instead; using it as the base causes
+    the last 32 bytes of the extracted "bootstrap" to actually be the first
+    32 bytes of the 2019 LZMA stream (0x5D, ...).  The size check passes
+    (still 18,848 bytes) but the bootstrap is corrupt, the ZOT bootloader
+    copies the garbage code to 0x80500000 and jumps there → immediate CPU
+    crash → WDT fires → device appears permanently bricked.
     """
     if base_fw_path is None:
         base_fw_path = DEFAULT_BASE_FW
@@ -309,11 +320,32 @@ def _load_bootstrap(base_fw_path=None):
         with open(base_fw_path, "rb") as f:
             fw = f.read()
 
-    if len(fw) < LZMA_OFFSET:
+    if len(fw) < LZMA_OFFSET + 1:
         raise ValueError(
             f"Base firmware {base_fw_path!r} is too small "
-            f"({len(fw):,} bytes < {LZMA_OFFSET:#x}); "
+            f"({len(fw):,} bytes < {LZMA_OFFSET + 1:#x}); "
             "file may be corrupted or truncated"
+        )
+
+    # Validate that the LZMA stream actually begins at LZMA_OFFSET.
+    # LZMA FORMAT_ALONE always starts with a properties byte whose value
+    # encodes (lc, lp, pb) as: byte = (pb*5 + lp)*9 + lc.
+    # For the parameters used in both OEM firmwares (lc=3, lp=0, pb=2):
+    #   byte = (2*5 + 0)*9 + 3 = 93 = 0x5D.
+    # If this byte is wrong, the provided firmware's LZMA starts at a
+    # different offset (e.g. the 2019 OEM firmware uses 0x4AC0, not 0x4AE0).
+    # Proceeding would silently include LZMA stream bytes in the "bootstrap",
+    # producing a corrupt firmware image that bricks the device.
+    LZMA_PROPS_BYTE = 0x5D   # (2*5+0)*9+3 = 93 = lc=3, lp=0, pb=2
+    if fw[LZMA_OFFSET] != LZMA_PROPS_BYTE:
+        raise ValueError(
+            f"Base firmware {base_fw_path!r} does not have a valid LZMA "
+            f"stream at offset {LZMA_OFFSET:#x} "
+            f"(found 0x{fw[LZMA_OFFSET]:02X}, expected 0x{LZMA_PROPS_BYTE:02X}).\n"
+            f"This firmware's LZMA payload likely starts at a different offset.\n"
+            f"Use MPS56_IOG_GPSU21_20171123.zip (the 2017 IOGear-branded firmware) "
+            f"whose LZMA payload starts at {LZMA_OFFSET:#x}.\n"
+            f"WARNING: Using a mismatched base firmware bricks the device."
         )
 
     bootstrap = fw[UIMAGE_OFFSET + 64 : LZMA_OFFSET]
@@ -393,7 +425,10 @@ if __name__ == "__main__":
     parser.add_argument("--base-firmware", default=None, dest="base_fw",
                         metavar="OEM_FW",
                         help="OEM .bin or .zip to extract stage-2 bootstrap from "
-                             "(default: MPS56_90956F_9034_20191119.zip in repo root)")
+                             "(default: MPS56_IOG_GPSU21_20171123.zip in repo root — "
+                             "the 2017 IOGear-branded firmware with LZMA at 0x4AE0; "
+                             "do NOT use MPS56_90956F_9034_20191119.zip, its LZMA "
+                             "starts at 0x4AC0 and will brick the device)")
     args = parser.parse_args()
 
     package(args.input, args.output, args.version, args.base_fw)
