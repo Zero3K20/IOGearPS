@@ -6,8 +6,56 @@
 
 ### About the hardware
 
-The GPSU21 is manufactured by **ZOT Technology** (`zot.com.tw`) and uses a
-**MediaTek MT7688** MIPS SoC.  It is sold by IOGear under their brand.
+The GPSU21 is manufactured by **ZOT Technology** (`zot.com.tw`) under OEM/ODM
+model **ZOTECH PS2101-C** and uses a **MediaTek MT7628AN (MT7688)** MIPS SoC.
+It is sold by IOGear under their brand.
+
+| Field | Value |
+|-------|-------|
+| Brand / model | IOGear GPSU21 |
+| OEM/ODM | ZOTECH PS2101-C |
+| Availability | US |
+| Country of manufacture | Taiwan |
+| Est. release date | May 30, 2006 |
+| Est. initial retail price | $49.95 USD |
+| UPC | 881317005717 |
+| EAN | 0881317005717 |
+| Type | Print server |
+
+#### Power
+
+| Field | Value |
+|-------|-------|
+| Supply voltage | 5 VDC, 1 A |
+| Connector type | Barrel plug |
+
+#### Processing / memory
+
+| Component | Part | Details |
+|-----------|------|---------|
+| CPU | MediaTek MT7628AN (MT7688) | 575–580 MHz, MIPS 24KEc |
+| Flash | Winbond W25Q16JVSSIQ | 2 MB SPI NOR |
+| RAM | Winbond W9725G6KB-25 | 32 MB SDRAM |
+
+#### Networking
+
+| Field | Value |
+|-------|-------|
+| Ethernet chip | MediaTek MT7628AN (integrated) |
+| Switch | MediaTek MT7628AN (integrated) |
+| LAN speed | 10/100 Mbps |
+| LAN ports | 1 |
+| Expansion interfaces | None |
+| Ethernet OUI | 00:21:79 |
+
+#### Default configuration
+
+| Field | Value |
+|-------|-------|
+| IP address | 192.168.0.10 |
+| Login username | admin |
+| Login password | *(blank)* |
+| Stock firmware OS | eCos RTOS |
 
 Internal device identifiers:
 - OEM model path: `pu211`

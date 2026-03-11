@@ -2,9 +2,9 @@
 
 This repository contains firmware for the IOGear GPSU21 print server.
 
-| Device | Firmware file | CPU |
-|--------|--------------|-----|
-| IOGear GPSU21 | `MPS56_90956F_9034_20191119.zip` | MediaTek MT7688 (MIPS) |
+| Device | Firmware file | CPU | Flash | RAM |
+|--------|--------------|-----|-------|-----|
+| IOGear GPSU21 | `MPS56_90956F_9034_20191119.zip` | MediaTek MT7628AN / MT7688 (MIPS, 575–580 MHz) | 2 MB (Winbond W25Q16JVSSIQ) | 32 MB (Winbond W9725G6KB-25) |
 
 ## Supported Printing Protocols
 
