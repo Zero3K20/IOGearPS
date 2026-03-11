@@ -57,7 +57,21 @@
 
 /* ── Sequential API (netconn) thread stack ───────────────────────────────── */
 #define TCPIP_THREAD_NAME               "tcpip"
-#define TCPIP_THREAD_STACKSIZE          4096
+/*
+ * TCPIP_THREAD_STACKSIZE — stack for the lwIP core (tcpip_thread), in bytes.
+ *
+ * tcpip_thread processes every network event: DHCP state machine, ARP cache
+ * maintenance, TCP connection setup/teardown, IGMP membership reports, and
+ * all socket-API callbacks dispatched from the 24 service threads.  The call
+ * chain for a single event can reach 10–15 function levels deep (e.g.
+ * dhcp_discover → udp_sendto → ip4_output → etharp_output → linkoutput).
+ *
+ * 4 096 B (the previous value) is insufficient for this call depth and caused
+ * a stack overflow on every boot → vApplicationStackOverflowHook fired →
+ * device hung permanently → still unusable after power cycling.
+ * 8 192 B (2 048 words) provides adequate headroom.
+ */
+#define TCPIP_THREAD_STACKSIZE          8192
 #define TCPIP_THREAD_PRIO               (configMAX_PRIORITIES - 2)
 #define TCPIP_MBOX_SIZE                 32
 #define DEFAULT_TCP_RECVMBOX_SIZE       16

@@ -49,7 +49,7 @@
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
 #include "../freertos/netif/mt7688_eth.h"
-#include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive() */
+#include "../bsp/mt7688_uart.h"    /* mt7688_wdt_keepalive(), mt7688_soc_reset() */
 
 /* Service headers */
 #include "httpd.h"
@@ -577,6 +577,21 @@ void cyg_user_start(void)
  * ───────────────────────────────────────────────────────────────────────────*/
 
 /*
+ * vAssertCalled() — FreeRTOS and lwIP assertion handler.
+ *
+ * Called by configASSERT(x) (FreeRTOSConfig.h) and LWIP_PLATFORM_ASSERT(x)
+ * (cc.h) whenever an internal invariant check fails.  Logs to UART and
+ * triggers an immediate SoC reset so the device reboots and can be reflashed
+ * rather than hanging permanently (which looks identical to a bricked device
+ * when the hardware watchdog is disabled).
+ */
+void __attribute__((noreturn)) vAssertCalled(void)
+{
+    uart_puts("\r\n*** ASSERTION FAILED — resetting SoC ***\r\n");
+    mt7688_soc_reset();
+}
+
+/*
  * vApplicationStackOverflowHook — called by FreeRTOS when a task stack
  * overflow is detected (configCHECK_FOR_STACK_OVERFLOW = 2).
  *
@@ -589,9 +604,18 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
     (void)xTask;
     uart_puts("\r\n*** STACK OVERFLOW in task: ");
     uart_puts(pcTaskName ? pcTaskName : "(unknown)");
-    uart_puts(" ***\r\n");
-    /* Halt — the hardware watchdog (if armed) will reset the device. */
-    for (;;) { }
+    uart_puts(" ***\r\nResetting SoC to allow firmware recovery...\r\n");
+    /*
+     * Trigger an immediate SoC reset via the SYSCTRL RSTCTRL register.
+     *
+     * A stack overflow means adjacent memory is already corrupted; continuing
+     * is unsafe.  With the WDT disabled (by design), a plain for(;;) spin
+     * would leave the device permanently unresponsive — the web interface
+     * would be unreachable and reflashing impossible, which users report as
+     * a bricked device.  A SoC reset allows the ZOT bootloader to restart
+     * cleanly so the user can reflash the firmware.
+     */
+    mt7688_soc_reset();
 }
 
 /*

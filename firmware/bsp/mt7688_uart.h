@@ -51,4 +51,36 @@ static inline void mt7688_wdt_keepalive(void)
     MT7688_WDT_TIMER = 0;
 }
 
+/* ── MT7688 SYSCTRL soft reset ──────────────────────────────────────────── *
+ *
+ * The MT7688 SYSCTRL block provides a software reset register at
+ * physical address 0x10000034 (KSEG1 uncached alias 0xB0000034).
+ * Writing 1 to bit 0 (the SYSRST bit) triggers an immediate full SoC
+ * reset, equivalent to a hardware power cycle.  The ZOT U-Boot bootloader
+ * then re-runs from flash with a clean hardware state.
+ *
+ * This is used in panic/crash handlers (stack overflow, fatal exception) so
+ * the device can reboot and recover rather than hanging permanently.  Without
+ * a reset path, a firmware crash with the WDT disabled leaves the device in
+ * an infinite spin — the web interface is unreachable and reflashing is
+ * impossible, which appears as a bricked device.
+ *
+ * References: MT7628AN/MT7688 Datasheet § System Control (SYSCTRL),
+ *             OpenWRT arch/mips/ralink/reset.c (ralink_machine_restart).
+ */
+#define MT7688_RSTCTRL          (*(volatile uint32_t *)(0xB0000034UL))
+#define MT7688_RSTCTRL_SYSRST   (1u << 0)
+
+/*
+ * mt7688_soc_reset() — trigger an immediate full SoC reset.
+ * Call from panic handlers after logging the error to UART.
+ * Does not return.
+ */
+static inline void __attribute__((noreturn)) mt7688_soc_reset(void)
+{
+    MT7688_RSTCTRL |= MT7688_RSTCTRL_SYSRST;
+    /* Should not be reached — SoC resets on the next bus cycle. */
+    for (;;) { }
+}
+
 #endif /* MT7688_UART_H */

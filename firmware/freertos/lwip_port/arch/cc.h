@@ -46,7 +46,13 @@ typedef uintptr_t   mem_ptr_t;
 
 /* ── Platform diagnostics ───────────────────────────────────────────────── */
 #define LWIP_PLATFORM_DIAG(x)   do { printf x; } while (0)
-#define LWIP_PLATFORM_ASSERT(x) do { printf("ASSERT: %s\n", x); for(;;); } while(0)
+/*
+ * LWIP_PLATFORM_ASSERT — called when lwIP detects an internal invariant
+ * violation.  Forward to vAssertCalled() (defined in firmware/src/main.c)
+ * so the device resets and can be reflashed rather than hanging forever.
+ */
+extern __attribute__((noreturn)) void vAssertCalled(void);
+#define LWIP_PLATFORM_ASSERT(x) do { printf("LWIP ASSERT: %s\n", (x)); vAssertCalled(); } while(0)
 
 /* ── Random number (simple LCG for mDNS / ARP) ─────────────────────────── */
 #define LWIP_RAND()  ((u32_t)rand())

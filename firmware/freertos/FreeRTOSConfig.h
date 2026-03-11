@@ -131,6 +131,18 @@
 #define INCLUDE_xTaskResumeFromISR              1
 
 /* ── Assert ─────────────────────────────────────────────────────────────── */
-#define configASSERT(x)  do { if (!(x)) { for (;;); } } while (0)
+/*
+ * vAssertCalled() — called when a FreeRTOS assertion fails.
+ *
+ * Logs to UART and triggers an immediate SoC reset so the device reboots
+ * and can be reflashed rather than hanging permanently (which looks identical
+ * to a bricked device when the hardware watchdog is disabled).
+ *
+ * Defined in firmware/src/main.c.
+ */
+#ifndef __ASSEMBLER__
+__attribute__((noreturn)) void vAssertCalled(void);
+#define configASSERT(x)  do { if (!(x)) { vAssertCalled(); } } while (0)
+#endif /* !__ASSEMBLER__ */
 
 #endif /* FREERTOS_CONFIG_H */

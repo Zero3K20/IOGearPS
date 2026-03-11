@@ -53,9 +53,8 @@ extern void vPortISR(void);
 /* Panic handler — installed for unexpected exceptions. */
 static void __attribute__((noreturn)) exception_panic(void)
 {
-    uart_puts("\r\n*** FATAL EXCEPTION ***\r\n");
-    for (;;)
-        ;
+    uart_puts("\r\n*** FATAL EXCEPTION — resetting SoC ***\r\n");
+    mt7688_soc_reset();
 }
 
 void board_init(void)

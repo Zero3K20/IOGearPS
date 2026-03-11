@@ -146,6 +146,19 @@ extern void vPortExitCritical(void);
 #ifndef __ASSEMBLER__
 extern void vPortYield(void);
 #define portYIELD()  vPortYield()
+
+/*
+ * portYIELD_FROM_ISR(x) — conditionally yield after an ISR-context API call
+ * (e.g. xQueueSendFromISR, xSemaphoreGiveFromISR).  Only yields if the
+ * called function set *pxHigherPriorityTaskWoken = pdTRUE, so that the
+ * newly-woken task runs as soon as the ISR returns instead of waiting for
+ * the next scheduler tick.
+ *
+ * Without this definition FreeRTOS falls back to an unconditional
+ * portYIELD() which ignores the condition parameter.
+ */
+#define portYIELD_FROM_ISR(x) \
+    do { if ((x) != pdFALSE) { portYIELD(); } } while (0)
 #endif
 
 /* ── Task function prototype ────────────────────────────────────────────── */
