@@ -652,6 +652,29 @@ but they serve the same purpose and support the same printing protocols
 | **Edimax PS-1206U** | 1× USB 2.0 | Compact USB print server with comparable protocol support |
 | **LevelOne FPS-1032** | 1× USB 2.0 | Similar single-port USB Ethernet print server |
 
+### Potential porting targets
+
+The following devices use different CPUs from the MT7688 but share the same
+feature set, protocols, and general architecture as the GPSU21.  They are
+**not** firmware-compatible with the GPSU21 as-is, but may be able to run a
+ported version of this firmware if the CPU-level BSP is adapted (boot code,
+UART, Ethernet, and USB host drivers) for their respective SoC:
+
+| Brand / Model | CPU | Notes |
+|---------------|-----|-------|
+| **Zonet ZPS1002** | RDC2886 @133MHz | 1× USB 2.0, 10/100 Mbps; 2 MB SDRAM, 1 MB Flash; protocols TCP/IP, IPX, NetBEUI, AppleTalk, LPR, SMB; default IP 192.168.0.10; web interface + Windows-based setup program |
+| **X-Media XM-PS110U** | Unknown (requires teardown to identify) | 1× USB 2.0, 10/100 Mbps; protocols TCP/IP, IPX/SPX, NetBEUI, AppleTalk, LPR/LPD, IPP, SMB; web interface + Windows utility; firmware upgradeable |
+| **Digitus DN-13003-2** | Unknown (requires teardown to identify) | 1× USB 2.0, 10/100 Mbps; protocols TCP/IP, IPX/SPX, NetBEUI, AppleTalk, LPR/IPP/Raw/SMB; web interface + Windows utility |
+
+Porting to any of these would require at minimum: a replacement BSP for the
+target SoC (memory map, timers, interrupt controller, UART), a matching
+Ethernet MAC/PHY driver, and a USB host-controller driver.  The printing
+protocol layer (LPR, IPP, SMB, RAW TCP) and web interface code would
+be reusable without modification.  The CPU architecture for the Zonet ZPS1002
+is known (RDC2886, MIPS-like); the CPU for the X-Media and Digitus models
+has not been confirmed from public documentation and would need a physical
+teardown to identify.
+
 > **Note on multi-function printer (MFP) support:** Like the GPSU21, most of
 > these single-port print servers only forward raw print data and do **not**
 > support the scanning or faxing functions of MFPs.  For scan support over the
@@ -673,6 +696,7 @@ branding on the download page differs.
 | **Web interface** | Browser → `http://<device-ip>/` | Network (IP, DNS, DHCP), printing protocols (LPR, IPP, SMB, AppleTalk), device name, firmware upgrade, reboot |
 | **PSAdmin Windows utility** | Run `PSAdmin.exe` on any Windows PC on the same subnet | Discover print servers, assign IP, set port name, configure protocols, upgrade firmware, monitor status |
 | **PSWizard-LPR** | Run `PSWizard.exe` on a Windows PC | Step-by-step wizard for adding an LPR printer port; guided first-time setup |
+| **Network Print Server Setup Wizard** | Run from the bundled Windows CD (or download); launches an all-in-one installer | Installs PSAdmin and PSWizard-LPR onto the Windows PC, then walks through initial device discovery and printer port configuration in a single guided flow |
 | **Telnet** | `telnet <device-ip>` | Command-line access to the same settings as the web interface |
 | **SNMP** | Any SNMP manager (e.g. LibreNMS, Nagios) | Read-only status monitoring; some writable OIDs for basic configuration |
 
